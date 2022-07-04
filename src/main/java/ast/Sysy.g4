@@ -127,8 +127,8 @@ constDef
     ;
 
 constInitVal
-    : constExpr                                     #constExprInitVal
-    | '{' (constInitVal (',' constInitVal)*)? '}'   #constCompInitVal
+    : constExpr
+    | '{' (constInitVal (',' constInitVal)*)? '}'   
     ;
 
 varDecl
@@ -136,13 +136,13 @@ varDecl
     ;
 
 varDef
-    : ID ('[' constExpr ']')*               #uninitVarDef
-    | ID ('[' constExpr ']')* '=' initVal   #initVarDef
+    : ID ('[' constExpr ']')*
+    | ID ('[' constExpr ']')* '=' initVal
     ;
 
 initVal
-    : expr                                # exprInitVal
-    | '{' (initVal (',' initVal)*)? '}'   # arrayInitVal
+    : expr
+    | '{' (initVal (',' initVal)*)? '}'
     ;
 
 funcDef

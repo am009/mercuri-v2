@@ -88,25 +88,13 @@ public class SysyBaseListener implements SysyListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterConstExprInitVal(SysyParser.ConstExprInitValContext ctx) { }
+	@Override public void enterConstInitVal(SysyParser.ConstInitValContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitConstExprInitVal(SysyParser.ConstExprInitValContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterConstCompInitVal(SysyParser.ConstCompInitValContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitConstCompInitVal(SysyParser.ConstCompInitValContext ctx) { }
+	@Override public void exitConstInitVal(SysyParser.ConstInitValContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
@@ -124,49 +112,25 @@ public class SysyBaseListener implements SysyListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterUninitVarDef(SysyParser.UninitVarDefContext ctx) { }
+	@Override public void enterVarDef(SysyParser.VarDefContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitUninitVarDef(SysyParser.UninitVarDefContext ctx) { }
+	@Override public void exitVarDef(SysyParser.VarDefContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterInitVarDef(SysyParser.InitVarDefContext ctx) { }
+	@Override public void enterInitVal(SysyParser.InitValContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitInitVarDef(SysyParser.InitVarDefContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterExprInitVal(SysyParser.ExprInitValContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitExprInitVal(SysyParser.ExprInitValContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterArrayInitVal(SysyParser.ArrayInitValContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitArrayInitVal(SysyParser.ArrayInitValContext ctx) { }
+	@Override public void exitInitVal(SysyParser.InitValContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *

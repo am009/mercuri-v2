@@ -68,29 +68,15 @@ public interface SysyListener extends ParseTreeListener {
 	 */
 	void exitConstDef(SysyParser.ConstDefContext ctx);
 	/**
-	 * Enter a parse tree produced by the {@code constExprInitVal}
-	 * labeled alternative in {@link SysyParser#constInitVal}.
+	 * Enter a parse tree produced by {@link SysyParser#constInitVal}.
 	 * @param ctx the parse tree
 	 */
-	void enterConstExprInitVal(SysyParser.ConstExprInitValContext ctx);
+	void enterConstInitVal(SysyParser.ConstInitValContext ctx);
 	/**
-	 * Exit a parse tree produced by the {@code constExprInitVal}
-	 * labeled alternative in {@link SysyParser#constInitVal}.
+	 * Exit a parse tree produced by {@link SysyParser#constInitVal}.
 	 * @param ctx the parse tree
 	 */
-	void exitConstExprInitVal(SysyParser.ConstExprInitValContext ctx);
-	/**
-	 * Enter a parse tree produced by the {@code constCompInitVal}
-	 * labeled alternative in {@link SysyParser#constInitVal}.
-	 * @param ctx the parse tree
-	 */
-	void enterConstCompInitVal(SysyParser.ConstCompInitValContext ctx);
-	/**
-	 * Exit a parse tree produced by the {@code constCompInitVal}
-	 * labeled alternative in {@link SysyParser#constInitVal}.
-	 * @param ctx the parse tree
-	 */
-	void exitConstCompInitVal(SysyParser.ConstCompInitValContext ctx);
+	void exitConstInitVal(SysyParser.ConstInitValContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link SysyParser#varDecl}.
 	 * @param ctx the parse tree
@@ -102,53 +88,25 @@ public interface SysyListener extends ParseTreeListener {
 	 */
 	void exitVarDecl(SysyParser.VarDeclContext ctx);
 	/**
-	 * Enter a parse tree produced by the {@code uninitVarDef}
-	 * labeled alternative in {@link SysyParser#varDef}.
+	 * Enter a parse tree produced by {@link SysyParser#varDef}.
 	 * @param ctx the parse tree
 	 */
-	void enterUninitVarDef(SysyParser.UninitVarDefContext ctx);
+	void enterVarDef(SysyParser.VarDefContext ctx);
 	/**
-	 * Exit a parse tree produced by the {@code uninitVarDef}
-	 * labeled alternative in {@link SysyParser#varDef}.
+	 * Exit a parse tree produced by {@link SysyParser#varDef}.
 	 * @param ctx the parse tree
 	 */
-	void exitUninitVarDef(SysyParser.UninitVarDefContext ctx);
+	void exitVarDef(SysyParser.VarDefContext ctx);
 	/**
-	 * Enter a parse tree produced by the {@code initVarDef}
-	 * labeled alternative in {@link SysyParser#varDef}.
+	 * Enter a parse tree produced by {@link SysyParser#initVal}.
 	 * @param ctx the parse tree
 	 */
-	void enterInitVarDef(SysyParser.InitVarDefContext ctx);
+	void enterInitVal(SysyParser.InitValContext ctx);
 	/**
-	 * Exit a parse tree produced by the {@code initVarDef}
-	 * labeled alternative in {@link SysyParser#varDef}.
+	 * Exit a parse tree produced by {@link SysyParser#initVal}.
 	 * @param ctx the parse tree
 	 */
-	void exitInitVarDef(SysyParser.InitVarDefContext ctx);
-	/**
-	 * Enter a parse tree produced by the {@code exprInitVal}
-	 * labeled alternative in {@link SysyParser#initVal}.
-	 * @param ctx the parse tree
-	 */
-	void enterExprInitVal(SysyParser.ExprInitValContext ctx);
-	/**
-	 * Exit a parse tree produced by the {@code exprInitVal}
-	 * labeled alternative in {@link SysyParser#initVal}.
-	 * @param ctx the parse tree
-	 */
-	void exitExprInitVal(SysyParser.ExprInitValContext ctx);
-	/**
-	 * Enter a parse tree produced by the {@code arrayInitVal}
-	 * labeled alternative in {@link SysyParser#initVal}.
-	 * @param ctx the parse tree
-	 */
-	void enterArrayInitVal(SysyParser.ArrayInitValContext ctx);
-	/**
-	 * Exit a parse tree produced by the {@code arrayInitVal}
-	 * labeled alternative in {@link SysyParser#initVal}.
-	 * @param ctx the parse tree
-	 */
-	void exitArrayInitVal(SysyParser.ArrayInitValContext ctx);
+	void exitInitVal(SysyParser.InitValContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link SysyParser#funcDef}.
 	 * @param ctx the parse tree

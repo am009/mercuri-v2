@@ -502,54 +502,30 @@ public class SysyParser extends Parser {
 	}
 
 	public static class ConstInitValContext extends ParserRuleContext {
-		public ConstInitValContext(ParserRuleContext parent, int invokingState) {
-			super(parent, invokingState);
+		public ConstExprContext constExpr() {
+			return getRuleContext(ConstExprContext.class,0);
 		}
-		@Override public int getRuleIndex() { return RULE_constInitVal; }
-	 
-		public ConstInitValContext() { }
-		public void copyFrom(ConstInitValContext ctx) {
-			super.copyFrom(ctx);
-		}
-	}
-	public static class ConstCompInitValContext extends ConstInitValContext {
 		public List<ConstInitValContext> constInitVal() {
 			return getRuleContexts(ConstInitValContext.class);
 		}
 		public ConstInitValContext constInitVal(int i) {
 			return getRuleContext(ConstInitValContext.class,i);
 		}
-		public ConstCompInitValContext(ConstInitValContext ctx) { copyFrom(ctx); }
+		public ConstInitValContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_constInitVal; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SysyListener ) ((SysyListener)listener).enterConstCompInitVal(this);
+			if ( listener instanceof SysyListener ) ((SysyListener)listener).enterConstInitVal(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SysyListener ) ((SysyListener)listener).exitConstCompInitVal(this);
+			if ( listener instanceof SysyListener ) ((SysyListener)listener).exitConstInitVal(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SysyVisitor ) return ((SysyVisitor<? extends T>)visitor).visitConstCompInitVal(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class ConstExprInitValContext extends ConstInitValContext {
-		public ConstExprContext constExpr() {
-			return getRuleContext(ConstExprContext.class,0);
-		}
-		public ConstExprInitValContext(ConstInitValContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SysyListener ) ((SysyListener)listener).enterConstExprInitVal(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SysyListener ) ((SysyListener)listener).exitConstExprInitVal(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SysyVisitor ) return ((SysyVisitor<? extends T>)visitor).visitConstExprInitVal(this);
+			if ( visitor instanceof SysyVisitor ) return ((SysyVisitor<? extends T>)visitor).visitConstInitVal(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -569,7 +545,6 @@ public class SysyParser extends Parser {
 			case INT_CONSTANT:
 			case FLOAT_CONSTANT:
 			case ID:
-				_localctx = new ConstExprInitValContext(_localctx);
 				enterOuterAlt(_localctx, 1);
 				{
 				setState(107);
@@ -577,7 +552,6 @@ public class SysyParser extends Parser {
 				}
 				break;
 			case T__6:
-				_localctx = new ConstCompInitValContext(_localctx);
 				enterOuterAlt(_localctx, 2);
 				{
 				setState(108);
@@ -699,62 +673,31 @@ public class SysyParser extends Parser {
 	}
 
 	public static class VarDefContext extends ParserRuleContext {
+		public TerminalNode ID() { return getToken(SysyParser.ID, 0); }
+		public List<ConstExprContext> constExpr() {
+			return getRuleContexts(ConstExprContext.class);
+		}
+		public ConstExprContext constExpr(int i) {
+			return getRuleContext(ConstExprContext.class,i);
+		}
+		public InitValContext initVal() {
+			return getRuleContext(InitValContext.class,0);
+		}
 		public VarDefContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_varDef; }
-	 
-		public VarDefContext() { }
-		public void copyFrom(VarDefContext ctx) {
-			super.copyFrom(ctx);
-		}
-	}
-	public static class UninitVarDefContext extends VarDefContext {
-		public TerminalNode ID() { return getToken(SysyParser.ID, 0); }
-		public List<ConstExprContext> constExpr() {
-			return getRuleContexts(ConstExprContext.class);
-		}
-		public ConstExprContext constExpr(int i) {
-			return getRuleContext(ConstExprContext.class,i);
-		}
-		public UninitVarDefContext(VarDefContext ctx) { copyFrom(ctx); }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SysyListener ) ((SysyListener)listener).enterUninitVarDef(this);
+			if ( listener instanceof SysyListener ) ((SysyListener)listener).enterVarDef(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SysyListener ) ((SysyListener)listener).exitUninitVarDef(this);
+			if ( listener instanceof SysyListener ) ((SysyListener)listener).exitVarDef(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SysyVisitor ) return ((SysyVisitor<? extends T>)visitor).visitUninitVarDef(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class InitVarDefContext extends VarDefContext {
-		public TerminalNode ID() { return getToken(SysyParser.ID, 0); }
-		public InitValContext initVal() {
-			return getRuleContext(InitValContext.class,0);
-		}
-		public List<ConstExprContext> constExpr() {
-			return getRuleContexts(ConstExprContext.class);
-		}
-		public ConstExprContext constExpr(int i) {
-			return getRuleContext(ConstExprContext.class,i);
-		}
-		public InitVarDefContext(VarDefContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SysyListener ) ((SysyListener)listener).enterInitVarDef(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SysyListener ) ((SysyListener)listener).exitInitVarDef(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SysyVisitor ) return ((SysyVisitor<? extends T>)visitor).visitInitVarDef(this);
+			if ( visitor instanceof SysyVisitor ) return ((SysyVisitor<? extends T>)visitor).visitVarDef(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -768,7 +711,6 @@ public class SysyParser extends Parser {
 			_errHandler.sync(this);
 			switch ( getInterpreter().adaptivePredict(_input,11,_ctx) ) {
 			case 1:
-				_localctx = new UninitVarDefContext(_localctx);
 				enterOuterAlt(_localctx, 1);
 				{
 				setState(133);
@@ -794,7 +736,6 @@ public class SysyParser extends Parser {
 				}
 				break;
 			case 2:
-				_localctx = new InitVarDefContext(_localctx);
 				enterOuterAlt(_localctx, 2);
 				{
 				setState(143);
@@ -837,54 +778,30 @@ public class SysyParser extends Parser {
 	}
 
 	public static class InitValContext extends ParserRuleContext {
-		public InitValContext(ParserRuleContext parent, int invokingState) {
-			super(parent, invokingState);
+		public ExprContext expr() {
+			return getRuleContext(ExprContext.class,0);
 		}
-		@Override public int getRuleIndex() { return RULE_initVal; }
-	 
-		public InitValContext() { }
-		public void copyFrom(InitValContext ctx) {
-			super.copyFrom(ctx);
-		}
-	}
-	public static class ArrayInitValContext extends InitValContext {
 		public List<InitValContext> initVal() {
 			return getRuleContexts(InitValContext.class);
 		}
 		public InitValContext initVal(int i) {
 			return getRuleContext(InitValContext.class,i);
 		}
-		public ArrayInitValContext(InitValContext ctx) { copyFrom(ctx); }
+		public InitValContext(ParserRuleContext parent, int invokingState) {
+			super(parent, invokingState);
+		}
+		@Override public int getRuleIndex() { return RULE_initVal; }
 		@Override
 		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SysyListener ) ((SysyListener)listener).enterArrayInitVal(this);
+			if ( listener instanceof SysyListener ) ((SysyListener)listener).enterInitVal(this);
 		}
 		@Override
 		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SysyListener ) ((SysyListener)listener).exitArrayInitVal(this);
+			if ( listener instanceof SysyListener ) ((SysyListener)listener).exitInitVal(this);
 		}
 		@Override
 		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SysyVisitor ) return ((SysyVisitor<? extends T>)visitor).visitArrayInitVal(this);
-			else return visitor.visitChildren(this);
-		}
-	}
-	public static class ExprInitValContext extends InitValContext {
-		public ExprContext expr() {
-			return getRuleContext(ExprContext.class,0);
-		}
-		public ExprInitValContext(InitValContext ctx) { copyFrom(ctx); }
-		@Override
-		public void enterRule(ParseTreeListener listener) {
-			if ( listener instanceof SysyListener ) ((SysyListener)listener).enterExprInitVal(this);
-		}
-		@Override
-		public void exitRule(ParseTreeListener listener) {
-			if ( listener instanceof SysyListener ) ((SysyListener)listener).exitExprInitVal(this);
-		}
-		@Override
-		public <T> T accept(ParseTreeVisitor<? extends T> visitor) {
-			if ( visitor instanceof SysyVisitor ) return ((SysyVisitor<? extends T>)visitor).visitExprInitVal(this);
+			if ( visitor instanceof SysyVisitor ) return ((SysyVisitor<? extends T>)visitor).visitInitVal(this);
 			else return visitor.visitChildren(this);
 		}
 	}
@@ -904,7 +821,6 @@ public class SysyParser extends Parser {
 			case INT_CONSTANT:
 			case FLOAT_CONSTANT:
 			case ID:
-				_localctx = new ExprInitValContext(_localctx);
 				enterOuterAlt(_localctx, 1);
 				{
 				setState(157);
@@ -912,7 +828,6 @@ public class SysyParser extends Parser {
 				}
 				break;
 			case T__6:
-				_localctx = new ArrayInitValContext(_localctx);
 				enterOuterAlt(_localctx, 2);
 				{
 				setState(158);
