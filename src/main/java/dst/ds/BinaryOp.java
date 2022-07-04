@@ -9,16 +9,16 @@ public enum BinaryOp {
     DIV,
     MOD,
     // logicExpr
-    AND,
-    OR,
+    LOG_AND,
+    LOG_OR,
     // eqExpr
-    EQ,
-    NEQ,
+    LOG_EQ,
+    LOG_NEQ,
     // relExpr
-    LT,
-    GT,
-    LE,
-    GE;
+    LOG_LT,
+    LOG_GT,
+    LOG_LE,
+    LOG_GE;
 
     public static BinaryOp fromString(String s) {
         switch (s) {
@@ -33,21 +33,21 @@ public enum BinaryOp {
             case "%":
                 return MOD;
             case "&&":
-                return AND;
+                return LOG_AND;
             case "||":
-                return OR;
+                return LOG_OR;
             case "==":
-                return EQ;
+                return LOG_EQ;
             case "!=":
-                return NEQ;
+                return LOG_NEQ;
             case "<":
-                return LT;
+                return LOG_LT;
             case ">":
-                return GT;
+                return LOG_GT;
             case "<=":
-                return LE;
+                return LOG_LE;
             case ">=":
-                return GE;
+                return LOG_GE;
             default:
                 throw new IllegalArgumentException("Unknown binary operator: " + s);
         }

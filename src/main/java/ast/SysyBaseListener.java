@@ -88,25 +88,13 @@ public class SysyBaseListener implements SysyListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterConstExprInitVal(SysyParser.ConstExprInitValContext ctx) { }
+	@Override public void enterConstInitVal(SysyParser.ConstInitValContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitConstExprInitVal(SysyParser.ConstExprInitValContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterConstCompInitVal(SysyParser.ConstCompInitValContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitConstCompInitVal(SysyParser.ConstCompInitValContext ctx) { }
+	@Override public void exitConstInitVal(SysyParser.ConstInitValContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *

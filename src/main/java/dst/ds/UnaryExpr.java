@@ -7,11 +7,15 @@ public class UnaryExpr extends Expr {
     public UnaryExpr(Expr expr, UnaryOp op) {
         this.expr = expr;
         this.op = op;
+        this.eval();
     }
 
     @Override
-    public InitVal eval() {
-        // TODO Auto-generated method stub
-        return null;
+    public EvaluatedValue eval() {
+        if (this.value != null) {
+            return this.value;
+        }
+        this.value = EvaluatedValue.fromOperation(expr.value, op);
+        return this.value;
     }
 }

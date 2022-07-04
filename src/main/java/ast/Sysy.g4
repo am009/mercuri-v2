@@ -127,8 +127,8 @@ constDef
     ;
 
 constInitVal
-    : constExpr                                     #constExprInitVal
-    | '{' (constInitVal (',' constInitVal)*)? '}'   #constCompInitVal
+    : constExpr
+    | '{' (constInitVal (',' constInitVal)*)? '}'   
     ;
 
 varDecl

@@ -68,29 +68,15 @@ public interface SysyListener extends ParseTreeListener {
 	 */
 	void exitConstDef(SysyParser.ConstDefContext ctx);
 	/**
-	 * Enter a parse tree produced by the {@code constExprInitVal}
-	 * labeled alternative in {@link SysyParser#constInitVal}.
+	 * Enter a parse tree produced by {@link SysyParser#constInitVal}.
 	 * @param ctx the parse tree
 	 */
-	void enterConstExprInitVal(SysyParser.ConstExprInitValContext ctx);
+	void enterConstInitVal(SysyParser.ConstInitValContext ctx);
 	/**
-	 * Exit a parse tree produced by the {@code constExprInitVal}
-	 * labeled alternative in {@link SysyParser#constInitVal}.
+	 * Exit a parse tree produced by {@link SysyParser#constInitVal}.
 	 * @param ctx the parse tree
 	 */
-	void exitConstExprInitVal(SysyParser.ConstExprInitValContext ctx);
-	/**
-	 * Enter a parse tree produced by the {@code constCompInitVal}
-	 * labeled alternative in {@link SysyParser#constInitVal}.
-	 * @param ctx the parse tree
-	 */
-	void enterConstCompInitVal(SysyParser.ConstCompInitValContext ctx);
-	/**
-	 * Exit a parse tree produced by the {@code constCompInitVal}
-	 * labeled alternative in {@link SysyParser#constInitVal}.
-	 * @param ctx the parse tree
-	 */
-	void exitConstCompInitVal(SysyParser.ConstCompInitValContext ctx);
+	void exitConstInitVal(SysyParser.ConstInitValContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link SysyParser#varDecl}.
 	 * @param ctx the parse tree
