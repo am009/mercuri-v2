@@ -1,5 +1,5 @@
 package dst.ds;
 
-public class ContinueStatement {
+public class ContinueStatement extends BlockStatement {
     
 }

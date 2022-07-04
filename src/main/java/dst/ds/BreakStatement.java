@@ -1,5 +1,5 @@
 package dst.ds;
 
-public class BreakStatement {
+public class BreakStatement extends BlockStatement {
     
 }

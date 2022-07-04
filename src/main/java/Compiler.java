@@ -10,6 +10,7 @@ import ds.Global;
 import ds.Logger.LogLevel;
 import ds.Logger.LogTarget;
 import dst.DstGenerator;
+import dst.ds.CompUnit;
 import ds.LoggerBuilder;
 
 /**
@@ -25,7 +26,15 @@ public class Compiler {
         var tokenStream = new CommonTokenStream(tokenSource);
         var parser = new SysyParser(tokenStream);
         var dstGen = new DstGenerator(parser.compUnit(), args.getInFile());
-        var dst = dstGen.generate();
+        CompUnit dst = dstGen.generate();
+        if (true) {
+            // print dst as json
+            var gb = new com.google.gson.GsonBuilder();
+            gb.setPrettyPrinting();
+            var gson = gb.create();
+            var json = gson.toJson(dst);
+            Global.logger.trace(json);
+        }
     }
 
     private static void initLogger() throws IOException {

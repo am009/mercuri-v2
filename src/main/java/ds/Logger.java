@@ -17,7 +17,7 @@ public class Logger implements AutoCloseable {
         TRACE;
 
         public static LogLevel fromString(String level) {
-            switch (level) {
+            switch (level.toLowerCase()) {
                 case "none":
                     return LogLevel.NONE;
                 case "error":

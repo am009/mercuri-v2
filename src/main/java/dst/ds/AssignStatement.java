@@ -16,4 +16,11 @@ public class AssignStatement extends BlockStatement {
         this.indexExprs = indexExprs;
         this.expr = expr;
     }
+
+    public AssignStatement(LValExpr lValExpr, Expr expr) {
+        this.id = lValExpr.id;
+        this.isArray = lValExpr.isArray;
+        this.indexExprs = lValExpr.indexExprs;
+        this.expr = expr;
+    }
 }

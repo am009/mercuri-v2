@@ -15,7 +15,6 @@ public class DstGenerator {
     }
 
     public CompUnit generate() {
-
         return genContext.getVisitors().of(AstCompUnitVisitor.class).visitCompUnit(genContext);
     }
 

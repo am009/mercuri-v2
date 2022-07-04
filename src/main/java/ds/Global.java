@@ -1,6 +1,5 @@
 package ds;
 
-import java.util.stream.Collector;
 
 /**
  * Global state of the compiler.

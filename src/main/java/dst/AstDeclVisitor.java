@@ -4,25 +4,22 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.antlr.v4.runtime.tree.ParseTree;
-
 import ast.SysyBaseVisitor;
 import ast.SysyParser.BlockContext;
 import ast.SysyParser.BlockItemContext;
 import ast.SysyParser.ConstDeclContext;
 import ast.SysyParser.ConstDefContext;
-import ast.SysyParser.DeclContext;
 import ast.SysyParser.FuncDefContext;
 import ast.SysyParser.FuncParamContext;
 import ast.SysyParser.FuncParamsContext;
 import ast.SysyParser.VarDeclContext;
 import ast.SysyParser.VarDefContext;
 import dst.ds.BasicType;
+import dst.ds.Block;
 import dst.ds.BlockStatement;
 import dst.ds.Decl;
 import dst.ds.DeclType;
 import dst.ds.DstGeneratorContext;
-import dst.ds.EvaluatedValue;
 import dst.ds.Expr;
 import dst.ds.Func;
 import dst.ds.FuncType;
@@ -88,7 +85,6 @@ public class AstDeclVisitor extends SysyBaseVisitor<List<Decl>> {
 
         DeclType declType = DeclType.VAR;
         Boolean isParam = false;
-        Func ownerFunc = null;
         String id = ast.ID().getText();
         var dimsRaw = ast.constExpr().stream()
                 .map(e -> ctx.getVisitors().of(AstExprVisitor.class).visitConstExpr(e, ctx))
@@ -136,7 +132,6 @@ public class AstDeclVisitor extends SysyBaseVisitor<List<Decl>> {
 
         DeclType declType = DeclType.VAR;
         Boolean isParam = false;
-        Func ownerFunc = null;
         String id = ast.ID().getText();
         var dimsRaw = ast.constExpr().stream()
                 .map(e -> ctx.getVisitors().of(AstExprVisitor.class).visitConstExpr(e, ctx))
@@ -166,7 +161,7 @@ public class AstDeclVisitor extends SysyBaseVisitor<List<Decl>> {
     public Func visitFuncDef(FuncDefContext ast, DstGeneratorContext ctx, boolean isGlobal) {
         FuncType retType = FuncType.fromString(ast.funcType().getText());
         String id = ast.ID().getText();
-        List<BlockStatement> body = this.visitBlock(ast.block(), ctx);
+        Block body = ctx.getVisitors().of(AstBlockVisitor.class).visitBlock(ast.block(), ctx);
         List<Decl> params = this.visitFuncParams(ast.funcParams(), ctx, isGlobal);
         return new Func(retType, id, params, body);
     }
@@ -179,14 +174,6 @@ public class AstDeclVisitor extends SysyBaseVisitor<List<Decl>> {
                 .map(p -> ctx.getVisitors().of(AstDeclVisitor.class).visitFuncParam(p, ctx, isGlobalFunc))
                 .collect(Collectors.toList());
         return ret;
-    }
-
-    private List<BlockStatement> visitBlock(BlockContext ast, DstGeneratorContext ctx) {
-        return ast.blockItem().stream().map(s -> this.visitBlockItem(s, ctx)).collect(Collectors.toList());
-    }
-
-    private BlockStatement visitBlockItem(BlockItemContext s, DstGeneratorContext ctx) {
-        return null;
     }
 
 }

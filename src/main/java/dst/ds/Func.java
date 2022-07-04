@@ -6,9 +6,9 @@ public class Func {
     FuncType retType;
     String id;
     List<Decl> params;
-    List<BlockStatement> body;
+    Block body;
 
-    public Func(FuncType retType, String id, List<Decl> params, List<BlockStatement> body) {
+    public Func(FuncType retType, String id, List<Decl> params, Block body) {
         this.retType = retType;
         this.id = id;
         this.params = params;

@@ -1,0 +1,111 @@
+[TRACE] Args: { inFile='test/spec/004-const-decl.c', outFile='/root/run/testcase.s', outType='ASM'}
+[TRACE] {
+  "file": "test/spec/004-const-decl.c",
+  "decls": [
+    {
+      "declType": "VAR",
+      "isParam": false,
+      "isGlobal": true,
+      "basicType": "INT",
+      "id": "a",
+      "dims": [],
+      "initVal": {
+        "value": {
+          "isConst": false,
+          "value": {
+            "basicType": "INT",
+            "intValue": 1
+          }
+        },
+        "isArray": false,
+        "initType": "VAR_EXPR"
+      }
+    }
+  ],
+  "funcs": [
+    {
+      "retType": "INT",
+      "id": "main",
+      "params": [],
+      "body": {
+        "statements": [
+          {
+            "declType": "VAR",
+            "isParam": false,
+            "isGlobal": false,
+            "basicType": "FLOAT",
+            "id": "b",
+            "dims": [],
+            "initVal": {
+              "value": {
+                "isConst": false,
+                "value": {
+                  "basicType": "FLOAT",
+                  "floatValue": 2.1
+                }
+              },
+              "isArray": false,
+              "initType": "VAR_EXPR"
+            }
+          },
+          {
+            "declType": "VAR",
+            "isParam": false,
+            "isGlobal": false,
+            "basicType": "FLOAT",
+            "id": "c",
+            "dims": [],
+            "initVal": {
+              "value": {
+                "left": {
+                  "id": "a",
+                  "isArray": false,
+                  "indexExprs": [],
+                  "isConst": false
+                },
+                "right": {
+                  "id": "b",
+                  "isArray": false,
+                  "indexExprs": [],
+                  "isConst": false
+                },
+                "op": "ADD",
+                "isConst": false
+              },
+              "isArray": false,
+              "initType": "VAR_EXPR"
+            }
+          },
+          {
+            "declType": "VAR",
+            "isParam": false,
+            "isGlobal": false,
+            "basicType": "FLOAT",
+            "id": "d",
+            "dims": [],
+            "initVal": {
+              "value": {
+                "isConst": false,
+                "value": {
+                  "basicType": "FLOAT",
+                  "floatValue": 3.14
+                }
+              },
+              "isArray": false,
+              "initType": "VAR_EXPR"
+            }
+          },
+          {
+            "retval": {
+              "isConst": false,
+              "value": {
+                "basicType": "INT",
+                "intValue": 0
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

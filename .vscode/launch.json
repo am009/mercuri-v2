@@ -10,7 +10,8 @@
             "request": "launch",
             "mainClass": "Compiler",
             "projectName": "mercuri_89ae2924",
-            "args": "-S -o /root/run/testcase.s test/spec/000-empty.c"
+            "vmArgs": "-DlogTarget=file -DlogFile=${workspaceRoot}/mercuri.log -DlogLevel=TRACE",
+            "args": "-S -o /root/run/testcase.s test/spec/004-const-decl.c"
         }
     ]
 }

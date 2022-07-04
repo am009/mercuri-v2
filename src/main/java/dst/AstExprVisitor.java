@@ -1,19 +1,26 @@
 package dst;
 
+import java.util.List;
+
 import ast.SysyBaseVisitor;
 import ast.SysyParser.AddExprContext;
+import ast.SysyParser.CondContext;
 import ast.SysyParser.ConstExprContext;
+import ast.SysyParser.EqExprContext;
 import ast.SysyParser.ExprContext;
 import ast.SysyParser.FuncArgContext;
 import ast.SysyParser.FuncArgExprContext;
 import ast.SysyParser.FuncArgStrContext;
 import ast.SysyParser.FuncArgsContext;
 import ast.SysyParser.LValContext;
+import ast.SysyParser.LogicAndExprContext;
+import ast.SysyParser.LogicOrExpContext;
 import ast.SysyParser.MulExprContext;
 import ast.SysyParser.NumberContext;
 import ast.SysyParser.PrimaryExprLValContext;
 import ast.SysyParser.PrimaryExprNumberContext;
 import ast.SysyParser.PrimaryExprQuoteContext;
+import ast.SysyParser.RelExprContext;
 import ast.SysyParser.UnaryExprContext;
 import ast.SysyParser.UnaryFuncContext;
 import ast.SysyParser.UnaryOpExprContext;
@@ -24,7 +31,9 @@ import dst.ds.DstGeneratorContext;
 import dst.ds.EvaluatedValue;
 import dst.ds.Expr;
 import dst.ds.FuncCall;
+import dst.ds.LValExpr;
 import dst.ds.LiteralExpr;
+import dst.ds.LogicExpr;
 import dst.ds.UnaryExpr;
 import dst.ds.UnaryOp;
 
@@ -44,7 +53,7 @@ public class AstExprVisitor extends SysyBaseVisitor<Expr> {
      * | addExpr ('+' | '-') mulExpr
      * ;
      */
-    private Expr visitAddExpr(AddExprContext ast, DstGeneratorContext ctx) {
+    public Expr visitAddExpr(AddExprContext ast, DstGeneratorContext ctx) {
         if (ast.addExpr() != null) {
             var left = this.visitAddExpr(ast.addExpr(), ctx);
             var right = this.visitMulExpr(ast.mulExpr(), ctx);
@@ -60,7 +69,7 @@ public class AstExprVisitor extends SysyBaseVisitor<Expr> {
      * | mulExpr ('*' | '/' | '%') unaryExpr
      * ;
      */
-    private Expr visitMulExpr(MulExprContext ast, DstGeneratorContext ctx) {
+    public Expr visitMulExpr(MulExprContext ast, DstGeneratorContext ctx) {
         if (ast.mulExpr() != null) {
             var left = this.visitMulExpr(ast.mulExpr(), ctx);
             var right = this.visitUnaryExpr(ast.unaryExpr(), ctx);
@@ -77,7 +86,7 @@ public class AstExprVisitor extends SysyBaseVisitor<Expr> {
      * | unaryOp unaryExpr #unaryOpExpr
      * ;
      */
-    private Expr visitUnaryExpr(UnaryExprContext ast, DstGeneratorContext ctx) {
+    public Expr visitUnaryExpr(UnaryExprContext ast, DstGeneratorContext ctx) {
         if (ast instanceof UnaryPrimaryExprContext) {
             return this.visitUnaryPrimaryExpr((UnaryPrimaryExprContext) ast, ctx);
         } else if (ast instanceof UnaryFuncContext) {
@@ -97,7 +106,7 @@ public class AstExprVisitor extends SysyBaseVisitor<Expr> {
      * | number #primaryExprNumber
      * ;
      */
-    private Expr visitUnaryPrimaryExpr(UnaryPrimaryExprContext ast0, DstGeneratorContext ctx) {
+    public Expr visitUnaryPrimaryExpr(UnaryPrimaryExprContext ast0, DstGeneratorContext ctx) {
         var ast = ast0.primaryExpr();
         if (ast instanceof PrimaryExprQuoteContext) {
             return this.visitPrimaryExprQuote((PrimaryExprQuoteContext) ast, ctx);
@@ -111,23 +120,33 @@ public class AstExprVisitor extends SysyBaseVisitor<Expr> {
         }
     }
 
-    private Expr visitPrimaryExprQuote(PrimaryExprQuoteContext ast0, DstGeneratorContext ctx) {
+    public Expr visitPrimaryExprQuote(PrimaryExprQuoteContext ast0, DstGeneratorContext ctx) {
         return this.visitExpr(ast0.expr(), ctx);
     }
 
-    private Expr visitPrimaryExprLVal(PrimaryExprLValContext ast0, DstGeneratorContext ctx) {
+    public Expr visitPrimaryExprLVal(PrimaryExprLValContext ast0, DstGeneratorContext ctx) {
         return this.visitLVal(ast0.lVal(), ctx);
     }
 
-    private Expr visitLVal(LValContext lVal, DstGeneratorContext ctx) {
-        return null;
+    /**
+     * 
+     * lVal
+     * : ID ('[' expr ']')*
+     * ;
+     */
+    public LValExpr visitLVal(LValContext lVal, DstGeneratorContext ctx) {
+        String id = lVal.ID().getText();
+        boolean isArray = lVal.expr().size() > 0;
+        List<Expr> indexExprs = lVal.expr().stream().map(e -> this.visitExpr(e, ctx))
+                .collect(java.util.stream.Collectors.toList());
+        return new LValExpr(id, isArray, indexExprs);
     }
 
-    private LiteralExpr visitPrimaryExprNumber(PrimaryExprNumberContext ast0, DstGeneratorContext ctx) {
+    public LiteralExpr visitPrimaryExprNumber(PrimaryExprNumberContext ast0, DstGeneratorContext ctx) {
         return this.visitNumber(ast0.number(), ctx);
     }
 
-    private LiteralExpr visitNumber(NumberContext number, DstGeneratorContext ctx) {
+    public LiteralExpr visitNumber(NumberContext number, DstGeneratorContext ctx) {
         if (number.INT_CONSTANT() != null) {
             var value = Integer.parseInt(number.getText());
             return new LiteralExpr(EvaluatedValue.ofInt(value));
@@ -140,11 +159,11 @@ public class AstExprVisitor extends SysyBaseVisitor<Expr> {
         }
     }
 
-    private FuncCall visitUnaryFunc(UnaryFuncContext ast0, DstGeneratorContext ctx) {
+    public FuncCall visitUnaryFunc(UnaryFuncContext ast0, DstGeneratorContext ctx) {
         return new FuncCall(ast0.ID().getText(), this.visitFuncArgs(ast0.funcArgs(), ctx));
     }
 
-    private Expr[] visitFuncArgs(FuncArgsContext funcArgs, DstGeneratorContext ctx) {
+    public Expr[] visitFuncArgs(FuncArgsContext funcArgs, DstGeneratorContext ctx) {
         return funcArgs.funcArg().stream().map(e -> this.visitFuncArg(e, ctx)).toArray(Expr[]::new);
     }
 
@@ -154,7 +173,7 @@ public class AstExprVisitor extends SysyBaseVisitor<Expr> {
      * | STRING_LITERAL # funcArgStr
      * ;
      */
-    private Expr visitFuncArg(FuncArgContext arg, DstGeneratorContext ctx) {
+    public Expr visitFuncArg(FuncArgContext arg, DstGeneratorContext ctx) {
         if (arg instanceof FuncArgExprContext) {
             return this.visitFuncArgExpr((FuncArgExprContext) arg, ctx);
         } else if (arg instanceof FuncArgStrContext) {
@@ -165,21 +184,107 @@ public class AstExprVisitor extends SysyBaseVisitor<Expr> {
         }
     }
 
-    private LiteralExpr visitFuncArgStr(FuncArgStrContext arg, DstGeneratorContext ctx) {
+    public LiteralExpr visitFuncArgStr(FuncArgStrContext arg, DstGeneratorContext ctx) {
         return new LiteralExpr(EvaluatedValue.ofString(arg.STRING_LITERAL().getText()));
     }
 
-    private Expr visitFuncArgExpr(FuncArgExprContext arg, DstGeneratorContext ctx) {
+    public Expr visitFuncArgExpr(FuncArgExprContext arg, DstGeneratorContext ctx) {
         return this.visitExpr(arg.expr(), ctx);
     }
 
-    private Expr visitUnaryOpExpr(UnaryOpExprContext ast0, DstGeneratorContext ctx) {
+    public Expr visitUnaryOpExpr(UnaryOpExprContext ast0, DstGeneratorContext ctx) {
         var expr = this.visitUnaryExpr(ast0.unaryExpr(), ctx);
         var op = UnaryOp.fromString(ast0.unaryOp().getText());
-        if(op == UnaryOp.POS){
+        if (op == UnaryOp.POS) {
             return expr;
         }
         return new UnaryExpr(expr, op);
+    }
+
+    /**
+     * logicOrExp
+     * : logicAndExpr
+     * | logicOrExp '||' logicAndExpr
+     * ;
+     */
+    public LogicExpr visitLogicOrExpr(LogicOrExpContext ast, DstGeneratorContext ctx) {
+        if (ast.logicOrExp() == null) {
+            return this.visitLogicAndExpr(ast.logicAndExpr(), ctx);
+        } else {
+            Expr left = this.visitLogicOrExpr(ast, ctx);
+            Expr right = this.visitLogicAndExpr(ast.logicAndExpr(), ctx);
+            var op = BinaryOp.LOG_OR;
+            return new LogicExpr(new BinaryExpr(left, right, op));
+        }
+    }
+
+    /**
+     * logicAndExpr
+     * : eqExpr
+     * | logicAndExpr '&&' eqExpr
+     * ;
+     */
+    private LogicExpr visitLogicAndExpr(LogicAndExprContext logicAndExpr, DstGeneratorContext ctx) {
+        if (logicAndExpr.logicAndExpr() == null) {
+            return this.visitEqExpr(logicAndExpr.eqExpr(), ctx);
+        } else {
+            Expr left = this.visitLogicAndExpr(logicAndExpr, ctx);
+            Expr right = this.visitEqExpr(logicAndExpr.eqExpr(), ctx);
+            var op = BinaryOp.LOG_AND;
+            return new LogicExpr(new BinaryExpr(left, right, op));
+        }
+    }
+
+    /**
+     * eqExpr
+     * : relExpr
+     * | eqExpr ('==' | '!=') relExpr
+     * ;
+     */
+    private LogicExpr visitEqExpr(EqExprContext eqExpr, DstGeneratorContext ctx) {
+        if (eqExpr.eqExpr() == null) {
+            return this.visitRelExpr(eqExpr.relExpr(), ctx);
+        } else {
+            Expr left = this.visitEqExpr(eqExpr, ctx);
+            Expr right = this.visitRelExpr(eqExpr.relExpr(), ctx);
+            var op = BinaryOp.fromString(eqExpr.getChild(1).getText());
+            return new LogicExpr(new BinaryExpr(left, right, op));
+        }
+    }
+
+    /**
+     * relExpr
+     * : addExpr
+     * | relExpr ('<' | '>' | '<=' | '>=' ) addExpr
+     * ;
+     */
+    private LogicExpr visitRelExpr(RelExprContext relExpr, DstGeneratorContext ctx) {
+        if (relExpr.relExpr() == null) {
+            var exprGeneric = this.visitAddExpr(relExpr.addExpr(), ctx);
+            if (exprGeneric instanceof BinaryExpr) {
+
+                return new LogicExpr((BinaryExpr) exprGeneric);
+            }
+            if (exprGeneric instanceof UnaryExpr) {
+                return new LogicExpr((UnaryExpr) exprGeneric);
+            }
+            ctx.panic("Unreachable");
+            return null;
+        } else {
+            Expr left = this.visitRelExpr(relExpr, ctx);
+            Expr right = this.visitAddExpr(relExpr.addExpr(), ctx);
+            var op = BinaryOp.fromString(relExpr.getChild(1).getText());
+            return new LogicExpr(new BinaryExpr(left, right, op));
+        }
+    }
+
+    /**
+     * cond
+     * : logicOrExp
+     * ;
+     */
+    public LogicExpr visitCond(CondContext cond, DstGeneratorContext ctx) {
+        return visitLogicOrExpr(cond.logicOrExp(), ctx);
     }
 
 }

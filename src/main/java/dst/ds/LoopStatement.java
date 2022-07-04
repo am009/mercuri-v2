@@ -1,12 +1,11 @@
 package dst.ds;
 
-import java.util.List;
 
-public class LoopStatement {
-    public Expr condition;
-    public List<BlockStatement> thenBlock;
+public class LoopStatement extends BlockStatement{
+    public LogicExpr condition;
+    public Block thenBlock;
 
-    public LoopStatement(Expr condition, List<BlockStatement> thenBlock) {
+    public LoopStatement(LogicExpr condition, Block thenBlock) {
         this.condition = condition;
         this.thenBlock = thenBlock;
     }
