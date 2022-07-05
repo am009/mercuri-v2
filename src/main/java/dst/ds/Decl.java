@@ -4,21 +4,22 @@ import java.util.List;
 
 public class Decl extends BlockStatement {
     // Overall info
+    public Type type;
 
-    DeclType declType;
+    public DeclType declType;
 
-    Boolean isParam;
+    public Boolean isParam;
 
-    Boolean isGlobal;
+    public Boolean isGlobal;
 
-    BasicType basicType;
+    public BasicType basicType;
 
     // Left hand side
-    String id; // name of the variable
-    List<Integer> dims;
+    public String id; // name of the variable
+    public List<Integer> dims;
 
     // Right hand side
-    InitValue initVal; // value of the variable
+    public InitValue initVal; // value of the variable
 
     public Decl(DeclType declType, Boolean isParam, Boolean isGlobal, BasicType basicType, String id,
             List<Integer> dims, InitValue initVal) {
@@ -29,6 +30,14 @@ public class Decl extends BlockStatement {
         this.id = id;
         this.dims = dims;
         this.initVal = initVal;
+    }
+
+    public static Decl fromSimpleParam(String id, BasicType basicType) {
+        return new Decl(DeclType.VAR, true, false, basicType, id, null, null);
+    }
+
+    public static Decl fromArrayParam(String id, BasicType basicType, List<Integer> dims) {
+        return new Decl(DeclType.VAR, true, false, basicType, id, dims, null);
     }
 
 }

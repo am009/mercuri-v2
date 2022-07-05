@@ -4,7 +4,7 @@ import java.util.List;
 
 public class InitValue {
 
-    Expr value;
+    public Expr value;
 
     // is array init value?
     public Boolean isArray = false;

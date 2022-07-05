@@ -11,6 +11,7 @@ import ds.Logger.LogLevel;
 import ds.Logger.LogTarget;
 import dst.DstGenerator;
 import dst.ds.CompUnit;
+import ir.SemanticAnalyzer;
 import ds.LoggerBuilder;
 
 /**
@@ -25,10 +26,13 @@ public class Compiler {
         var tokenSource = new SysyLexer(charStream);
         var tokenStream = new CommonTokenStream(tokenSource);
         var parser = new SysyParser(tokenStream);
-        var dstGen = new DstGenerator(parser.compUnit(), args.getInFile());
-        CompUnit dst = dstGen.generate();
+        var dstGen = new DstGenerator();
+        CompUnit dst = dstGen.process(parser.compUnit(), args.getInFile());
+        var semAnalyzer = new SemanticAnalyzer();
+        semAnalyzer.process(dst);
+
         if (true) {
-            // print dst as json
+            // just for debugging
             var gb = new com.google.gson.GsonBuilder();
             gb.setPrettyPrinting();
             var gson = gb.create();
