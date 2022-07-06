@@ -17,6 +17,7 @@ import dst.ds.Expr;
 import dst.ds.ExprStatement;
 import dst.ds.Func;
 import dst.ds.FuncCall;
+import dst.ds.FuncType;
 import dst.ds.IfElseStatement;
 import dst.ds.LValExpr;
 import dst.ds.LiteralExpr;
@@ -37,11 +38,17 @@ public class SemanticAnalyzer {
 
     private void visitDstCompUnit(SemanticAnalysisContext ctx, CompUnit dst) {
         ctx.module.builtinFuncs.forEach(func -> this.visitDstFunc(ctx, func));
-        dst.decls.forEach(decl -> this.visitDstDecl(ctx, decl));
+        dst.decls.forEach(decl -> this.visitDstDecl(ctx, null, decl));
         dst.funcs.forEach(func -> this.visitDstFunc(ctx, func));
     }
 
-    private void visitDstDecl(SemanticAnalysisContext ctx, Decl decl) {
+    /**
+     * Visit a dst.ds.Decl.
+     * 
+     * @param ctx
+     * @param decl
+     */
+    private void visitDstDecl(SemanticAnalysisContext ctx, Func func, Decl decl) {
         if (decl.dims != null) {
             // make sure array dims are non-negative
             for (var dim : decl.dims) {
@@ -51,25 +58,38 @@ public class SemanticAnalyzer {
             }
             // TODO: large array align cache line
         }
+
         if (decl.initVal != null) {
             // TODO: constant function eval
-            var evaled = decl.initVal.value.eval();
-            if (evaled.basicType != decl.basicType) {
-                throw new RuntimeException("type mismatch");
-            }
+            this.visitDstExpr(ctx, func, decl.initVal.value);
         }
+
         if (decl.declType == DeclType.CONST && decl.initVal == null) {
             throw new RuntimeException("constant must be initialized");
         }
         // TODO: fill zero for global variable (pay attention to array!)
-
+        {
+            var basicType = decl.basicType;
+            var isConst = decl.declType == DeclType.CONST;
+            var isArray = decl.isArray();
+            var isVarlen = false;
+            var dims = decl.dims;
+            decl.type = new Type(basicType, isConst, isArray, isVarlen, dims);
+        }
         var symbol = new DeclSymbol(decl);
+
         var ok = ctx.curScope.register(symbol);
         if (!ok) {
             throw new RuntimeException("duplicate decl symbol");
         }
     }
 
+    /**
+     * Visit a dst.ds.Func, function definition.
+     * 
+     * @param ctx
+     * @param func
+     */
     private void visitDstFunc(SemanticAnalysisContext ctx, Func func) {
         var symbol = new FuncSymbol(func);
         var ok = ctx.curScope.register(symbol);
@@ -79,7 +99,7 @@ public class SemanticAnalyzer {
         // enter function scope for params and body
         ctx.enterScope();
         {
-            func.params.forEach(param -> this.visitDstDecl(ctx, param));
+            func.params.forEach(param -> this.visitDstDecl(ctx, func, param));
             this.visitDstFuncBody(ctx, func);
         }
         ctx.leaveScope();
@@ -109,39 +129,88 @@ public class SemanticAnalyzer {
             if (!Type.isMatch(decl.decl.type, stmt.expr.type)) {
                 throw new RuntimeException("type mismatch");
             }
+            stmt.symbol = decl;
             return;
         }
+
         if (stmt_ instanceof Block) {
             var stmt = (Block) stmt_;
+            ctx.enterScope();
+            {
+                stmt.statements.forEach(innerStmt -> this.visitDstStmt(ctx, func, innerStmt));
+            }
+            ctx.leaveScope();
             return;
         }
+
         if (stmt_ instanceof BreakStatement) {
-            var stmt = (BreakStatement) stmt_;
+            // var stmt = (BreakStatement) stmt_;
+            if (!ctx.inLoop()) {
+                throw new RuntimeException("return statement must be in loop");
+            }
             return;
         }
+
         if (stmt_ instanceof ContinueStatement) {
-            var stmt = (ContinueStatement) stmt_;
+            // var stmt = (ContinueStatement) stmt_;
+            if (!ctx.inLoop()) {
+                throw new RuntimeException("return statement must be in loop");
+            }
             return;
         }
+
         if (stmt_ instanceof Decl) {
             var stmt = (Decl) stmt_;
+            this.visitDstDecl(ctx, func, stmt);
             return;
         }
+
         if (stmt_ instanceof ExprStatement) {
             var stmt = (ExprStatement) stmt_;
             this.visitDstExpr(ctx, func, stmt.expr);
             return;
         }
+
         if (stmt_ instanceof IfElseStatement) {
             var stmt = (IfElseStatement) stmt_;
+            this.visitDstExpr(ctx, func, stmt.condition);
+            this.visitDstStmt(ctx, func, stmt.thenBlock);
+            if (stmt.elseBlock != null) {
+                this.visitDstStmt(ctx, func, stmt.elseBlock);
+            }
             return;
         }
+
         if (stmt_ instanceof LoopStatement) {
             var stmt = (LoopStatement) stmt_;
+            this.visitDstExpr(ctx, func, stmt.condition);
+            ctx.enterLoop();
+            {
+                this.visitDstStmt(ctx, func, stmt.bodyBlock);
+            }
+            ctx.leaveLoop();
             return;
         }
+
         if (stmt_ instanceof ReturnStatement) {
             var stmt = (ReturnStatement) stmt_;
+            if (!ctx.inFunc()) {
+                throw new RuntimeException("return statement must be in function");
+            }
+            if (func.retType == FuncType.VOID) {
+                if (stmt.retval != null) {
+                    throw new RuntimeException("void function cannot return value");
+                }
+                return;
+            }
+            if (stmt.retval == null) {
+                throw new RuntimeException("non-void function must return value");
+            }
+            visitDstExpr(ctx, func, stmt.retval);
+            if (!Type.isMatch(FuncType.toType(func.retType), stmt.retval.type)) {
+                throw new RuntimeException("type mismatch");
+            }
+
             return;
         }
     }
@@ -154,6 +223,7 @@ public class SemanticAnalyzer {
             expr.setType(Type.getCommon(expr.left.type, expr.right.type));
             return;
         }
+
         if (expr_ instanceof FuncCall) {
             var expr = (FuncCall) expr_;
             var symbol = ctx.curScope.resolve(expr.funcName);
@@ -161,6 +231,7 @@ public class SemanticAnalyzer {
                 throw new RuntimeException("undefined function: " + expr.funcName);
             }
             var funcSymbol = (FuncSymbol) symbol;
+            expr.funcSymbol = funcSymbol;
             // TODO: var args
             if (funcSymbol.func.params.size() != expr.args.length) {
                 throw new RuntimeException("function call argument count mismatch");
@@ -176,11 +247,13 @@ public class SemanticAnalyzer {
             expr.setType(Type.fromFuncType(funcSymbol.func.retType));
             return;
         }
+
         if (expr_ instanceof LiteralExpr) {
             var expr = (LiteralExpr) expr_;
             expr.setType(Type.frombasicType(expr.value.basicType));
             return;
         }
+
         if (expr_ instanceof LogicExpr) {
             var expr = (LogicExpr) expr_;
             if (expr.aryType == AryType.Binary) {
@@ -189,10 +262,11 @@ public class SemanticAnalyzer {
                 expr.setType(Type.getCommon(expr.binaryExpr.left.type, expr.binaryExpr.right.type));
             } else {
                 visitDstExpr(ctx, func, expr.unaryExpr);
-                expr.setType(expr.unaryExpr.type);                
+                expr.setType(expr.unaryExpr.type);
             }
             return;
         }
+
         if (expr_ instanceof LValExpr) {
             var expr = (LValExpr) expr_;
             var symbol = ctx.curScope.resolve(expr.id);
@@ -205,13 +279,22 @@ public class SemanticAnalyzer {
             if (!(symbol instanceof DeclSymbol)) {
                 throw new RuntimeException("cannot assign to non-decl symbol");
             }
-            var decl = (DeclSymbol) symbol;
-            if (decl.decl.declType == DeclType.CONST) {
+            var declSymbol = (DeclSymbol) symbol;
+            if (declSymbol.decl.declType == DeclType.CONST) {
                 throw new RuntimeException("cannot assign to constant");
             }
-            expr.setType(decl.decl.type);
+            expr.declSymbol = declSymbol;
+            for (var i = 0; i < expr.indices.size(); i++) {
+                Expr index = expr.indices.get(i);
+                visitDstExpr(ctx, func, index);
+                if (!Type.isMatch(Type.Integer, index.type)) {
+                    throw new RuntimeException("array index must be integer");
+                }
+            }
+            expr.setType(declSymbol.decl.type);
             return;
         }
+
         if (expr_ instanceof UnaryExpr) {
             var expr = (UnaryExpr) expr_;
             visitDstExpr(ctx, func, expr.expr);

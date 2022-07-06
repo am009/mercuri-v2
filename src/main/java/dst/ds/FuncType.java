@@ -17,4 +17,17 @@ public enum FuncType {
         }
         throw new IllegalArgumentException("Unknown enum value: " + text);
     }
+
+    public static Type toType(FuncType retType) {
+        if (retType == VOID) {
+            return null;
+        }
+        if (retType == INT) {
+            return Type.Integer;
+        }
+        if (retType == FLOAT) {
+            return Type.Float;
+        }
+        throw new IllegalArgumentException("Unknown enum value: " + retType);
+    }
 }

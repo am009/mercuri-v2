@@ -40,4 +40,8 @@ public class Decl extends BlockStatement {
         return new Decl(DeclType.VAR, true, false, basicType, id, dims, null);
     }
 
+    public Boolean isArray() {
+        return dims != null && !dims.isEmpty();
+    }
+
 }

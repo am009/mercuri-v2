@@ -3,10 +3,10 @@ package dst.ds;
 
 public class LoopStatement extends BlockStatement{
     public LogicExpr condition;
-    public Block thenBlock;
+    public Block bodyBlock;
 
-    public LoopStatement(LogicExpr condition, Block thenBlock) {
+    public LoopStatement(LogicExpr condition, Block bodyBlock) {
         this.condition = condition;
-        this.thenBlock = thenBlock;
+        this.bodyBlock = bodyBlock;
     }
 }

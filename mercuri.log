@@ -1,4 +1,5 @@
 [TRACE] Args: { inFile='test/spec/004-const-decl.c', outFile='/root/run/testcase.s', outType='ASM'}
+[TRACE] --- dst ---
 [TRACE] {
   "file": "test/spec/004-const-decl.c",
   "decls": [
@@ -60,13 +61,13 @@
                 "left": {
                   "id": "a",
                   "isArray": false,
-                  "indexExprs": [],
+                  "indices": [],
                   "isConst": false
                 },
                 "right": {
                   "id": "b",
                   "isArray": false,
-                  "indexExprs": [],
+                  "indices": [],
                   "isConst": false
                 },
                 "op": "ADD",
@@ -101,6 +102,281 @@
               "value": {
                 "basicType": "INT",
                 "intValue": 0
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] --- dst (type checked) ---
+[TRACE] {
+  "file": "test/spec/004-const-decl.c",
+  "decls": [
+    {
+      "type": {
+        "basicType": "INT",
+        "isConst": false,
+        "isArray": false,
+        "isVarlen": false,
+        "dims": []
+      },
+      "declType": "VAR",
+      "isParam": false,
+      "isGlobal": true,
+      "basicType": "INT",
+      "id": "a",
+      "dims": [],
+      "initVal": {
+        "value": {
+          "isConst": false,
+          "value": {
+            "basicType": "INT",
+            "intValue": 1
+          },
+          "type": {
+            "basicType": "INT",
+            "isConst": false,
+            "isArray": false,
+            "isVarlen": false
+          }
+        },
+        "isArray": false,
+        "initType": "VAR_EXPR"
+      }
+    }
+  ],
+  "funcs": [
+    {
+      "retType": "INT",
+      "id": "main",
+      "params": [],
+      "body": {
+        "statements": [
+          {
+            "type": {
+              "basicType": "FLOAT",
+              "isConst": false,
+              "isArray": false,
+              "isVarlen": false,
+              "dims": []
+            },
+            "declType": "VAR",
+            "isParam": false,
+            "isGlobal": false,
+            "basicType": "FLOAT",
+            "id": "b",
+            "dims": [],
+            "initVal": {
+              "value": {
+                "isConst": false,
+                "value": {
+                  "basicType": "FLOAT",
+                  "floatValue": 2.1
+                },
+                "type": {
+                  "basicType": "FLOAT",
+                  "isConst": false,
+                  "isArray": false,
+                  "isVarlen": false
+                }
+              },
+              "isArray": false,
+              "initType": "VAR_EXPR"
+            }
+          },
+          {
+            "type": {
+              "basicType": "FLOAT",
+              "isConst": false,
+              "isArray": false,
+              "isVarlen": false,
+              "dims": []
+            },
+            "declType": "VAR",
+            "isParam": false,
+            "isGlobal": false,
+            "basicType": "FLOAT",
+            "id": "c",
+            "dims": [],
+            "initVal": {
+              "value": {
+                "left": {
+                  "id": "a",
+                  "isArray": false,
+                  "indices": [],
+                  "declSymbol": {
+                    "decl": {
+                      "type": {
+                        "basicType": "INT",
+                        "isConst": false,
+                        "isArray": false,
+                        "isVarlen": false,
+                        "dims": []
+                      },
+                      "declType": "VAR",
+                      "isParam": false,
+                      "isGlobal": true,
+                      "basicType": "INT",
+                      "id": "a",
+                      "dims": [],
+                      "initVal": {
+                        "value": {
+                          "isConst": false,
+                          "value": {
+                            "basicType": "INT",
+                            "intValue": 1
+                          },
+                          "type": {
+                            "basicType": "INT",
+                            "isConst": false,
+                            "isArray": false,
+                            "isVarlen": false
+                          }
+                        },
+                        "isArray": false,
+                        "initType": "VAR_EXPR"
+                      }
+                    }
+                  },
+                  "isConst": false,
+                  "type": {
+                    "basicType": "INT",
+                    "isConst": false,
+                    "isArray": false,
+                    "isVarlen": false,
+                    "dims": []
+                  }
+                },
+                "right": {
+                  "id": "b",
+                  "isArray": false,
+                  "indices": [],
+                  "declSymbol": {
+                    "decl": {
+                      "type": {
+                        "basicType": "FLOAT",
+                        "isConst": false,
+                        "isArray": false,
+                        "isVarlen": false,
+                        "dims": []
+                      },
+                      "declType": "VAR",
+                      "isParam": false,
+                      "isGlobal": false,
+                      "basicType": "FLOAT",
+                      "id": "b",
+                      "dims": [],
+                      "initVal": {
+                        "value": {
+                          "isConst": false,
+                          "value": {
+                            "basicType": "FLOAT",
+                            "floatValue": 2.1
+                          },
+                          "type": {
+                            "basicType": "FLOAT",
+                            "isConst": false,
+                            "isArray": false,
+                            "isVarlen": false
+                          }
+                        },
+                        "isArray": false,
+                        "initType": "VAR_EXPR"
+                      }
+                    }
+                  },
+                  "isConst": false,
+                  "type": {
+                    "basicType": "FLOAT",
+                    "isConst": false,
+                    "isArray": false,
+                    "isVarlen": false,
+                    "dims": []
+                  }
+                },
+                "op": "ADD",
+                "isConst": false,
+                "type": {
+                  "basicType": "FLOAT",
+                  "isConst": false,
+                  "isArray": false,
+                  "isVarlen": false
+                }
+              },
+              "isArray": false,
+              "initType": "VAR_EXPR"
+            }
+          },
+          {
+            "type": {
+              "basicType": "FLOAT",
+              "isConst": false,
+              "isArray": false,
+              "isVarlen": false,
+              "dims": []
+            },
+            "declType": "VAR",
+            "isParam": false,
+            "isGlobal": false,
+            "basicType": "FLOAT",
+            "id": "d",
+            "dims": [],
+            "initVal": {
+              "value": {
+                "isConst": false,
+                "value": {
+                  "basicType": "FLOAT",
+                  "floatValue": 3.14
+                },
+                "type": {
+                  "basicType": "FLOAT",
+                  "isConst": false,
+                  "isArray": false,
+                  "isVarlen": false
+                }
+              },
+              "isArray": false,
+              "initType": "VAR_EXPR"
+            }
+          },
+          {
+            "retval": {
+              "isConst": false,
+              "value": {
+                "basicType": "INT",
+                "intValue": 0
+              },
+              "type": {
+                "basicType": "INT",
+                "isConst": false,
+                "isArray": false,
+                "isVarlen": false
               }
             }
           }

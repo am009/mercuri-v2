@@ -2,15 +2,19 @@ package dst.ds;
 
 import java.util.List;
 
+import ir.ds.DeclSymbol;
+
 public class LValExpr extends Expr {
     public String id;
     public boolean isArray;
-    public List<Expr> indexExprs;
+    public List<Expr> indices;
 
-    public LValExpr(String id, boolean isArray, List<Expr> indexExprs) {
+    public DeclSymbol declSymbol;
+
+    public LValExpr(String id, boolean isArray, List<Expr> indices) {
         this.id = id;
         this.isArray = isArray;
-        this.indexExprs = indexExprs;
+        this.indices = indices;
     }
 
     @Override

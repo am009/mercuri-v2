@@ -9,24 +9,22 @@ public class Type {
     public BasicType basicType;
     public Boolean isConst;
     public Boolean isArray;
-    public Integer numElements;
     public Boolean isVarlen; // if true, omit first dim
     public List<Integer> dims;
 
-    public Type(BasicType basicType, Boolean isConst, Boolean isArray, Integer numElements, Boolean isVarlen,
+    public Type(BasicType basicType, Boolean isConst, Boolean isArray, Boolean isVarlen,
             List<Integer> dims) {
         this.basicType = basicType;
         this.isConst = isConst;
         this.isArray = isArray;
-        this.numElements = numElements;
         this.isVarlen = isVarlen;
         this.dims = dims;
     }
 
-    public static Type Integer = new Type(BasicType.INT, false, false, null, false, null);
-    public static Type Float = new Type(BasicType.FLOAT, false, false, null, false, null);
-    public static Type String = new Type(BasicType.STRING_LITERAL, false, false, null, false, null);
-    public static Type Void = new Type(null, false, false, null, false, null);
+    public static Type Integer = new Type(BasicType.INT, false, false, false, null);
+    public static Type Float = new Type(BasicType.FLOAT, false, false, false, null);
+    public static Type String = new Type(BasicType.STRING_LITERAL, false, false, false, null);
+    public static Type Void = new Type(null, false, false, false, null);
 
     public static Type fromFuncType(FuncType ft) {
         switch (ft) {
@@ -55,14 +53,13 @@ public class Type {
         if (type1.isArray != type2.isArray) {
             return false;
         }
-        if (type1.numElements != type2.numElements) {
-            return false;
-        }
         if (type1.isVarlen != type2.isVarlen) {
             return false;
         }
-        if (type1.dims.equals(type2.dims)) {
-            return false;
+        if (type1.dims != null && type2.dims != null) {
+            if (type1.dims.equals(type2.dims)) {
+                return false;
+            }
         }
         return true;
     }
@@ -71,10 +68,10 @@ public class Type {
         if (isMatch(type1, type2)) {
             return type1;
         }
-        if (type1 == Type.Float && type2 == Type.Integer) {
+        if (isMatch(type1,Type.Float) && isMatch(type2,Type.Integer)) {
             return Type.Float;
         }
-        if (type1 == Type.Integer && type2 == Type.Float) {
+        if (isMatch(type1,Type.Integer) && isMatch(type2,Type.Float)) {
             return Type.Float;
         }
         // TODO: completely support array
@@ -83,6 +80,7 @@ public class Type {
                 return type1;
             }
         }
+        Global.logger.warning("No common type: " + type1 + " " + type2);
         return null;
     }
 

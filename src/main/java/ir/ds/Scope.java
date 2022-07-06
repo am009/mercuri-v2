@@ -29,11 +29,14 @@ public class Scope {
     }
 
     public Scope leave() {
+        if(this.parent == null){
+            throw new IllegalStateException("Cannot leave global scope");
+        }
         return this.parent;
     }
 
     public boolean register(Symbol symbol) {
-        if (this.resolve(symbol.getName()) == null) {
+        if (this.resolve(symbol.getName()) != null) {
             return false;
         }
         values.put(symbol.getName(), symbol);
@@ -46,6 +49,10 @@ public class Scope {
             symbol = parent.resolve(name);
         }
         return symbol;
+    }
+
+    public boolean isGlobal() {
+        return this.parent == null;
     }
 
 }
