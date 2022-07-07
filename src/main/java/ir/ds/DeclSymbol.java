@@ -1,6 +1,5 @@
 package ir.ds;
 
-import java.util.List;
 
 import dst.ds.Decl;
 

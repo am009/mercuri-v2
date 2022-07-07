@@ -1,7 +1,5 @@
 package ir.ds;
 
-import java.util.ArrayList;
-import java.util.List;
 
 import dst.ds.Func;
 

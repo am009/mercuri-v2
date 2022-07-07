@@ -48,7 +48,7 @@ public class SemanticAnalyzer {
      * @param ctx
      * @param decl
      */
-    private void visitDstDecl(SemanticAnalysisContext ctx, Func func, Decl decl) {
+    private void visitDstDecl(SemanticAnalysisContext ctx, FuncSymbol curFunc, Decl decl) {
         if (decl.dims != null) {
             // make sure array dims are non-negative
             for (var dim : decl.dims) {
@@ -61,7 +61,7 @@ public class SemanticAnalyzer {
 
         if (decl.initVal != null) {
             // TODO: constant function eval
-            this.visitDstExpr(ctx, func, decl.initVal.value);
+            this.visitDstExpr(ctx, curFunc, decl.initVal.value);
         }
 
         if (decl.declType == DeclType.CONST && decl.initVal == null) {
@@ -78,7 +78,7 @@ public class SemanticAnalyzer {
         }
         var symbol = new DeclSymbol(decl);
 
-        var ok = ctx.curScope.register(symbol);
+        var ok = ctx.scope.register(symbol);
         if (!ok) {
             throw new RuntimeException("duplicate decl symbol");
         }
@@ -92,27 +92,27 @@ public class SemanticAnalyzer {
      */
     private void visitDstFunc(SemanticAnalysisContext ctx, Func func) {
         var symbol = new FuncSymbol(func);
-        var ok = ctx.curScope.register(symbol);
+        var ok = ctx.scope.register(symbol);
         if (!ok) {
             throw new RuntimeException("duplicate func symbol: " + func.id);
         }
         // enter function scope for params and body
         ctx.enterScope();
         {
-            func.params.forEach(param -> this.visitDstDecl(ctx, func, param));
-            this.visitDstFuncBody(ctx, func);
+            func.params.forEach(param -> this.visitDstDecl(ctx, symbol, param));
+            this.visitDstFuncBody(ctx, symbol);
         }
         ctx.leaveScope();
     }
 
-    private void visitDstFuncBody(SemanticAnalysisContext ctx, Func func) {
-        func.body.statements.forEach(stmt -> this.visitDstStmt(ctx, func, stmt));
+    private void visitDstFuncBody(SemanticAnalysisContext ctx, FuncSymbol curFunc) {
+        curFunc.func.body.statements.forEach(stmt -> this.visitDstStmt(ctx, curFunc, stmt));
     }
 
-    private void visitDstStmt(SemanticAnalysisContext ctx, Func func, BlockStatement stmt_) {
+    private void visitDstStmt(SemanticAnalysisContext ctx, FuncSymbol curFunc, BlockStatement stmt_) {
         if (stmt_ instanceof AssignStatement) {
             var stmt = (AssignStatement) stmt_;
-            var symbol = ctx.curScope.resolve(stmt.id);
+            var symbol = ctx.scope.resolve(stmt.id);
             if (symbol == null) {
                 throw new RuntimeException("undefined symbol: " + stmt.id);
             }
@@ -137,56 +137,58 @@ public class SemanticAnalyzer {
             var stmt = (Block) stmt_;
             ctx.enterScope();
             {
-                stmt.statements.forEach(innerStmt -> this.visitDstStmt(ctx, func, innerStmt));
+                stmt.statements.forEach(innerStmt -> this.visitDstStmt(ctx, curFunc, innerStmt));
             }
             ctx.leaveScope();
             return;
         }
 
         if (stmt_ instanceof BreakStatement) {
-            // var stmt = (BreakStatement) stmt_;
+            var stmt = (BreakStatement) stmt_;
             if (!ctx.inLoop()) {
                 throw new RuntimeException("return statement must be in loop");
             }
+            stmt.loop = ctx.currentLoop();
             return;
         }
 
         if (stmt_ instanceof ContinueStatement) {
-            // var stmt = (ContinueStatement) stmt_;
+            var stmt = (ContinueStatement) stmt_;
             if (!ctx.inLoop()) {
                 throw new RuntimeException("return statement must be in loop");
             }
+            stmt.loop = ctx.currentLoop();
             return;
         }
 
         if (stmt_ instanceof Decl) {
             var stmt = (Decl) stmt_;
-            this.visitDstDecl(ctx, func, stmt);
+            this.visitDstDecl(ctx, curFunc, stmt);
             return;
         }
 
         if (stmt_ instanceof ExprStatement) {
             var stmt = (ExprStatement) stmt_;
-            this.visitDstExpr(ctx, func, stmt.expr);
+            this.visitDstExpr(ctx, curFunc, stmt.expr);
             return;
         }
 
         if (stmt_ instanceof IfElseStatement) {
             var stmt = (IfElseStatement) stmt_;
-            this.visitDstExpr(ctx, func, stmt.condition);
-            this.visitDstStmt(ctx, func, stmt.thenBlock);
+            this.visitDstExpr(ctx, curFunc, stmt.condition);
+            this.visitDstStmt(ctx, curFunc, stmt.thenBlock);
             if (stmt.elseBlock != null) {
-                this.visitDstStmt(ctx, func, stmt.elseBlock);
+                this.visitDstStmt(ctx, curFunc, stmt.elseBlock);
             }
             return;
         }
 
         if (stmt_ instanceof LoopStatement) {
             var stmt = (LoopStatement) stmt_;
-            this.visitDstExpr(ctx, func, stmt.condition);
-            ctx.enterLoop();
+            this.visitDstExpr(ctx, curFunc, stmt.condition);
+            ctx.enterLoop(stmt);
             {
-                this.visitDstStmt(ctx, func, stmt.bodyBlock);
+                this.visitDstStmt(ctx, curFunc, stmt.bodyBlock);
             }
             ctx.leaveLoop();
             return;
@@ -197,7 +199,8 @@ public class SemanticAnalyzer {
             if (!ctx.inFunc()) {
                 throw new RuntimeException("return statement must be in function");
             }
-            if (func.retType == FuncType.VOID) {
+            stmt.funcSymbol = curFunc;
+            if (curFunc.func.retType == FuncType.VOID) {
                 if (stmt.retval != null) {
                     throw new RuntimeException("void function cannot return value");
                 }
@@ -206,8 +209,8 @@ public class SemanticAnalyzer {
             if (stmt.retval == null) {
                 throw new RuntimeException("non-void function must return value");
             }
-            visitDstExpr(ctx, func, stmt.retval);
-            if (!Type.isMatch(FuncType.toType(func.retType), stmt.retval.type)) {
+            visitDstExpr(ctx, curFunc, stmt.retval);
+            if (!Type.isMatch(FuncType.toType(curFunc.func.retType), stmt.retval.type)) {
                 throw new RuntimeException("type mismatch");
             }
 
@@ -215,18 +218,18 @@ public class SemanticAnalyzer {
         }
     }
 
-    private void visitDstExpr(SemanticAnalysisContext ctx, Func func, Expr expr_) {
+    private void visitDstExpr(SemanticAnalysisContext ctx, FuncSymbol curFunc, Expr expr_) {
         if (expr_ instanceof BinaryExpr) {
             var expr = (BinaryExpr) expr_;
-            visitDstExpr(ctx, func, expr.left);
-            visitDstExpr(ctx, func, expr.right);
+            visitDstExpr(ctx, curFunc, expr.left);
+            visitDstExpr(ctx, curFunc, expr.right);
             expr.setType(Type.getCommon(expr.left.type, expr.right.type));
             return;
         }
 
         if (expr_ instanceof FuncCall) {
             var expr = (FuncCall) expr_;
-            var symbol = ctx.curScope.resolve(expr.funcName);
+            var symbol = ctx.scope.resolve(expr.funcName);
             if (!(symbol instanceof FuncSymbol)) {
                 throw new RuntimeException("undefined function: " + expr.funcName);
             }
@@ -257,11 +260,11 @@ public class SemanticAnalyzer {
         if (expr_ instanceof LogicExpr) {
             var expr = (LogicExpr) expr_;
             if (expr.aryType == AryType.Binary) {
-                visitDstExpr(ctx, func, expr.binaryExpr.left);
-                visitDstExpr(ctx, func, expr.binaryExpr.right);
+                visitDstExpr(ctx, curFunc, expr.binaryExpr.left);
+                visitDstExpr(ctx, curFunc, expr.binaryExpr.right);
                 expr.setType(Type.getCommon(expr.binaryExpr.left.type, expr.binaryExpr.right.type));
             } else {
-                visitDstExpr(ctx, func, expr.unaryExpr);
+                visitDstExpr(ctx, curFunc, expr.unaryExpr);
                 expr.setType(expr.unaryExpr.type);
             }
             return;
@@ -269,7 +272,7 @@ public class SemanticAnalyzer {
 
         if (expr_ instanceof LValExpr) {
             var expr = (LValExpr) expr_;
-            var symbol = ctx.curScope.resolve(expr.id);
+            var symbol = ctx.scope.resolve(expr.id);
             if (symbol == null) {
                 throw new RuntimeException("undefined symbol: " + expr.id);
             }
@@ -286,7 +289,7 @@ public class SemanticAnalyzer {
             expr.declSymbol = declSymbol;
             for (var i = 0; i < expr.indices.size(); i++) {
                 Expr index = expr.indices.get(i);
-                visitDstExpr(ctx, func, index);
+                visitDstExpr(ctx, curFunc, index);
                 if (!Type.isMatch(Type.Integer, index.type)) {
                     throw new RuntimeException("array index must be integer");
                 }
@@ -297,7 +300,7 @@ public class SemanticAnalyzer {
 
         if (expr_ instanceof UnaryExpr) {
             var expr = (UnaryExpr) expr_;
-            visitDstExpr(ctx, func, expr.expr);
+            visitDstExpr(ctx, curFunc, expr.expr);
             expr.setType(expr.expr.type);
             return;
         }

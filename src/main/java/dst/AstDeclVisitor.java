@@ -5,8 +5,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import ast.SysyBaseVisitor;
-import ast.SysyParser.BlockContext;
-import ast.SysyParser.BlockItemContext;
 import ast.SysyParser.ConstDeclContext;
 import ast.SysyParser.ConstDefContext;
 import ast.SysyParser.FuncDefContext;
@@ -16,7 +14,6 @@ import ast.SysyParser.VarDeclContext;
 import ast.SysyParser.VarDefContext;
 import dst.ds.BasicType;
 import dst.ds.Block;
-import dst.ds.BlockStatement;
 import dst.ds.Decl;
 import dst.ds.DeclType;
 import dst.ds.DstGeneratorContext;
