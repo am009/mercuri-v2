@@ -47,12 +47,15 @@ public class Type {
         if (type1.basicType != type2.basicType) {
             return false;
         }
-        if (type1.isConst != type2.isConst) {
-            return false;
-        }
+        // 类型是否匹配不需要关系该类型是否是const变量
+        // isMatch in Type.getCommon always return false when one is const and the other is not.
+        // if (type1.isConst != type2.isConst) {
+        //     return false;
+        // }
         if (type1.isArray != type2.isArray) {
             return false;
         }
+        // TODO - wjk - 省略一维后是否需要额外的检查逻辑？
         if (type1.isVarlen != type2.isVarlen) {
             return false;
         }
