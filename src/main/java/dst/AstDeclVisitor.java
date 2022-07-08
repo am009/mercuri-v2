@@ -127,7 +127,7 @@ public class AstDeclVisitor extends SysyBaseVisitor<List<Decl>> {
      */
     private Decl visitConstDef(ConstDefContext ast, DstGeneratorContext ctx, BasicType basicType, Boolean isGlobal) {
 
-        DeclType declType = DeclType.VAR;
+        DeclType declType = DeclType.CONST;
         Boolean isParam = false;
         String id = ast.ID().getText();
         var dimsRaw = ast.constExpr().stream()

@@ -283,9 +283,6 @@ public class SemanticAnalyzer {
                 throw new RuntimeException("cannot assign to non-decl symbol");
             }
             var declSymbol = (DeclSymbol) symbol;
-            if (declSymbol.decl.declType == DeclType.CONST) {
-                throw new RuntimeException("cannot assign to constant");
-            }
             expr.declSymbol = declSymbol;
             for (var i = 0; i < expr.indices.size(); i++) {
                 Expr index = expr.indices.get(i);
