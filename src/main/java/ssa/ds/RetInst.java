@@ -3,23 +3,14 @@ package ssa.ds;
 public class RetInst extends BaseInst {
 
     public static class Builder {
-        private CallInst inst;
+        private RetInst inst;
 
         public Builder(BasicBlock parent) {
-            var inst = new CallInst();
+            inst = new RetInst();
             inst.parent = parent;
         }
 
-        public Builder setRetval(Value arg) {
-            if (inst.oprands.size() >= 1) {
-                throw new IllegalArgumentException("RetInst already has a retval");
-            }
-            inst.oprands.add(new Use(inst, arg));
-            
-            return this;
-        }
-
-        public CallInst build() {
+        public RetInst build() {
             return inst;
         }
     }

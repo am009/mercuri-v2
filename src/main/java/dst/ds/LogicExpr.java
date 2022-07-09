@@ -1,5 +1,7 @@
 package dst.ds;
 
+import ir.ds.Scope;
+
 public class LogicExpr extends Expr {
     public enum AryType {
         Binary, Unary
@@ -20,11 +22,11 @@ public class LogicExpr extends Expr {
     }
 
     @Override
-    public EvaluatedValue eval() {
+    public EvaluatedValue eval(Scope scope) {
         if (aryType == AryType.Binary) {
-            return binaryExpr.eval();
+            return binaryExpr.eval(scope);
         } else {
-            return unaryExpr.eval();
+            return unaryExpr.eval(scope);
         }
     }
 }

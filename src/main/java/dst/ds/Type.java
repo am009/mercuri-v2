@@ -1,5 +1,6 @@
 package dst.ds;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import ds.Global;
@@ -9,16 +10,21 @@ public class Type {
     public BasicType basicType;
     public Boolean isConst;
     public Boolean isArray;
-    public Boolean isVarlen; // if true, omit first dim
+    public Boolean isPointer; // if true, first dim is omited
     public List<Integer> dims;
 
-    public Type(BasicType basicType, Boolean isConst, Boolean isArray, Boolean isVarlen,
+    public Type(BasicType basicType, Boolean isConst, Boolean isArray, Boolean isPointer,
             List<Integer> dims) {
         this.basicType = basicType;
         this.isConst = isConst;
         this.isArray = isArray;
-        this.isVarlen = isVarlen;
+        this.isPointer = isPointer;
         this.dims = dims;
+    }
+
+    // deep copy constructor for lvalexpr type calculation
+    public Type(Type another) {
+        this(another.basicType, another.isConst, another.isArray, another.isPointer, new ArrayList<>(another.dims));
     }
 
     public static Type Integer = new Type(BasicType.INT, false, false, false, null);
@@ -55,12 +61,19 @@ public class Type {
         if (type1.isArray != type2.isArray) {
             return false;
         }
-        // TODO - wjk - 省略一维后是否需要额外的检查逻辑？
-        if (type1.isVarlen != type2.isVarlen) {
-            return false;
-        }
+
         if (type1.dims != null && type2.dims != null) {
-            if (type1.dims.equals(type2.dims)) {
+            // 省略一维后仅检查后面的维度
+            var dims1 = type1.dims;
+            var dims2 = type2.dims;
+            if (type1.isPointer != type2.isPointer) {
+                if (type1.isPointer) {
+                    dims2 = dims2.subList(1, dims2.size());
+                } else {
+                    dims1 = dims1.subList(1, dims1.size());
+                }
+            }
+            if (!dims1.equals(dims2)) {
                 return false;
             }
         }
@@ -97,6 +110,16 @@ public class Type {
                 return Type.String;
             default:
                 throw new IllegalArgumentException("Unknown basic type: " + basicType2);
+        }
+    }
+    
+    @Override
+    public java.lang.String toString() {
+        if (!isArray) {
+            return basicType.toString();
+        } else {
+            // TODO Array type to llvm ir;
+            return super.toString();
         }
     }
 }

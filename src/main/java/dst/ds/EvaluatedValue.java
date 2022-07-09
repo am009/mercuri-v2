@@ -56,6 +56,21 @@ public class EvaluatedValue {
         return evaluatedValue;
     }
 
+    @Override
+    public String toString() {
+        switch (basicType) {
+            case FLOAT:
+                return String.valueOf(floatValue);
+            case INT:
+                return String.valueOf(intValue);
+            case STRING_LITERAL:
+                return stringValue;
+            default:
+                return super.toString();
+            
+        }
+    }
+
     public static EvaluatedValue fromOperation(EvaluatedValue eval, UnaryOp op) {
         if (eval == null) {
             return null;

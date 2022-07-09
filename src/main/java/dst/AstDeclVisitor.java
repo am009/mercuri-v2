@@ -68,8 +68,12 @@ public class AstDeclVisitor extends SysyBaseVisitor<List<Decl>> {
                 .map(e -> ctx.getVisitors().of(AstExprVisitor.class).visitConstExpr(e, ctx))
                 .collect(Collectors.toList());
         InitValue initVal = null;
-        List<Integer> dims = indexExprs.stream().map(i -> i.eval().intValue).collect(Collectors.toList());
-        return new Decl(declType, isParam, isGlobal, basicType, id, dims, initVal);
+        // List<Integer> dims = indexExprs.stream().map(i -> i.eval().intValue).collect(Collectors.toList());
+        var ret = new Decl(declType, isParam, isGlobal, basicType, id, indexExprs, initVal);
+        if (ast.getChildCount() > 2) { // has '[' and ']'
+            ret.isDimensionOmitted = true;
+        }
+        return ret;
     }
 
     /**
@@ -87,25 +91,22 @@ public class AstDeclVisitor extends SysyBaseVisitor<List<Decl>> {
                 .map(e -> ctx.getVisitors().of(AstExprVisitor.class).visitConstExpr(e, ctx))
                 .collect(Collectors.toList());
 
-        // check all dims are constant and positive
-        for (var dim : dimsRaw) {
-            if (!dim.isConst) {
-                ctx.panic("Array dimension must be constant");
-            }
-            if (dim.eval() == null || dim.value.intValue == null || dim.value.intValue < 0) {
-                ctx.panic("Array dimension must exist and bec positive");
-            }
-        }
-        List<Integer> dims = dimsRaw.stream().map(i -> i.eval().intValue).collect(Collectors.toList());
+        // 可能引用到const变量，留给SematicAnalyzer处理
+        // // check all dims are constant and positive
+        // for (var dim : dimsRaw) {            
+        //     if (!dim.isConst) {
+        //         ctx.panic("Array dimension must be constant");
+        //     }
+        //     if (dim.eval() == null || dim.value.intValue == null || dim.value.intValue < 0) {
+        //         ctx.panic("Array dimension must exist and bec positive");
+        //     }
+        // }
+        // List<Integer> dims = dimsRaw.stream().map(i -> i.eval().intValue).collect(Collectors.toList());
 
-        var initType = InitValType.VAR_EXPR;
-        if (dims.size() > 0) {
-            initType = InitValType.VAR_ARRAY_EXPR;
-        }
         var initVal = ctx.getVisitors().of(AstInitValVisitor.class).visitInitVal(ast.initVal(), ctx,
-                basicType, initType, dims);
+                basicType, InitValType.VAR_EXPR);
 
-        return new Decl(declType, isParam, isGlobal, basicType, id, dims, initVal);
+        return new Decl(declType, isParam, isGlobal, basicType, id, dimsRaw, initVal);
     }
 
     /**
@@ -135,24 +136,20 @@ public class AstDeclVisitor extends SysyBaseVisitor<List<Decl>> {
                 .collect(Collectors.toList());
 
         // check all dims are constant and positive
-        for (var dim : dimsRaw) {
-            if (!dim.isConst) {
-                ctx.panic("Array dimension must be constant");
-            }
-            if (dim.eval() == null || dim.value.intValue == null || dim.value.intValue < 0) {
-                ctx.panic("Array dimension must exist and bec positive");
-            }
-        }
-        List<Integer> dims = dimsRaw.stream().map(i -> i.eval().intValue).collect(Collectors.toList());
+        // for (var dim : dimsRaw) {
+        //     if (!dim.isConst) {
+        //         ctx.panic("Array dimension must be constant");
+        //     }
+        //     if (dim.eval() == null || dim.value.intValue == null || dim.value.intValue < 0) {
+        //         ctx.panic("Array dimension must exist and bec positive");
+        //     }
+        // }
+        // List<Integer> dims = dimsRaw.stream().map(i -> i.eval().intValue).collect(Collectors.toList());
 
-        var initType = InitValType.VAR_EXPR;
-        if (dims.size() > 0) {
-            initType = InitValType.VAR_ARRAY_EXPR;
-        }
         var initVal = ctx.getVisitors().of(AstInitValVisitor.class).visitConstInitVal(ast.constInitVal(), ctx,
-                basicType, initType, dims);
+                basicType, InitValType.CONST_EXPR);
 
-        return new Decl(declType, isParam, isGlobal, basicType, id, dims, initVal);
+        return new Decl(declType, isParam, isGlobal, basicType, id, dimsRaw, initVal);
     }
 
     public Func visitFuncDef(FuncDefContext ast, DstGeneratorContext ctx, boolean isGlobal) {

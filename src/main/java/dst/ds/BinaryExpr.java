@@ -1,5 +1,7 @@
 package dst.ds;
 
+import ir.ds.Scope;
+
 public class BinaryExpr extends Expr {
 
     /*
@@ -19,15 +21,10 @@ public class BinaryExpr extends Expr {
         this.left = left;
         this.right = right;
         this.op = op;
-        this.eval();
     }
 
     @Override
-    public EvaluatedValue eval() {
-        if (this.value != null) {
-            return this.value;
-        }
-        this.value = EvaluatedValue.fromOperation(left.value, right.value, op);
-        return this.value;
+    public EvaluatedValue eval(Scope scope) {
+        return EvaluatedValue.fromOperation(left.eval(scope), right.eval(scope), op);
     }
 }

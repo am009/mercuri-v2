@@ -1,25 +1,25 @@
 package ssa.ds;
 
+import dst.ds.Type;
+
 public class AllocaInst extends BaseInst {
-
+    public Type ty;
+    public long numElement = 1;
+    
     public static class Builder {
-        private CallInst inst;
+        private AllocaInst inst;
 
-        public Builder(BasicBlock parent, ) {
-            var inst = new CallInst();
+        public Builder(BasicBlock parent) {
+            inst = new AllocaInst();
             inst.parent = parent;
         }
 
-        public Builder setRetval(Value arg) {
-            if (inst.oprands.size() >= 1) {
-                throw new IllegalArgumentException("RetInst already has a retval");
-            }
-            inst.oprands.add(new Use(inst, arg));
-            
+        public Builder addType(Type t) {
+            inst.ty = t;
             return this;
         }
 
-        public CallInst build() {
+        public AllocaInst build() {
             return inst;
         }
     }

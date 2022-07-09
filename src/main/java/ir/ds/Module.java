@@ -11,15 +11,19 @@ import dst.ds.FuncType;
 public class Module {
     public Scope globalScope;
     public String id;
-    public List<Func> builtinFuncs;
+    public static List<Func> builtinFuncs;
 
     public Module(Scope globalScope, String id) {
         this.globalScope = globalScope;
         this.id = id;
-        this.builtinFuncs = this.initBuiltinFuncs();
+        initBuiltinFuncs();
     }
 
-    private List<Func> initBuiltinFuncs() {
+    private static void initBuiltinFuncs() {
+        if (builtinFuncs != null) {
+            return;
+        }
+
         var list = new ArrayList<Func>();
         // int getint()
         list.add(new Func(FuncType.INT, "getint", new ArrayList<Decl>(), Block.Empty));
@@ -77,6 +81,6 @@ public class Module {
                 add(Decl.fromSimpleParam("fmt", BasicType.STRING_LITERAL));
             }
         }, Block.Empty).setIsVariadic(true));
-        return list;
+        builtinFuncs = list;
     }
 }

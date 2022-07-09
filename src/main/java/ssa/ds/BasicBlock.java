@@ -1,5 +1,8 @@
 package ssa.ds;
 
-public class BasicBlock {
+import java.util.List;
 
+public class BasicBlock {
+    List<BaseInst> insts;
+    BasicBlockValue val;
 }

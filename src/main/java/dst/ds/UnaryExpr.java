@@ -1,5 +1,7 @@
 package dst.ds;
 
+import ir.ds.Scope;
+
 public class UnaryExpr extends Expr {
     public Expr expr;
     public UnaryOp op;
@@ -7,15 +9,11 @@ public class UnaryExpr extends Expr {
     public UnaryExpr(Expr expr, UnaryOp op) {
         this.expr = expr;
         this.op = op;
-        this.eval();
+        // this.eval();
     }
 
     @Override
-    public EvaluatedValue eval() {
-        if (this.value != null) {
-            return this.value;
-        }
-        this.value = EvaluatedValue.fromOperation(expr.value, op);
-        return this.value;
+    public EvaluatedValue eval(Scope scope) {
+        return EvaluatedValue.fromOperation(expr.eval(scope), op);
     }
 }

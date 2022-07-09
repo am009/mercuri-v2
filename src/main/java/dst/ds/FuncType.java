@@ -30,4 +30,19 @@ public enum FuncType {
         }
         throw new IllegalArgumentException("Unknown enum value: " + retType);
     }
+
+    // to llvm type
+    @Override
+    public String toString() {
+        switch (this) {
+            case FLOAT:
+                return "float";
+            case INT:
+                return "i32";
+            case VOID:
+                return "void";
+            default:
+                throw new IllegalArgumentException("Unknown enum value: " + super.toString());
+        }
+    }
 }

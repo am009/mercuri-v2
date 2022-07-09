@@ -7,7 +7,7 @@ public class CallInst extends BaseInst {
         private CallInst inst;
 
         public Builder(BasicBlock parent, FuncValue func) {
-            var inst = new CallInst();
+            inst = new CallInst();
             inst.parent = parent;
             inst.func = func;
         }

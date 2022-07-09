@@ -12,6 +12,8 @@ import ds.Logger.LogTarget;
 import dst.DstGenerator;
 import dst.ds.CompUnit;
 import ir.SemanticAnalyzer;
+import ssa.FakeSSAGenerator;
+import ssa.ds.Module;
 import ds.LoggerBuilder;
 
 /**
@@ -42,9 +44,15 @@ public class Compiler {
         var semAnalyzer = new SemanticAnalyzer();
         semAnalyzer.process(dst);
         // !! IF_DEBUG
-        var dstTypechecked = gson.toJson(dst);
-        Global.logger.trace("--- dst (type checked) ---");
-        Global.logger.trace(dstTypechecked);
+        // var dstTypechecked = gson.toJson(dst);
+        // Global.logger.trace("--- dst (type checked) ---");
+        // Global.logger.trace(dstTypechecked);
+        // !! END_IF
+        var ssaIrGen = new FakeSSAGenerator();
+        Module ssa = ssaIrGen.process(dst);
+        // !! IF_DEBUG
+        Global.logger.trace("--- ssa ---");
+        Global.logger.trace(ssa.toString());
         // !! END_IF
     }
 

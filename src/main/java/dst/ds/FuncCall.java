@@ -1,6 +1,7 @@
 package dst.ds;
 
 import ir.ds.FuncSymbol;
+import ir.ds.Scope;
 
 // FuncCall is one of the unary operation
 public class FuncCall extends Expr {
@@ -16,7 +17,7 @@ public class FuncCall extends Expr {
     }
 
     @Override
-    public EvaluatedValue eval() {
+    public EvaluatedValue eval(Scope scope) {
         return null;
     }
 }
