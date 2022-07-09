@@ -326,14 +326,18 @@ public class SemanticAnalyzer {
                     throw new RuntimeException("array index must be integer");
                 }
             }
-            Type base = new Type(declSymbol.decl.type);
-            // no need for bound check
-            expr.indices.forEach(i -> {base.dims.remove(0);});
-            if (base.dims.size() == 0) {
-                base.isArray = false;
-                base.dims = null;
+            if (expr.isArray) {
+                Type base = new Type(declSymbol.decl.type);
+                // no need for bound check
+                expr.indices.forEach(i -> {base.dims.remove(0);});
+                if (base.dims.size() == 0) {
+                    base.isArray = false;
+                    base.dims = null;
+                }
+                expr.setType(base);
+            } else {
+                expr.setType(expr.declSymbol.decl.type);
             }
-            expr.setType(base);
             return;
         }
 

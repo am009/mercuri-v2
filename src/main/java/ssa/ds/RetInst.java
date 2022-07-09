@@ -8,6 +8,7 @@ public class RetInst extends BaseInst {
         public Builder(BasicBlock parent) {
             inst = new RetInst();
             inst.parent = parent;
+            parent.insts.add(inst);
         }
 
         public RetInst build() {

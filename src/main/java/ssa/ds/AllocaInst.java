@@ -12,6 +12,7 @@ public class AllocaInst extends BaseInst {
         public Builder(BasicBlock parent) {
             inst = new AllocaInst();
             inst.parent = parent;
+            parent.insts.add(inst);
         }
 
         public Builder addType(Type t) {

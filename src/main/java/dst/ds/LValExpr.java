@@ -1,6 +1,7 @@
 package dst.ds;
 
 import java.util.List;
+import java.util.StringJoiner;
 import java.util.stream.Collectors;
 
 import ir.ds.DeclSymbol;
@@ -37,6 +38,18 @@ public class LValExpr extends Expr {
             assert !current.isArray;
             return current.evaledVal;
         }
-        
+    }
+
+    @Override
+    public String toString() {
+        if (isArray) {
+            var sj = new StringJoiner("][", "[", "]");
+            for (var e: indices) {
+                sj.add(e.toString());
+            }
+            return id + sj.toString();
+        } else {
+            return id;
+        }
     }
 }

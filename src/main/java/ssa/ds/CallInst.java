@@ -9,6 +9,7 @@ public class CallInst extends BaseInst {
         public Builder(BasicBlock parent, FuncValue func) {
             inst = new CallInst();
             inst.parent = parent;
+            parent.insts.add(inst);
             inst.func = func;
         }
 

@@ -52,10 +52,10 @@ public class Func {
         if (bbs == null) {
             builder.append("\n");
         } else { // body
-            builder.append("{\n  ");
-            var sj2 = new StringJoiner("\n  ");
+            builder.append("{\n");
+            var sj2 = new StringJoiner("\n");
             bbs.forEach(bb -> sj2.add(bb.toString()));
-            builder.append(sj.toString());
+            builder.append(sj2.toString());
             builder.append("\n}");
         }
         return builder.toString();

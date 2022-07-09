@@ -24,7 +24,10 @@ public class Type {
 
     // deep copy constructor for lvalexpr type calculation
     public Type(Type another) {
-        this(another.basicType, another.isConst, another.isArray, another.isPointer, new ArrayList<>(another.dims));
+        this(another.basicType, another.isConst, another.isArray, another.isPointer, another.dims);
+        if (dims != null) {
+            dims = new ArrayList<>(another.dims);
+        }
     }
 
     public static Type Integer = new Type(BasicType.INT, false, false, false, null);

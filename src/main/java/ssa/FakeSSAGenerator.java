@@ -7,7 +7,6 @@ import dst.ds.CompUnit;
 import dst.ds.Decl;
 import ssa.ds.AllocaInst;
 import ssa.ds.BasicBlock;
-import ssa.ds.BasicBlockEntry;
 import ssa.ds.Func;
 import ssa.ds.FuncValue;
 import ssa.ds.GlobalVariable;
@@ -51,11 +50,11 @@ public class FakeSSAGenerator {
         ctx.module.funcs.add(func);
         FuncValue val = func.getValue();
         ctx.func_map.put(dstFunc, val);
-        
+
         // 入口基本块
         func.bbs = new LinkedList<>();
         // TODO BasicBlockEntry?
-        BasicBlock ent = new BasicBlock();
+        BasicBlock ent = new BasicBlock("entry");
         func.bbs.add(ent);
 
         // 函数参数

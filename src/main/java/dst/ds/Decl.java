@@ -4,6 +4,7 @@ import java.util.List;
 
 public class Decl extends BlockStatement {
     // Overall info
+    // type在语义分析时填入
     public Type type;
 
     public DeclType declType;
@@ -18,7 +19,9 @@ public class Decl extends BlockStatement {
     public String id; // name of the variable
     public List<Expr> dims; // 语义分析后转为List<Integer>存放到Type.dims中
     // public List<Integer> evaledDims;
-    public boolean isDimensionOmitted = false; // 函数参数为数组省略签名
+
+    // 函数参数为数组省略签名，因为语义分析的时候才填入Type，所以这里也需要一个成员
+    public boolean isDimensionOmitted = false;
 
     // Right hand side
     public InitValue initVal; // value of the variable
