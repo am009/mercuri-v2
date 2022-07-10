@@ -9,14 +9,14 @@ public class LogicExpr extends Expr {
 
     public AryType aryType;
     public BinaryExpr binaryExpr;
-    public UnaryExpr unaryExpr;
+    public Expr unaryExpr;
 
     public LogicExpr(BinaryExpr binaryExpr) {
         this.aryType = AryType.Binary;
         this.binaryExpr = binaryExpr;
     }
 
-    public LogicExpr(UnaryExpr unaryExpr) {
+    public LogicExpr(Expr unaryExpr) {
         this.aryType = AryType.Unary;
         this.unaryExpr = unaryExpr;
     }

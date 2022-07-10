@@ -45,11 +45,17 @@ public class Decl extends BlockStatement {
     }
 
     public static Decl fromArrayParam(String id, BasicType basicType, List<Expr> dims) {
-        return new Decl(DeclType.VAR, true, false, basicType, id, dims, null);
+        var ret = new Decl(DeclType.VAR, true, false, basicType, id, dims, null);
+        ret.isDimensionOmitted = true;
+        return ret;
     }
 
-    public Boolean isArray() {
-        return dims != null && !dims.isEmpty();
+    public boolean hasDims() {
+        return (dims != null && !dims.isEmpty());
+    }
+
+    public boolean isArray() {
+        return (dims != null && !dims.isEmpty()) || isDimensionOmitted;
     }
 
 }

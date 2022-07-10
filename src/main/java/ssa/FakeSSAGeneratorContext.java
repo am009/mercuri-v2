@@ -5,6 +5,7 @@ import java.util.Map;
 
 import dst.ds.LoopStatement;
 import ssa.ds.BasicBlock;
+import ssa.ds.Instruction;
 import ssa.ds.Module;
 import ssa.ds.Value;
 
@@ -29,6 +30,10 @@ public class FakeSSAGeneratorContext {
         varMap = new HashMap<>();
         funcMap = new HashMap<>();
         globVarMap = new HashMap<>();
+    }
+
+    public Instruction addToCurrent(Instruction i) {
+        return current.addBeforeTerminator(i);
     }
 
 }

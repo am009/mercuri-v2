@@ -99,7 +99,9 @@ public class FakeSSAGenerator {
         ctx.module.globs.add(gv);
         ctx.varMap.put(decl, gv);
         // 初始值
-        gv.init = visitConstInitVal(ctx, decl.type, decl.initVal);
+        if (decl.initVal != null) {
+            gv.init = visitConstInitVal(ctx, decl.type, decl.initVal);
+        }
     }
 
     // 处理initVal里都是ConstExpr的情况。语义分析的时候已经平坦化展开和eval过了，只需要取即可。
@@ -161,22 +163,27 @@ public class FakeSSAGenerator {
         func.bbs = new LinkedList<>();
         BasicBlock ent = new BasicBlock("entry");
         func.bbs.add(ent);
+        ctx.current = ent;
 
         // 函数参数
         // dstFunc.params.forEach(param -> visitFuncParamDecl(ctx, ));
         dstFunc.params.forEach(param -> {
+            var ref = new ParamValue(param.id, convertDstType(param.type));
+            ref.name = param.id;
             if (param.isArray()) {
                 // array参数不需要创建alloca指令
-                ctx.varMap.put(param, new ParamValue(param.id, convertDstType(param.type)));
+                ctx.varMap.put(param, ref);
             } else {
                 var alloc = new AllocaInst.Builder(ent).addType(convertDstType(param.type)).build();
+                alloc.name = param.id+"_";
+                ctx.addToCurrent(alloc);
                 ctx.varMap.put(param, alloc);
-                var para = new ParamValue(param.id, convertDstType(param.type));
-                new StoreInst.Builder(ent).addType(convertDstType(param.type)).addOperand(para, alloc);
+                var inst = new StoreInst.Builder(ent).addType(convertDstType(param.type)).addOperand(ref, alloc).build();
+                ctx.addToCurrent(inst);
             }
         });
 
-        ctx.current = ent;
+        
         dstFunc.body.statements.forEach(bs -> {visitDstStmt(ctx, func, bs);});
         // 指令生成是线性模型，比如int f(){if(){..} else {...}}我也需要在末尾加上一个基本块，保证是和if else同级的，
         // 如果最后一个基本块最后不是返回指令，加上返回指令。
@@ -279,7 +286,7 @@ public class FakeSSAGenerator {
             var r = visitDstExpr(ctx, curFunc, expr.right);
             Value[] arr = {l,r};
             handleCast(ctx, arr);
-            var ret = ctx.current.addBeforeTerminator(new BinopInst(ctx.current, arr[0].type, expr.op, arr[0], arr[1]));
+            var ret = ctx.addToCurrent(new BinopInst(ctx.current, arr[0].type, expr.op, arr[0], arr[1]));
             return ret;
         }
 
@@ -318,16 +325,29 @@ public class FakeSSAGenerator {
         assert !arr[1].type.isArray();
         if (arr[0].type.baseType != arr[1].type.baseType) {
             if (arr[0].type.baseType == PrimitiveTypeTag.INT && arr[1].type.baseType == PrimitiveTypeTag.FLOAT) {
-                arr[0] = ctx.current.addBeforeTerminator(new CastInst(ctx.current, arr[0]));
+                arr[0] = ctx.addToCurrent(new CastInst(ctx.current, arr[0]));
             } else if (arr[1].type.baseType == PrimitiveTypeTag.INT && arr[0].type.baseType == PrimitiveTypeTag.FLOAT) {
-                arr[1] = ctx.current.addBeforeTerminator(new CastInst(ctx.current, arr[1]));
+                arr[1] = ctx.addToCurrent(new CastInst(ctx.current, arr[1]));
             } else {
                 throw new UnsupportedOperationException();
             }
         }
     }
 
+    // 局部变量的Decl
     private void visitDstDecl(FakeSSAGeneratorContext ctx, ssa.ds.Func func, Decl decl) {
-        
+        // 生成alloca语句，即使是array也能一个指令解决
+        var alloc = new AllocaInst.Builder(ctx.current).addType(convertDstType(decl.type)).build();
+        ctx.addToCurrent(alloc);
+        alloc.name = decl.id+"_";
+        ctx.varMap.put(decl, alloc);
+        // 处理初始值
+        if (!decl.type.isArray) {
+            ConstantValue cv = convertEvaledValue(decl.initVal.evaledVal);
+            var inst = new StoreInst.Builder(ctx.current).addType(convertDstType(decl.type)).addOperand(cv, alloc).build();
+            ctx.addToCurrent(inst);
+        } else {
+            // TODO array memset to 0 and set content.
+        }
     }
 }

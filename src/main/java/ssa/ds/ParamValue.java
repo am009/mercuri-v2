@@ -1,7 +1,6 @@
 package ssa.ds;
 
-public class ParamValue extends Value{
-    public String name;
+public class ParamValue extends Value {
 
     public ParamValue(String name, Type t) {
         this.type = t;

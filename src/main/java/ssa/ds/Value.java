@@ -24,11 +24,13 @@ public class Value {
     // TODO replaceAllUseWith
 
     public String toValueString() {
+        if (type.baseType == PrimitiveTypeTag.VOID) {
+            return "";
+        }
         if (name != null) {
             return "%" + name.toString();
         } else {
             return "%?"; // 没有命名
         }
-        
     }
 }

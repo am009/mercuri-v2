@@ -63,28 +63,30 @@ public class SemanticAnalyzer {
         // Decl的dims必然可以编译期求值 之后存到Type里
         List<Integer> evaledDims = null;
 
-        if (decl.isArray()) {
+        if (decl.hasDims()) {
             // eval dims to evaledDims
             evaledDims = decl.dims.stream().map(i -> i.eval(ctx.scope).intValue).collect(Collectors.toList());
             // 确保是非负整数
             evaledDims.forEach(i -> {assert i > 0;});
 
-            // 将数组的初始化展开
-            assert decl.initVal.isArray;
-            InitValue def;
-            // 准备默认值
-            InitValType ty = decl.initVal.initType;
-            if (decl.basicType == BasicType.INT) {
-                def = InitValue.ofExpr(ty, new LiteralExpr(EvaluatedValue.ofInt(0)));
-            } else if (decl.basicType == BasicType.FLOAT) {
-                def = InitValue.ofExpr(ty, new LiteralExpr(EvaluatedValue.ofFloat(0)));
-            } else {
-                def = InitValue.ofExpr(ty, new LiteralExpr(EvaluatedValue.ofString("")));
+            if (decl.initVal != null) {
+                // 将数组的初始化展开
+                assert decl.initVal.isArray;
+                InitValue def;
+                // 准备默认值
+                InitValType ty = decl.initVal.initType;
+                if (decl.basicType == BasicType.INT) {
+                    def = InitValue.ofExpr(ty, new LiteralExpr(EvaluatedValue.ofInt(0)));
+                } else if (decl.basicType == BasicType.FLOAT) {
+                    def = InitValue.ofExpr(ty, new LiteralExpr(EvaluatedValue.ofFloat(0)));
+                } else {
+                    def = InitValue.ofExpr(ty, new LiteralExpr(EvaluatedValue.ofString("")));
+                }
+                var flattened = flattenInitVal(evaledDims, new LinkedList<InitValue>(decl.initVal.values), decl.initVal.initType, def);
+                Global.logger.trace("--- flatten " + decl.id + " ---");
+                Global.logger.trace(flattened.toString());
+                decl.initVal = flattened;
             }
-            var flattened = flattenInitVal(evaledDims, new LinkedList<InitValue>(decl.initVal.values), decl.initVal.initType, def);
-            Global.logger.trace("--- flatten " + decl.id + " ---");
-            Global.logger.trace(flattened.toString());
-            decl.initVal = flattened;
         }
 
         {
@@ -100,12 +102,17 @@ public class SemanticAnalyzer {
             visitInitValue(ctx, curFunc, decl.initVal);
         }
 
-        if (decl.declType == DeclType.CONST || curFunc == null) { // 全局变量的初始化值也是constExpr
+        if (decl.declType == DeclType.CONST) {
             if (decl.declType == DeclType.CONST && decl.initVal == null) {
                 throw new RuntimeException("constant must be initialized");
             }
             // 处理初始值，填充 InitValue.evaledVal
             evalInitValue(ctx.scope, decl.initVal);
+        }
+
+        if (curFunc == null && decl.initVal != null) { // 全局变量的初始化值也是constExpr
+            // 处理初始值，填充 InitValue.evaledVal
+            evalInitValue(ctx.scope, decl.initVal);            
         }
 
         var symbol = new DeclSymbol(decl);
@@ -159,7 +166,7 @@ public class SemanticAnalyzer {
                 throw new RuntimeException("cannot assign to constant");
             }
             if (!Type.isMatch(decl.decl.type, stmt.expr.type)) {
-                throw new RuntimeException("type mismatch");
+                Global.logger.warning("type mismatch in assignStmt, func "+ curFunc.getName() + ", var "+stmt.id);
             }
             stmt.symbol = decl;
             return;
@@ -243,7 +250,7 @@ public class SemanticAnalyzer {
             }
             visitDstExpr(ctx, curFunc, stmt.retval);
             if (!Type.isMatch(FuncType.toType(curFunc.func.retType), stmt.retval.type)) {
-                throw new RuntimeException("type mismatch");
+                Global.logger.warning("type mismatch on return stmt in "+curFunc.getName()+", probably downcast");
             }
 
             return;
@@ -268,8 +275,12 @@ public class SemanticAnalyzer {
             var funcSymbol = (FuncSymbol) symbol;
             expr.funcSymbol = funcSymbol;
 
-            if (funcSymbol.func.params.size() != expr.args.length) {
-                if (!(funcSymbol.func.isVariadic && funcSymbol.func.params.size() < expr.args.length)) {
+            int len = 0;
+            if (expr.args != null) {
+                len = expr.args.length;
+            }
+            if (funcSymbol.func.params.size() != len) {
+                if (!(funcSymbol.func.isVariadic && funcSymbol.func.params.size() < len)) {
                     throw new RuntimeException("function call argument count mismatch");
                 }
             }
@@ -279,8 +290,8 @@ public class SemanticAnalyzer {
                 var arg = expr.args[i];
                 visitDstExpr(ctx, curFunc, arg); // visit的同时设置类型
                 if (!Type.isMatch(param.type, arg.type)) {
-                    throw new RuntimeException(
-                            "function call of " + funcSymbol.getName() + " argument type mismatch at index " + i);
+                    Global.logger.warning(
+                            "function call of " + funcSymbol.getName() +" in " +curFunc.getName() + " argument type mismatch at index " + i + ". probably a downcast");
                 }
             }
             expr.setType(Type.fromFuncType(funcSymbol.func.retType));

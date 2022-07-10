@@ -148,7 +148,19 @@ public class AstExprVisitor extends SysyBaseVisitor<Expr> {
 
     public LiteralExpr visitNumber(NumberContext number, DstGeneratorContext ctx) {
         if (number.INT_CONSTANT() != null) {
-            var value = Integer.parseInt(number.getText());
+            String raw = number.getText();
+            Integer value;
+            if (raw.charAt(0) != '0' || raw.length() == 1) {
+                value = Integer.parseInt(raw, 10);
+            } else if (raw.charAt(1) == 'x' || raw.charAt(1) == 'X') {
+                value = Integer.parseInt(raw.substring(2), 16);
+            } else if (raw.charAt(1) == 'b' || raw.charAt(1) == 'B') {
+                value = Integer.parseInt(raw.substring(2), 2);
+            } else if (raw.charAt(1) <= '7' && raw.charAt(1) >= '0') {
+                value = Integer.parseInt(raw.substring(1), 8);
+            } else {
+                throw new NumberFormatException();
+            }
             return new LiteralExpr(EvaluatedValue.ofInt(value));
         } else if (number.FLOAT_CONSTANT() != null) {
             var value = Float.parseFloat(number.getText());
@@ -164,7 +176,12 @@ public class AstExprVisitor extends SysyBaseVisitor<Expr> {
     }
 
     public Expr[] visitFuncArgs(FuncArgsContext funcArgs, DstGeneratorContext ctx) {
-        return funcArgs.funcArg().stream().map(e -> this.visitFuncArg(e, ctx)).toArray(Expr[]::new);
+        if (funcArgs != null) {
+            return funcArgs.funcArg().stream().map(e -> this.visitFuncArg(e, ctx)).toArray(Expr[]::new);
+        } else { // 没有参数
+            return null;
+        }
+        
     }
 
     /**
@@ -211,7 +228,7 @@ public class AstExprVisitor extends SysyBaseVisitor<Expr> {
         if (ast.logicOrExp() == null) {
             return this.visitLogicAndExpr(ast.logicAndExpr(), ctx);
         } else {
-            Expr left = this.visitLogicOrExpr(ast, ctx);
+            Expr left = this.visitLogicOrExpr(ast.logicOrExp(), ctx);
             Expr right = this.visitLogicAndExpr(ast.logicAndExpr(), ctx);
             var op = BinaryOp.LOG_OR;
             return new LogicExpr(new BinaryExpr(left, right, op));
@@ -228,7 +245,7 @@ public class AstExprVisitor extends SysyBaseVisitor<Expr> {
         if (logicAndExpr.logicAndExpr() == null) {
             return this.visitEqExpr(logicAndExpr.eqExpr(), ctx);
         } else {
-            Expr left = this.visitLogicAndExpr(logicAndExpr, ctx);
+            Expr left = this.visitLogicAndExpr(logicAndExpr.logicAndExpr(), ctx);
             Expr right = this.visitEqExpr(logicAndExpr.eqExpr(), ctx);
             var op = BinaryOp.LOG_AND;
             return new LogicExpr(new BinaryExpr(left, right, op));
@@ -264,14 +281,11 @@ public class AstExprVisitor extends SysyBaseVisitor<Expr> {
             if (exprGeneric instanceof BinaryExpr) {
 
                 return new LogicExpr((BinaryExpr) exprGeneric);
+            } else {
+                return new LogicExpr((Expr) exprGeneric);
             }
-            if (exprGeneric instanceof UnaryExpr) {
-                return new LogicExpr((UnaryExpr) exprGeneric);
-            }
-            ctx.panic("Unreachable");
-            return null;
         } else {
-            Expr left = this.visitRelExpr(relExpr, ctx);
+            Expr left = this.visitRelExpr(relExpr.relExpr(), ctx);
             Expr right = this.visitAddExpr(relExpr.addExpr(), ctx);
             var op = BinaryOp.fromString(relExpr.getChild(1).getText());
             return new LogicExpr(new BinaryExpr(left, right, op));

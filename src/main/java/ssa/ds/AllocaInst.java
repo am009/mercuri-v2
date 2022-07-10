@@ -13,12 +13,20 @@ public class AllocaInst extends Instruction {
         }
 
         public Builder addType(Type t) {
+            assert !t.isPointer; // 不支持指针
             inst.ty = t;
+            inst.type = inst.ty.clone();
+            inst.type.isPointer = true; // 返回值是指针类型
             return this;
         }
 
         public AllocaInst build() {
             return inst;
         }
+    }
+
+    @Override
+    public String getOpString() {
+        return "alloca " + ty.toString();
     }
 }

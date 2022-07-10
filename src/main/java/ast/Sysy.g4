@@ -50,8 +50,8 @@ fragment HEX_CONSTANT_FLOAT
     ;
 
 fragment HEX_FRAC_CONST
-    : [0-9a-fA-F]? '.' [0-9a-fA-F]
-    | [0-9a-fA-F] '.'
+    : [0-9a-fA-F]* '.' [0-9a-fA-F]+
+    | [0-9a-fA-F]+ '.'
     ;
 
 fragment BIN_EXP_PART
