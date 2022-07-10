@@ -1,6 +1,6 @@
 package ssa.ds;
 
-public class CallInst extends BaseInst {
+public class CallInst extends Instruction {
     public FuncValue func;
 
     public static class Builder {

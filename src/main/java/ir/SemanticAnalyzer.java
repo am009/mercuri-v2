@@ -5,11 +5,9 @@ import ir.ds.FuncSymbol;
 import ir.ds.Module;
 import ir.ds.Scope;
 
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
-import java.util.StringJoiner;
 import java.util.stream.Collectors;
 
 import ds.Global;
@@ -91,10 +89,9 @@ public class SemanticAnalyzer {
 
         {
             var basicType = decl.basicType;
-            var isConst = decl.declType == DeclType.CONST;
             var isArray = decl.isArray();
             var isVarlen = false;
-            decl.type = new Type(basicType, isConst, isArray, isVarlen, evaledDims);
+            decl.type = new Type(basicType, isArray, isVarlen, evaledDims);
             decl.type.isPointer = decl.isDimensionOmitted; // for func param
         }
 
@@ -103,8 +100,8 @@ public class SemanticAnalyzer {
             visitInitValue(ctx, curFunc, decl.initVal);
         }
 
-        if (decl.declType == DeclType.CONST) {
-            if (decl.initVal == null) {
+        if (decl.declType == DeclType.CONST || curFunc == null) { // 全局变量的初始化值也是constExpr
+            if (decl.declType == DeclType.CONST && decl.initVal == null) {
                 throw new RuntimeException("constant must be initialized");
             }
             // 处理初始值，填充 InitValue.evaledVal
@@ -270,13 +267,17 @@ public class SemanticAnalyzer {
             }
             var funcSymbol = (FuncSymbol) symbol;
             expr.funcSymbol = funcSymbol;
-            // TODO: var args
+
             if (funcSymbol.func.params.size() != expr.args.length) {
-                throw new RuntimeException("function call argument count mismatch");
+                if (!(funcSymbol.func.isVariadic && funcSymbol.func.params.size() < expr.args.length)) {
+                    throw new RuntimeException("function call argument count mismatch");
+                }
             }
+            // TODO expr.args setType
             for (var i = 0; i < funcSymbol.func.params.size(); i++) {
                 var param = funcSymbol.func.params.get(i);
                 var arg = expr.args[i];
+                visitDstExpr(ctx, curFunc, arg); // visit的同时设置类型
                 if (!Type.isMatch(param.type, arg.type)) {
                     throw new RuntimeException(
                             "function call of " + funcSymbol.getName() + " argument type mismatch at index " + i);
@@ -327,7 +328,7 @@ public class SemanticAnalyzer {
                 }
             }
             if (expr.isArray) {
-                Type base = new Type(declSymbol.decl.type);
+                Type base = declSymbol.decl.type.clone();
                 // no need for bound check
                 expr.indices.forEach(i -> {base.dims.remove(0);});
                 if (base.dims.size() == 0) {

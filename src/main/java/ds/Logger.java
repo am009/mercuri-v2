@@ -161,6 +161,7 @@ public class Logger implements AutoCloseable {
     }
 
     // Logging methods with formatting
+    // 如果仅有格式化字符串版本，则当打印的字符串里面包含了意外的格式化符号时String.format会出错。
     public void log(LogLevel level, String format, Object... args) {
         this.log(level, String.format(format, args));
     }
@@ -169,19 +170,39 @@ public class Logger implements AutoCloseable {
         this.log(LogLevel.INFO, format, args);
     }
 
+    public void info(String format) {
+        this.log(LogLevel.INFO, format);
+    }
+
     public void debug(String format, Object... args) {
         this.log(LogLevel.DEBUG, format, args);
+    }
+
+    public void debug(String format) {
+        this.log(LogLevel.DEBUG, format);
     }
 
     public void trace(String format, Object... args) {
         this.log(LogLevel.TRACE, format, args);
     }
 
+    public void trace(String format) {
+        this.log(LogLevel.TRACE, format);
+    }
+
     public void error(String format, Object... args) {
         this.log(LogLevel.ERROR, format, args);
     }
 
+    public void error(String format) {
+        this.log(LogLevel.ERROR, format);
+    }
+
     public void warning(String format, Object... args) {
         this.log(LogLevel.WARNING, format, args);
+    }
+
+    public void warning(String format) {
+        this.log(LogLevel.WARNING, format);
     }
 }

@@ -1,6 +1,5 @@
 package dst;
 
-import java.util.List;
 import java.util.stream.Collectors;
 
 import ast.SysyBaseVisitor;

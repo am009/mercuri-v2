@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.StringJoiner;
 
 import dst.ds.FuncType;
-import dst.ds.Type;
 
 // declaration (bbs==null) or definition
 public class Func {
@@ -43,7 +42,11 @@ public class Func {
         builder.append(retType.toString()).append(" ");
         builder.append("@").append(name);
         var sj = new StringJoiner(", ", "(", ")");
-        argType.forEach(ty -> sj.add(ty.toString()));
+        if (bbs == null) {
+            argType.forEach(pv -> sj.add(pv.type.toString()));
+        } else {
+            argType.forEach(pv -> sj.add(pv.toString()));
+        }
         if (isVariadic) {
             sj.add("...");
         }

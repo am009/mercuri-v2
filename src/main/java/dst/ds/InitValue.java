@@ -2,9 +2,6 @@ package dst.ds;
 
 import java.util.List;
 import java.util.StringJoiner;
-import java.util.stream.Collectors;
-
-import ir.ds.Scope;
 
 // InitVal → Exp | '{' [ InitVal { ',' InitVal } ] '
 // 所以有两种情况，叶子节点的Exp，和作为array的情况

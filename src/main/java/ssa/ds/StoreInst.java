@@ -1,10 +1,7 @@
 package ssa.ds;
 
-import dst.ds.Type;
-
 // store <ty> <value>, <ty>* <pointer>
-public class StoreInst extends BaseInst {
-    public Type ty;
+public class StoreInst extends Instruction {
     public Value val;
     public Value ptr;
 
@@ -18,7 +15,7 @@ public class StoreInst extends BaseInst {
         }
 
         public Builder addType(Type t) {
-            inst.ty = t;
+            inst.type = t;
             return this;
         }
 

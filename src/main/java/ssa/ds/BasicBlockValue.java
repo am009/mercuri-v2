@@ -1,5 +1,5 @@
 package ssa.ds;
 
-public class BasicBlockValue {
+public class BasicBlockValue extends Value {
 
 }

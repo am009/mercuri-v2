@@ -3,8 +3,6 @@ package ssa.ds;
 import java.util.ArrayList;
 import java.util.List;
 
-import dst.ds.Type;
-
 public class Value {
     public Type type;
     private List<Use> uses = new ArrayList<>();
@@ -23,4 +21,9 @@ public class Value {
         uses.remove(use);
     }
 
+    // TODO replaceAllUseWith
+
+    public String toValueString() {
+        return "%" + name.toString();
+    }
 }

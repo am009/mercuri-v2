@@ -2,17 +2,45 @@ package ssa;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.List;
 
+import dst.ds.AssignStatement;
+import dst.ds.BasicType;
+import dst.ds.BinaryExpr;
+import dst.ds.Block;
+import dst.ds.BlockStatement;
+import dst.ds.BreakStatement;
 import dst.ds.CompUnit;
+import dst.ds.ContinueStatement;
 import dst.ds.Decl;
+import dst.ds.DeclType;
+import dst.ds.EvaluatedValue;
+import dst.ds.Expr;
+import dst.ds.ExprStatement;
+import dst.ds.FuncCall;
+import dst.ds.FuncType;
+import dst.ds.IfElseStatement;
+import dst.ds.InitValue;
+import dst.ds.LValExpr;
+import dst.ds.LiteralExpr;
+import dst.ds.LogicExpr;
+import dst.ds.LoopStatement;
+import dst.ds.ReturnStatement;
+import dst.ds.UnaryExpr;
 import ssa.ds.AllocaInst;
 import ssa.ds.BasicBlock;
+import ssa.ds.ConstantValue;
 import ssa.ds.Func;
 import ssa.ds.FuncValue;
 import ssa.ds.GlobalVariable;
 import ssa.ds.Module;
 import ssa.ds.ParamValue;
+import ssa.ds.PrimitiveTypeTag;
+import ssa.ds.RetInst;
 import ssa.ds.StoreInst;
+import ssa.ds.TerminatorInst;
+import ssa.ds.Type;
+import ssa.ds.Value;
 
 public class FakeSSAGenerator {
     public Module process(CompUnit dst) {
@@ -30,30 +58,104 @@ public class FakeSSAGenerator {
 
     private void visitBuiltinDstFunc(FakeSSAGeneratorContext ctx, dst.ds.Func dstFunc) {
         var pvs = new ArrayList<ParamValue>();
-        dstFunc.params.forEach(decl -> {pvs.add(new ParamValue(decl.id, decl.type));});
+        dstFunc.params.forEach(decl -> {pvs.add(new ParamValue(decl.id, convertDstType(decl.type)));});
         Func func = new Func(dstFunc.id, dstFunc.retType, pvs);
         if (dstFunc.isVariadic != null) {
             func.setIsVariadic(dstFunc.isVariadic);
         }
         ctx.module.builtins.add(func);
         FuncValue val = func.getValue();
-        ctx.func_map.put(dstFunc, val);
+        ctx.funcMap.put(dstFunc, val);
+    }
+
+    private Type convertDstType(dst.ds.Type type) {
+        if (type.basicType == BasicType.STRING_LITERAL) {
+            // string literal应该不可能是array
+            assert !type.isArray;
+            return Type.String;
+        } else if (type.basicType == null) {
+            return Type.Void;
+        } else {
+            PrimitiveTypeTag tag;
+            if (type.basicType == BasicType.INT) {
+                tag = PrimitiveTypeTag.INT;
+            } else if (type.basicType == BasicType.FLOAT) {
+                tag = PrimitiveTypeTag.FLOAT;
+            } else {
+                throw new RuntimeException("Unknown basicType " + type.basicType.toString());
+            }
+            boolean isPointer = type.isPointer;
+            List<Integer> dims = type.dims;
+            return new Type(tag, dims, isPointer);
+        }
+    }
+
+    private void visitGlobalDecl(FakeSSAGeneratorContext ctx, Decl decl) {
+        GlobalVariable gv = new GlobalVariable(decl.id, convertDstType(decl.type));
+        gv.isConst = decl.declType == DeclType.CONST;
+        ctx.module.globs.add(gv);
+        ctx.varMap.put(decl, gv);
+        // 初始值
+        gv.init = visitConstInitVal(ctx, decl.type, decl.initVal);
+    }
+
+    // 处理initVal里都是ConstExpr的情况。语义分析的时候已经平坦化展开和eval过了，只需要取即可。
+    private ConstantValue visitConstInitVal(FakeSSAGeneratorContext ctx, dst.ds.Type type, InitValue initVal) {
+        if (!type.isArray) {
+            return convertEvaledValue(initVal.evaledVal);
+        } else {
+            return convertArrayEvaledValue(convertDstType(type), initVal);
+        }
+    }
+
+    private static ConstantValue convertArrayEvaledValue(Type type, InitValue initVal) {
+        if (!type.isArray()) { // 简单情况
+            return convertEvaledValue(initVal.evaledVal);
+        } else { // 递归
+            List<ConstantValue> result = new ArrayList<>();
+            int currentSize = type.dims.get(0);
+            // 语义检查后应该initVal的层次结构和type的dims匹配
+            assert initVal.values.size() == currentSize;
+            for (int i=0;i<currentSize;i++) {
+                var v = convertArrayEvaledValue(type.subArrType(), initVal.values.get(i));
+                result.add(v);
+            }
+            return new ConstantValue(type, result);
+        }
+    }
+
+    private static ConstantValue convertEvaledValue(EvaluatedValue evaledVal) {
+        if (evaledVal.basicType == BasicType.STRING_LITERAL) { // String转i8数组
+            List<ConstantValue> chars = new ArrayList<>();
+            for (byte c: evaledVal.stringValue.getBytes()) {
+                chars.add(ConstantValue.ofChar(c));
+            }
+            chars.add(ConstantValue.ofChar(0));
+            return new ConstantValue(new Type(PrimitiveTypeTag.CHAR, List.of(chars.size()), false), chars);
+        }
+        switch (evaledVal.basicType) {
+            case FLOAT:
+                return ConstantValue.ofFloat(evaledVal.floatValue);
+            case INT:
+                return ConstantValue.ofInt(evaledVal.intValue);
+            default:
+                throw new RuntimeException("Unknown basicType "+evaledVal.basicType.toString());
+        }
     }
 
     private void visitDstFunc(FakeSSAGeneratorContext ctx, dst.ds.Func dstFunc) {
         var pvs = new ArrayList<ParamValue>();
-        dstFunc.params.forEach(decl -> {pvs.add(new ParamValue(decl.id, decl.type));});
+        dstFunc.params.forEach(decl -> {pvs.add(new ParamValue(decl.id, convertDstType(decl.type)));});
         Func func = new Func(dstFunc.id, dstFunc.retType, pvs);
         if (dstFunc.isVariadic != null) {
             func.setIsVariadic(dstFunc.isVariadic);
         }
         ctx.module.funcs.add(func);
         FuncValue val = func.getValue();
-        ctx.func_map.put(dstFunc, val);
+        ctx.funcMap.put(dstFunc, val);
 
         // 入口基本块
         func.bbs = new LinkedList<>();
-        // TODO BasicBlockEntry?
         BasicBlock ent = new BasicBlock("entry");
         func.bbs.add(ent);
 
@@ -62,22 +164,145 @@ public class FakeSSAGenerator {
         dstFunc.params.forEach(param -> {
             if (param.isArray()) {
                 // array参数不需要创建alloca指令
-                ctx.var_map.put(param, new ParamValue(param.id, param.type));
+                ctx.varMap.put(param, new ParamValue(param.id, convertDstType(param.type)));
             } else {
-                var alloc = new AllocaInst.Builder(ent).addType(param.type).build();
-                ctx.var_map.put(param, alloc);
-                var para = new ParamValue(param.id, param.type);
-                new StoreInst.Builder(ent).addType(param.type).addOperand(para, alloc);
+                var alloc = new AllocaInst.Builder(ent).addType(convertDstType(param.type)).build();
+                ctx.varMap.put(param, alloc);
+                var para = new ParamValue(param.id, convertDstType(param.type));
+                new StoreInst.Builder(ent).addType(convertDstType(param.type)).addOperand(para, alloc);
             }
         });
-        // TODO function body
+
+        ctx.current = ent;
+        dstFunc.body.statements.forEach(bs -> {visitDstStmt(ctx, func, bs);});
+        // 指令生成是线性模型，比如int f(){if(){..} else {...}}我也需要在末尾加上一个基本块，保证是和if else同级的，
+        // 如果最后一个基本块最后不是返回指令，加上返回指令。
+        var current = ctx.current;
+        // 如果基本块没有用TerminatorInst结尾，加入RetInst
+        if (current.insts.size() == 0 || !(current.insts.get(current.insts.size()-1) instanceof TerminatorInst)) {
+            var b  = new RetInst.Builder(current);
+            if (func.retType == FuncType.VOID) {
+                b.addType(Type.Void);
+            } else if (func.retType == FuncType.INT) {
+                b.addType(Type.Int);
+                b.addOperand(ConstantValue.ofInt(0));
+            } else if (func.retType == FuncType.FLOAT) {
+                b.addType(Type.Float);
+                b.addOperand(ConstantValue.ofFloat(0f));
+            } else {
+                throw new RuntimeException("Unknown FuncType.");
+            }
+        }
+        // 如果基本块以非RetInst结尾，报错。
+        if (!(current.insts.get(current.insts.size()-1) instanceof RetInst)) {
+            throw new RuntimeException("Function " + dstFunc.id + ": generated code not end with return.");
+        }
+        // TODO 修复基本块之间的双向链接？？(trivial compiler)
     }
 
-    private void visitGlobalDecl(FakeSSAGeneratorContext ctx, Decl decl) {
-        GlobalVariable gv = new GlobalVariable(decl.id, decl.type);
-        gv.isConst = decl.type.isConst;
-        ctx.module.globs.add(gv);
-        ctx.var_map.put(decl, gv);
+    private void visitDstStmt(FakeSSAGeneratorContext ctx, Func curFunc, BlockStatement stmt_) {
+        if (stmt_ instanceof AssignStatement) {
+            var stmt = (AssignStatement) stmt_;
+            
+            return;
+        }
+
+        if (stmt_ instanceof Block) {
+            var stmt = (Block) stmt_;
+            stmt.statements.forEach(innerStmt -> this.visitDstStmt(ctx, curFunc, innerStmt));
+            return;
+        }
+
+        if (stmt_ instanceof BreakStatement) {
+            var stmt = (BreakStatement) stmt_;
+
+            return;
+        }
+
+        if (stmt_ instanceof ContinueStatement) {
+            var stmt = (ContinueStatement) stmt_;
+
+            return;
+        }
+
+        if (stmt_ instanceof Decl) {
+            var stmt = (Decl) stmt_;
+            this.visitDstDecl(ctx, curFunc, stmt);
+            return;
+        }
+
+        if (stmt_ instanceof ExprStatement) {
+            var stmt = (ExprStatement) stmt_;
+            this.visitDstExpr(ctx, curFunc, stmt.expr);
+            return;
+        }
+
+        if (stmt_ instanceof IfElseStatement) {
+            var stmt = (IfElseStatement) stmt_;
+            this.visitDstExpr(ctx, curFunc, stmt.condition);
+            this.visitDstStmt(ctx, curFunc, stmt.thenBlock);
+            if (stmt.elseBlock != null) {
+                this.visitDstStmt(ctx, curFunc, stmt.elseBlock);
+            }
+            return;
+        }
+
+        if (stmt_ instanceof LoopStatement) {
+            var stmt = (LoopStatement) stmt_;
+            var cond = this.visitDstExpr(ctx, curFunc, stmt.condition);
+            
+            this.visitDstStmt(ctx, curFunc, stmt.bodyBlock);
+
+            return;
+        }
+
+        if (stmt_ instanceof ReturnStatement) {
+            var stmt = (ReturnStatement) stmt_;
+            var val = visitDstExpr(ctx, curFunc, stmt.retval);
+            var b = new RetInst.Builder(ctx.current);
+            b.addType(val.type);
+            if (!val.type.equals(Type.Void)) {
+                b.addOperand(val);
+            }
+            return;
+        }
+    }
+
+    private Value visitDstExpr(FakeSSAGeneratorContext ctx, Func curFunc, Expr expr_) {
+        if (expr_ instanceof BinaryExpr) {
+            var expr = (BinaryExpr) expr_;
+            var l = visitDstExpr(ctx, curFunc, expr.left);
+            var r = visitDstExpr(ctx, curFunc, expr.right);
+            
+            // return;
+        }
+
+        if (expr_ instanceof FuncCall) {
+            var expr = (FuncCall) expr_;
+            // return;
+        }
+
+        if (expr_ instanceof LiteralExpr) {
+            var expr = (LiteralExpr) expr_;
+            var constant = convertEvaledValue(expr.value);
+            return constant;
+        }
+
+        if (expr_ instanceof LogicExpr) {
+            var expr = (LogicExpr) expr_;
+            // return;
+        }
+
+        if (expr_ instanceof LValExpr) {
+            var expr = (LValExpr) expr_;
+            // return;
+        }
+
+        if (expr_ instanceof UnaryExpr) {
+            var expr = (UnaryExpr) expr_;
+            // return;
+        }
+        throw new RuntimeException("Unknown Expr type.");
     }
 
     private void visitDstDecl(FakeSSAGeneratorContext ctx, ssa.ds.Func func, Decl decl) {

@@ -1,4 +1,6 @@
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -54,6 +56,9 @@ public class Compiler {
         Global.logger.trace("--- ssa ---");
         Global.logger.trace(ssa.toString());
         // !! END_IF
+        if (args.getOutFile().endsWith(".ll")) { // 生成LLVM IR
+            Files.writeString(Path.of(args.getOutFile()), ssa.toString());
+        }
     }
 
     private static void initLogger() throws IOException {

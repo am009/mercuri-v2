@@ -5,35 +5,34 @@ import java.util.List;
 
 import ds.Global;
 
-public class Type {
+public class Type implements Cloneable {
 
     public BasicType basicType;
-    public Boolean isConst;
     public Boolean isArray;
     public Boolean isPointer; // if true, first dim is omited
     public List<Integer> dims;
 
-    public Type(BasicType basicType, Boolean isConst, Boolean isArray, Boolean isPointer,
+    public Type(BasicType basicType, Boolean isArray, Boolean isPointer,
             List<Integer> dims) {
         this.basicType = basicType;
-        this.isConst = isConst;
         this.isArray = isArray;
         this.isPointer = isPointer;
         this.dims = dims;
     }
 
-    // deep copy constructor for lvalexpr type calculation
-    public Type(Type another) {
-        this(another.basicType, another.isConst, another.isArray, another.isPointer, another.dims);
-        if (dims != null) {
-            dims = new ArrayList<>(another.dims);
+    @Override
+    public Type clone() {
+        var ret = new Type(basicType, isArray, isPointer, dims);
+        if (ret.dims != null) { // deep copy
+            ret.dims = new ArrayList<>(ret.dims);
         }
+        return ret;
     }
 
-    public static Type Integer = new Type(BasicType.INT, false, false, false, null);
-    public static Type Float = new Type(BasicType.FLOAT, false, false, false, null);
-    public static Type String = new Type(BasicType.STRING_LITERAL, false, false, false, null);
-    public static Type Void = new Type(null, false, false, false, null);
+    public static Type Integer = new Type(BasicType.INT, false, false, null);
+    public static Type Float = new Type(BasicType.FLOAT, false, false, null);
+    public static Type String = new Type(BasicType.STRING_LITERAL, false, false, null);
+    public static Type Void = new Type(null, false, false, null);
 
     public static Type fromFuncType(FuncType ft) {
         switch (ft) {
@@ -113,16 +112,6 @@ public class Type {
                 return Type.String;
             default:
                 throw new IllegalArgumentException("Unknown basic type: " + basicType2);
-        }
-    }
-    
-    @Override
-    public java.lang.String toString() {
-        if (!isArray) {
-            return basicType.toString();
-        } else {
-            // TODO Array type to llvm ir;
-            return super.toString();
         }
     }
 }

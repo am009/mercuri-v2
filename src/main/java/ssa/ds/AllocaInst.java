@@ -1,8 +1,6 @@
 package ssa.ds;
 
-import dst.ds.Type;
-
-public class AllocaInst extends BaseInst {
+public class AllocaInst extends Instruction {
     public Type ty;
     public long numElement = 1;
     

@@ -2,7 +2,7 @@ package ssa.ds;
 
 import dst.ds.BinaryOp;
 
-public class BinopInst extends BaseInst {
+public class BinopInst extends Instruction {
     public BinaryOp op;
 
     public BinopInst(BasicBlock parent, BinaryOp op, Value lhs, Value rhs) {

@@ -7,6 +7,7 @@ public class Decl extends BlockStatement {
     // type在语义分析时填入
     public Type type;
 
+    // 是否是const通过decl.declType == DeclType.CONST判断
     public DeclType declType;
 
     public Boolean isParam;

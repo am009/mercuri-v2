@@ -1,20 +1,18 @@
 package ssa.ds;
 
-import dst.ds.Type;
-
 public class ParamValue extends Value{
-    public Type ty;
     public String name;
 
     public ParamValue(String name, Type t) {
-        this.ty = t;
+        this.type = t;
         this.name = name;
     }
 
+    // 函数定义时调用
     public String toString() {
         var b = new StringBuilder();
-        b.append(ty.toString()).append(" ");
-        b.append(name);
+        b.append(type.toString());
+        b.append(" %").append(name);
         return b.toString();
     }
 }

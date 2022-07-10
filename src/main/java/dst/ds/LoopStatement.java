@@ -1,6 +1,7 @@
 package dst.ds;
 
 
+// 代表 while(cond) {Block}结构
 public class LoopStatement extends BlockStatement{
     public LogicExpr condition;
     public Block bodyBlock;
