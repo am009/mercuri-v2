@@ -10,7 +10,6 @@ public class AllocaInst extends Instruction {
         public Builder(BasicBlock parent) {
             inst = new AllocaInst();
             inst.parent = parent;
-            parent.insts.add(inst);
         }
 
         public Builder addType(Type t) {

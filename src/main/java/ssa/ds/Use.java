@@ -2,8 +2,8 @@ package ssa.ds;
 
 // Use relationship from user to value
 public class Use {
-    User user;
-    Value value;
+    public User user;
+    public Value value;
 
     public Use(User user, Value value) {
         this.user = user;

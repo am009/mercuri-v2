@@ -24,6 +24,11 @@ public class Value {
     // TODO replaceAllUseWith
 
     public String toValueString() {
-        return "%" + name.toString();
+        if (name != null) {
+            return "%" + name.toString();
+        } else {
+            return "%?"; // 没有命名
+        }
+        
     }
 }

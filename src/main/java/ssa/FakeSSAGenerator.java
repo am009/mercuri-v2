@@ -29,6 +29,8 @@ import dst.ds.ReturnStatement;
 import dst.ds.UnaryExpr;
 import ssa.ds.AllocaInst;
 import ssa.ds.BasicBlock;
+import ssa.ds.BinopInst;
+import ssa.ds.CastInst;
 import ssa.ds.ConstantValue;
 import ssa.ds.Func;
 import ssa.ds.FuncValue;
@@ -54,6 +56,7 @@ public class FakeSSAGenerator {
         ir.ds.Module.builtinFuncs.forEach(func -> visitBuiltinDstFunc(ctx, func));
         dst.decls.forEach(decl -> this.visitGlobalDecl(ctx, decl));
         dst.funcs.forEach(func -> this.visitDstFunc(ctx, func));
+        new NumValueNamer().visitModule(ctx.module);
     }
 
     private void visitBuiltinDstFunc(FakeSSAGeneratorContext ctx, dst.ds.Func dstFunc) {
@@ -192,6 +195,7 @@ public class FakeSSAGenerator {
             } else {
                 throw new RuntimeException("Unknown FuncType.");
             }
+            current.insts.add(b.build());
         }
         // 如果基本块以非RetInst结尾，报错。
         if (!(current.insts.get(current.insts.size()-1) instanceof RetInst)) {
@@ -273,8 +277,10 @@ public class FakeSSAGenerator {
             var expr = (BinaryExpr) expr_;
             var l = visitDstExpr(ctx, curFunc, expr.left);
             var r = visitDstExpr(ctx, curFunc, expr.right);
-            
-            // return;
+            Value[] arr = {l,r};
+            handleCast(ctx, arr);
+            var ret = ctx.current.addBeforeTerminator(new BinopInst(ctx.current, arr[0].type, expr.op, arr[0], arr[1]));
+            return ret;
         }
 
         if (expr_ instanceof FuncCall) {
@@ -303,6 +309,22 @@ public class FakeSSAGenerator {
             // return;
         }
         throw new RuntimeException("Unknown Expr type.");
+    }
+
+    // 传递len为2的value array
+    private void handleCast(FakeSSAGeneratorContext ctx, Value[] arr) {
+        assert arr.length == 2;
+        assert !arr[0].type.isArray();
+        assert !arr[1].type.isArray();
+        if (arr[0].type.baseType != arr[1].type.baseType) {
+            if (arr[0].type.baseType == PrimitiveTypeTag.INT && arr[1].type.baseType == PrimitiveTypeTag.FLOAT) {
+                arr[0] = ctx.current.addBeforeTerminator(new CastInst(ctx.current, arr[0]));
+            } else if (arr[1].type.baseType == PrimitiveTypeTag.INT && arr[0].type.baseType == PrimitiveTypeTag.FLOAT) {
+                arr[1] = ctx.current.addBeforeTerminator(new CastInst(ctx.current, arr[1]));
+            } else {
+                throw new UnsupportedOperationException();
+            }
+        }
     }
 
     private void visitDstDecl(FakeSSAGeneratorContext ctx, ssa.ds.Func func, Decl decl) {

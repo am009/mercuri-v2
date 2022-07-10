@@ -11,7 +11,6 @@ public class StoreInst extends Instruction {
         public Builder(BasicBlock parent) {
             inst = new StoreInst();
             inst.parent = parent;
-            parent.insts.add(inst);
         }
 
         public Builder addType(Type t) {

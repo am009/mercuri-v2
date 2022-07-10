@@ -14,12 +14,13 @@ public class BasicBlock {
         insts = new ArrayList<>();
     }
 
-    public void addBeforeTerminator(Instruction i) {
+    public Instruction addBeforeTerminator(Instruction i) {
         if (insts.size() == 0 || !(insts.get(insts.size()-1) instanceof TerminatorInst)) {
             insts.add(i);
         } else {
             insts.add(insts.size()-1, i);
         }
+        return i;
     }
 
     @Override

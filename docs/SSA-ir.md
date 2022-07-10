@@ -5,7 +5,8 @@
 
 顶层模块暂时叫Module吧，不要和ir/ds里的Module弄混了。生成的类暂时叫FakeSSAGenerator吧，防止有人误解是直出ssa。
 
-设计时如果不知道类该有什么成员时，参照LLVM IR (https://llvm.org/docs/LangRef.html )
+设计时如果不知道类该有什么成员时，参照LLVM IR (https://llvm.org/docs/LangRef.html )同时看
+https://mapping-high-level-constructs-to-llvm-ir.readthedocs.io/en/latest/README.html
 
 生成时，局部变量先全部使用alloca指令，之后再通过mem2reg转SSA，mem2reg模仿的是mimic（TODO 加链接）。
 
