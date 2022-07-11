@@ -9,7 +9,7 @@ import ir.ds.Scope;
 
 public class LValExpr extends Expr {
     public String id;
-    public boolean isArray;
+    public boolean isArray; // 是否有方括号表达式
     public List<Expr> indices;
 
     public DeclSymbol declSymbol;

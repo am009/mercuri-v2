@@ -33,7 +33,12 @@ public class FakeSSAGeneratorContext {
     }
 
     public Instruction addToCurrent(Instruction i) {
-        return current.addBeforeTerminator(i);
+        return current.addBeforeJump(i);
+    }
+
+    int strInd = 0;
+    public int getStrInd() {
+        return strInd++;
     }
 
 }

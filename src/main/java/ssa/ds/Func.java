@@ -32,6 +32,17 @@ public class Func {
         return this;
     }
 
+    public Type getRetType() {
+        if (retType == FuncType.VOID) {
+            return Type.Void;
+        } else if (retType == FuncType.INT) {
+            return Type.Int;
+        } else if (retType == FuncType.FLOAT) {
+            return Type.Float;
+        }
+        throw new RuntimeException("Get function return type failed.");
+    }
+
     public String toString() {
         var builder = new StringBuilder();
         if (bbs == null) {
@@ -61,6 +72,23 @@ public class Func {
             builder.append(sj2.toString());
             builder.append("\n}");
         }
+        return builder.toString();
+    }
+
+    // for vararg func call
+    public String getFnTyString() {
+        var builder = new StringBuilder();
+        builder.append(retType.toString()).append(" ");
+        var sj = new StringJoiner(", ", "(", ")");
+        if (bbs == null) {
+            argType.forEach(pv -> sj.add(pv.type.toString()));
+        } else {
+            argType.forEach(pv -> sj.add(pv.toString()));
+        }
+        if (isVariadic) {
+            sj.add("...");
+        }
+        builder.append(sj.toString());
         return builder.toString();
     }
 }

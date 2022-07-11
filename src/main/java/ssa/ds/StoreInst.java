@@ -14,11 +14,6 @@ public class StoreInst extends Instruction {
             inst.parent = parent;
         }
 
-        public Builder addType(Type t) {
-            inst.type = t;
-            return this;
-        }
-
         public Builder addOperand(Value val, Value ptr) {
             inst.oprands.add(new Use(inst, val));
             inst.oprands.add(new Use(inst, ptr));

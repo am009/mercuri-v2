@@ -25,25 +25,25 @@ public class ConstantValue extends Value {
 
     // for simple value
     public static ConstantValue ofInt(int i) {
-        var ret = new ConstantValue(Type.Int, null);
+        var ret = new ConstantValue(Type.Int.clone(), null);
         ret.val = Integer.valueOf(i);
         return ret;
     }
 
     public static ConstantValue ofBoolean(boolean i) {
-        var ret = new ConstantValue(Type.Boolean, null);
+        var ret = new ConstantValue(Type.Boolean.clone(), null);
         ret.val = Integer.valueOf(i ? 1 : 0);
         return ret;
     }
 
     public static ConstantValue ofChar(int i) {
-        var ret = new ConstantValue(Type.Char, null);
+        var ret = new ConstantValue(Type.Char.clone(), null);
         ret.val = Integer.valueOf(i);
         return ret;
     }
 
     public static ConstantValue ofFloat(Float f) {
-        var ret = new ConstantValue(Type.Float, null);
+        var ret = new ConstantValue(Type.Float.clone(), null);
         ret.val = f;
         return ret;
     }
@@ -55,7 +55,7 @@ public class ConstantValue extends Value {
         if (!isArray()) {
             b.append(val.toString());
         } else {
-            var sj = new StringJoiner(",", "[", "]");
+            var sj = new StringJoiner(", ", "[", "]");
             for (var c: children) {
                 sj.add(c.toString());
             }

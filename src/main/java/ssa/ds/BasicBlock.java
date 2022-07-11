@@ -23,6 +23,17 @@ public class BasicBlock {
         return i;
     }
 
+    public Instruction addBeforeJump(Instruction i) {
+        if (insts.size() == 0 || !(insts.get(insts.size()-1) instanceof TerminatorInst)) {
+            insts.add(i);
+        } else if (insts.get(insts.size()-1) instanceof RetInst) {
+            insts.add(i);
+        } else {
+            insts.add(insts.size()-1, i);
+        }
+        return i;
+    }
+
     @Override
     public String toString() {
         var b = new StringBuilder();

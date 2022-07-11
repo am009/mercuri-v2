@@ -32,6 +32,7 @@ import dst.ds.CastExpr.CastType;
 import ssa.ds.AllocaInst;
 import ssa.ds.BasicBlock;
 import ssa.ds.BinopInst;
+import ssa.ds.CallInst;
 import ssa.ds.CastInst;
 import ssa.ds.CastOp;
 import ssa.ds.ConstantValue;
@@ -181,7 +182,7 @@ public class FakeSSAGenerator {
                 alloc.name = param.id+"_";
                 ctx.addToCurrent(alloc);
                 ctx.varMap.put(param, alloc);
-                var inst = new StoreInst.Builder(ent).addType(convertDstType(param.type)).addOperand(ref, alloc).build();
+                var inst = new StoreInst.Builder(ent).addOperand(ref, alloc).build();
                 ctx.addToCurrent(inst);
             }
         });
@@ -278,6 +279,8 @@ public class FakeSSAGenerator {
             if (!val.type.equals(Type.Void)) {
                 b.addOperand(val);
             }
+            ctx.addToCurrent(b.build());
+            // TODO 如果current末尾有jump可以消除掉？
             return;
         }
     }
@@ -292,30 +295,41 @@ public class FakeSSAGenerator {
             } else if (expr.castType == CastType.F2I) {
                 op = CastOp.F2I;
             }
-            var cast = new CastInst(ctx.current, val, op);
+            var cast = new CastInst.Builder(ctx.current, val).addOp(op).build();
             cast.comments = expr.reason;
             ctx.addToCurrent(cast);
-            return null;
+            return cast;
         }
 
         if (expr_ instanceof BinaryExpr) {
             var expr = (BinaryExpr) expr_;
             var l = visitDstExpr(ctx, curFunc, expr.left);
             var r = visitDstExpr(ctx, curFunc, expr.right);
-            Value[] arr = {l,r};
-            var ret = ctx.addToCurrent(new BinopInst(ctx.current, arr[0].type, expr.op, arr[0], arr[1]));
+            var ret = ctx.addToCurrent(new BinopInst(ctx.current, l.type, expr.op, l, r));
             return ret;
         }
 
         if (expr_ instanceof FuncCall) {
             var expr = (FuncCall) expr_;
-            return null;
+            var fv = (FuncValue) ctx.funcMap.get(expr.funcSymbol.func);
+            var cb = new CallInst.Builder(ctx.current, fv);
+            if (expr.args != null) {
+                for(int i=0;i<expr.args.length;i++) {
+                    cb.addArg(visitDstExpr(ctx, curFunc, expr.args[i]));
+                }
+            }
+            return ctx.addToCurrent(cb.build());
         }
 
         if (expr_ instanceof LiteralExpr) {
             var expr = (LiteralExpr) expr_;
+            // 字符串放到全局变量里，然后返回i8*
             var constant = convertEvaledValue(expr.value);
-            return constant;
+            var gv = new GlobalVariable(".str."+ctx.getStrInd(), constant.type.clone());
+            gv.init = constant;
+            ctx.module.globs.add(gv);
+            // LLVM 是用 get element ptr 获取起始i8* 地址，我这里直接bitcast应该也行
+            return ctx.addToCurrent(new CastInst.Builder(ctx.current, gv).strBitCast(gv.type).build());
         }
 
         if (expr_ instanceof LogicExpr) {
@@ -325,6 +339,15 @@ public class FakeSSAGenerator {
 
         if (expr_ instanceof LValExpr) {
             var expr = (LValExpr) expr_;
+            if (!expr.isArray) {
+                if (expr.declSymbol.decl.isGlobal) {
+                    // TODO 生成load语句
+                } else {
+                    return ctx.varMap.get(expr.declSymbol.decl);
+                }
+            } else {
+                // TODO 生成GetElementPtr
+            }
             return null;
         }
 
@@ -352,7 +375,7 @@ public class FakeSSAGenerator {
         // 语义分析没有计算evaledVal
         if (!decl.type.isArray) {
             var cv = visitDstExpr(ctx, curFunc, decl.initVal.value);
-            var inst = new StoreInst.Builder(ctx.current).addType(convertDstType(decl.type)).addOperand(cv, alloc).build();
+            var inst = new StoreInst.Builder(ctx.current).addOperand(cv, alloc).build();
             ctx.addToCurrent(inst);
         } else {
             // TODO array memset to 0 and getelementptr and set content.

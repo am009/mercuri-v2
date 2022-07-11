@@ -4,6 +4,7 @@ import ssa.ds.BasicBlock;
 import ssa.ds.Func;
 import ssa.ds.Instruction;
 import ssa.ds.Module;
+import ssa.ds.Type;
 import ssa.ds.Value;
 
 // basicBlock的label还是生成的时候去命名，在ctx里放个index防止重名
@@ -29,7 +30,7 @@ public class NumValueNamer {
     }
 
     public void visitValue(Value i) {
-        if (i.name == null) {
+        if ((!i.type.equals(Type.Void)) && i.name == null) {
             i.name = String.valueOf(count++);
         }
     }

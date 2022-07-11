@@ -1,43 +1,121 @@
-[TRACE] Args: { inFile='test/spec/003-return-expr.c', outFile='/root/run/testcase.s', outType='ASM'}
+[TRACE] Args: { inFile='test/spec/005-string-literal.c', outFile='/root/run/testcase.s', outType='ASM'}
 [TRACE] --- dst ---
 [TRACE] {
-  "file": "test/spec/003-return-expr.c",
-  "decls": [],
+  "file": "test/spec/005-string-literal.c",
+  "decls": [
+    {
+      "declType": "VAR",
+      "isParam": false,
+      "isGlobal": true,
+      "basicType": "INT",
+      "id": "g",
+      "isDimensionOmitted": false,
+      "initVal": {
+        "value": {
+          "expr": {
+            "value": {
+              "basicType": "INT",
+              "intValue": -2147483648
+            },
+            "isConst": true
+          },
+          "op": "NEG",
+          "isConst": false
+        },
+        "isArray": false,
+        "initType": "VAR_EXPR"
+      }
+    },
+    {
+      "declType": "VAR",
+      "isParam": false,
+      "isGlobal": true,
+      "basicType": "FLOAT",
+      "id": "e",
+      "isDimensionOmitted": false,
+      "initVal": {
+        "value": {
+          "value": {
+            "basicType": "INT",
+            "intValue": 3
+          },
+          "isConst": true
+        },
+        "isArray": false,
+        "initType": "VAR_EXPR"
+      }
+    },
+    {
+      "declType": "VAR",
+      "isParam": false,
+      "isGlobal": true,
+      "basicType": "FLOAT",
+      "id": "f",
+      "isDimensionOmitted": false,
+      "initVal": {
+        "value": {
+          "left": {
+            "value": {
+              "basicType": "INT",
+              "intValue": 1
+            },
+            "isConst": true
+          },
+          "right": {
+            "value": {
+              "basicType": "FLOAT",
+              "floatValue": 1.0
+            },
+            "isConst": true
+          },
+          "op": "ADD",
+          "isConst": false
+        },
+        "isArray": false,
+        "initType": "VAR_EXPR"
+      }
+    }
+  ],
   "funcs": [
     {
       "retType": "INT",
       "id": "main",
-      "params": [],
+      "params": [
+        {
+          "declType": "VAR",
+          "isParam": true,
+          "isGlobal": false,
+          "basicType": "INT",
+          "id": "x",
+          "isDimensionOmitted": false
+        }
+      ],
       "body": {
         "statements": [
           {
+            "expr": {
+              "funcName": "putf",
+              "args": [
+                {
+                  "value": {
+                    "basicType": "STRING_LITERAL",
+                    "stringValue": "\"%d\""
+                  },
+                  "isConst": true
+                },
+                {
+                  "id": "x",
+                  "isArray": false,
+                  "indices": [],
+                  "isConst": false
+                }
+              ],
+              "isConst": false
+            }
+          },
+          {
             "retval": {
-              "left": {
-                "value": {
-                  "basicType": "INT",
-                  "intValue": 1
-                },
-                "isConst": true
-              },
-              "right": {
-                "left": {
-                  "value": {
-                    "basicType": "INT",
-                    "intValue": 2
-                  },
-                  "isConst": true
-                },
-                "right": {
-                  "value": {
-                    "basicType": "INT",
-                    "intValue": 3
-                  },
-                  "isConst": true
-                },
-                "op": "MUL",
-                "isConst": false
-              },
-              "op": "ADD",
+              "funcName": "getint",
               "isConst": false
             }
           }
@@ -71,25 +149,32 @@
 [TRACE] enter scope
 [TRACE] leave scope
 [TRACE] --- ssa ---
-[TRACE] source_filename = "test/spec/003-return-expr.c"
+[TRACE] source_filename = "test/spec/005-string-literal.c"
 
 declare i32 @getint()
 declare i32 @getch()
 declare float @getfloat()
-declare i32 @getarray(i32)
-declare i32 @getfarray(float)
+declare i32 @getarray(i32*)
+declare i32 @getfarray(float*)
 declare void @putint(i32)
 declare void @putch(i32)
 declare void @putfloat(float)
-declare void @putarray(i32, i32)
-declare void @putfarray(i32, float)
+declare void @putarray(i32, i32*)
+declare void @putfarray(i32, float*)
 declare void @putf(i8*, ...)
 
+@g = global i32 -2147483648
+@e = global float 3.0
+@f = global float 2.0
+@.str.0 = global [5 x i8] [i8 34,i8 37,i8 100,i8 34,i8 0]
 
-define i32 @main(){
+define i32 @main(i32 %x){
 entry:
-  %0 = mul i32 2, 3
-  %1 = add i32 1, %0
-  ret i32 0
+  %x_ = alloca i32 
+  store i32 %x, i32* %x_
+  %0 = bitcast [5 x i8]* @.str.0 to i8*
+  call void (i8*, ...) @putf(i8* %0, i32* %x_)
+  %1 = call i32 @getint()
+  ret i32 %1
 
 }

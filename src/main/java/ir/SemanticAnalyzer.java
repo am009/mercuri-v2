@@ -295,14 +295,15 @@ public class SemanticAnalyzer {
                     throw new RuntimeException("function call argument count mismatch");
                 }
             }
-            // TODO expr.args setType
-            for (var i = 0; i < funcSymbol.func.params.size(); i++) {
-                var param = funcSymbol.func.params.get(i);
+            for (var i = 0; i < len; i++) {
                 var arg = expr.args[i];
                 visitDstExpr(ctx, curFunc, arg); // visit的同时设置类型
-                if (!Type.isMatch(param.type, arg.type)) { // 类型转换
-                    var cast = new CastExpr(arg, getCastType(param.type, arg.type), "func param");
-                    expr.args[i] = cast;
+                if (i < funcSymbol.func.params.size()) { // non vararg
+                    var param = funcSymbol.func.params.get(i);
+                    if (!Type.isMatch(param.type, arg.type)) { // 类型转换
+                        var cast = new CastExpr(arg, getCastType(param.type, arg.type), "func param");
+                        expr.args[i] = cast;
+                    }
                 }
             }
             expr.setType(Type.fromFuncType(funcSymbol.func.retType));
@@ -345,10 +346,10 @@ public class SemanticAnalyzer {
                 throw new RuntimeException("undefined symbol: " + expr.id);
             }
             if (symbol instanceof FuncSymbol) {
-                throw new RuntimeException("cannot assign to function");
+                throw new RuntimeException("cannot access function");
             }
             if (!(symbol instanceof DeclSymbol)) {
-                throw new RuntimeException("cannot assign to non-decl symbol");
+                throw new RuntimeException("cannot access non-decl symbol");
             }
             var declSymbol = (DeclSymbol) symbol;
             expr.declSymbol = declSymbol;

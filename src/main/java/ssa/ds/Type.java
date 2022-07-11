@@ -66,7 +66,7 @@ public class Type implements Cloneable {
             var b = new StringBuilder("[");
             b.append(dims.get(0)).append(" x ");
             dims.remove(0);
-            b.append(recursiveToString(baseType, dims, isPointer));
+            b.append(recursiveToString(baseType, dims, false));
             b.append("]");
             if (isPointer) {b.append("*");}
             return b.toString();
