@@ -151,7 +151,7 @@ public class AstExprVisitor extends SysyBaseVisitor<Expr> {
             String raw = number.getText();
             Integer value;
             if (raw.charAt(0) != '0' || raw.length() == 1) {
-                value = Integer.parseInt(raw, 10);
+                value = (int) Long.parseLong(raw, 10); // 支持 -2147483648
             } else if (raw.charAt(1) == 'x' || raw.charAt(1) == 'X') {
                 value = Integer.parseInt(raw.substring(2), 16);
             } else if (raw.charAt(1) == 'b' || raw.charAt(1) == 'B') {

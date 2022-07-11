@@ -17,6 +17,7 @@ import dst.ds.BinaryExpr;
 import dst.ds.Block;
 import dst.ds.BlockStatement;
 import dst.ds.BreakStatement;
+import dst.ds.CastExpr;
 import dst.ds.CompUnit;
 import dst.ds.ContinueStatement;
 import dst.ds.Decl;
@@ -37,6 +38,7 @@ import dst.ds.LoopStatement;
 import dst.ds.ReturnStatement;
 import dst.ds.Type;
 import dst.ds.UnaryExpr;
+import dst.ds.CastExpr.CastType;
 import dst.ds.LogicExpr.AryType;
 
 public class SemanticAnalyzer {
@@ -100,10 +102,16 @@ public class SemanticAnalyzer {
         // 先填入type，再递归访问expr。
         if (decl.initVal != null) {
             visitInitValue(ctx, curFunc, decl.initVal);
+            if (!decl.type.isArray) { // 插入类型转换节点
+                if (!Type.isMatch(decl.type, decl.initVal.value.type)) {
+                    var cast = new CastExpr(decl.initVal.value, getCastType(decl.type, decl.initVal.value.type), "decl initial value");
+                    decl.initVal.value = cast;
+                }
+            }
         }
 
-        if (decl.declType == DeclType.CONST) {
-            if (decl.declType == DeclType.CONST && decl.initVal == null) {
+        if (decl.isConst()) {
+            if (decl.isConst() && decl.initVal == null) {
                 throw new RuntimeException("constant must be initialized");
             }
             // 处理初始值，填充 InitValue.evaledVal
@@ -151,24 +159,16 @@ public class SemanticAnalyzer {
     private void visitDstStmt(SemanticAnalysisContext ctx, FuncSymbol curFunc, BlockStatement stmt_) {
         if (stmt_ instanceof AssignStatement) {
             var stmt = (AssignStatement) stmt_;
-            var symbol = ctx.scope.resolve(stmt.id);
-            if (symbol == null) {
-                throw new RuntimeException("undefined symbol: " + stmt.id);
-            }
-            if (symbol instanceof FuncSymbol) {
-                throw new RuntimeException("cannot assign to function");
-            }
-            if (!(symbol instanceof DeclSymbol)) {
-                throw new RuntimeException("cannot assign to non-decl symbol");
-            }
-            var decl = (DeclSymbol) symbol;
-            if (decl.decl.declType == DeclType.CONST) {
+            visitDstExpr(ctx, curFunc, stmt.left); // set left type
+            var decl = stmt.left.declSymbol.decl;
+            if (decl.isConst()) { // 这里才能确定LValExpr在左边
                 throw new RuntimeException("cannot assign to constant");
             }
-            if (!Type.isMatch(decl.decl.type, stmt.expr.type)) {
-                Global.logger.warning("type mismatch in assignStmt, func "+ curFunc.getName() + ", var "+stmt.id);
+            visitDstExpr(ctx, curFunc, stmt.expr); // set right type
+            if (!Type.isMatch(stmt.left.type, stmt.expr.type)) { // 右边cast为左边的类型
+                var cast = new CastExpr(stmt.expr, getCastType(stmt.left.type, stmt.expr.type), "assign");
+                stmt.expr = cast;
             }
-            stmt.symbol = decl;
             return;
         }
 
@@ -250,7 +250,8 @@ public class SemanticAnalyzer {
             }
             visitDstExpr(ctx, curFunc, stmt.retval);
             if (!Type.isMatch(FuncType.toType(curFunc.func.retType), stmt.retval.type)) {
-                Global.logger.warning("type mismatch on return stmt in "+curFunc.getName()+", probably downcast");
+                var cast = new CastExpr(stmt.retval, getCastType(FuncType.toType(curFunc.func.retType), stmt.retval.type), "func ret");
+                stmt.retval = cast;
             }
 
             return;
@@ -262,6 +263,16 @@ public class SemanticAnalyzer {
             var expr = (BinaryExpr) expr_;
             visitDstExpr(ctx, curFunc, expr.left);
             visitDstExpr(ctx, curFunc, expr.right);
+            if (expr.left.type.basicType != expr.right.type.basicType) { // 类型提升
+                var c = getCastType(expr.left.type, expr.right.type);
+                if (c == CastType.F2I) { // 左i右f
+                    var cast = new CastExpr(expr.left, CastExpr.CastType.I2F, "expr promote");
+                    expr.left = cast;
+                } else {
+                    var cast = new CastExpr(expr.right, CastExpr.CastType.I2F, "expr promote");
+                    expr.right = cast;
+                }
+            }
             expr.setType(Type.getCommon(expr.left.type, expr.right.type));
             return;
         }
@@ -289,9 +300,9 @@ public class SemanticAnalyzer {
                 var param = funcSymbol.func.params.get(i);
                 var arg = expr.args[i];
                 visitDstExpr(ctx, curFunc, arg); // visit的同时设置类型
-                if (!Type.isMatch(param.type, arg.type)) {
-                    Global.logger.warning(
-                            "function call of " + funcSymbol.getName() +" in " +curFunc.getName() + " argument type mismatch at index " + i + ". probably a downcast");
+                if (!Type.isMatch(param.type, arg.type)) { // 类型转换
+                    var cast = new CastExpr(arg, getCastType(param.type, arg.type), "func param");
+                    expr.args[i] = cast;
                 }
             }
             expr.setType(Type.fromFuncType(funcSymbol.func.retType));
@@ -309,6 +320,16 @@ public class SemanticAnalyzer {
             if (expr.aryType == AryType.Binary) {
                 visitDstExpr(ctx, curFunc, expr.binaryExpr.left);
                 visitDstExpr(ctx, curFunc, expr.binaryExpr.right);
+                if (expr.binaryExpr.left.type.basicType != expr.binaryExpr.right.type.basicType) { // 类型提升
+                    var c = getCastType(expr.binaryExpr.left.type, expr.binaryExpr.right.type);
+                    if (c == CastType.F2I) { // 左i右f
+                        var cast = new CastExpr(expr.binaryExpr.left, CastExpr.CastType.I2F, "expr promote");
+                        expr.binaryExpr.left = cast;
+                    } else {
+                        var cast = new CastExpr(expr.binaryExpr.right, CastExpr.CastType.I2F, "expr promote");
+                        expr.binaryExpr.right = cast;
+                    }
+                }
                 expr.setType(Type.getCommon(expr.binaryExpr.left.type, expr.binaryExpr.right.type));
             } else {
                 visitDstExpr(ctx, curFunc, expr.unaryExpr);
@@ -359,6 +380,16 @@ public class SemanticAnalyzer {
             expr.setType(expr.expr.type);
             return;
         }
+    }
+
+    public CastExpr.CastType getCastType(Type to, Type from) {
+        assert !to.isArray && !from.isArray;
+        if (to.basicType == BasicType.INT && from.basicType ==  BasicType.FLOAT) {
+            return CastExpr.CastType.F2I;
+        } else if (to.basicType == BasicType.FLOAT && from.basicType ==  BasicType.INT) {
+            return CastExpr.CastType.I2F;
+        }
+        throw new RuntimeException("Cannot get cast type");
     }
 
     // 递归调用visitDstExpr

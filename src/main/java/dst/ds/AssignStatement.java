@@ -6,9 +6,7 @@ import ir.ds.DeclSymbol;
 
 public class AssignStatement extends BlockStatement {
     // left
-    public String id;
-    public boolean isArray;
-    public List<Expr> indexExprs;
+    public LValExpr left;
     // right
     public Expr expr;
 
@@ -16,16 +14,12 @@ public class AssignStatement extends BlockStatement {
     public DeclSymbol symbol;
 
     public AssignStatement(String id, boolean isArray, List<Expr> indexExprs, Expr expr) {
-        this.id = id;
-        this.isArray = isArray;
-        this.indexExprs = indexExprs;
+        left = new LValExpr(id, isArray, indexExprs);
         this.expr = expr;
     }
 
     public AssignStatement(LValExpr lValExpr, Expr expr) {
-        this.id = lValExpr.id;
-        this.isArray = lValExpr.isArray;
-        this.indexExprs = lValExpr.indices;
+        left = lValExpr;
         this.expr = expr;
     }
 }

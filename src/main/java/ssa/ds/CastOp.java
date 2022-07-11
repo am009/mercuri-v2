@@ -7,4 +7,5 @@ public enum CastOp {
     SEXT,
     TRUNC, // down cast
     I2F, // sitofp
+    F2I, // fptosi
 }

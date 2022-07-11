@@ -10,6 +10,7 @@ import dst.ds.BinaryExpr;
 import dst.ds.Block;
 import dst.ds.BlockStatement;
 import dst.ds.BreakStatement;
+import dst.ds.CastExpr;
 import dst.ds.CompUnit;
 import dst.ds.ContinueStatement;
 import dst.ds.Decl;
@@ -27,10 +28,12 @@ import dst.ds.LogicExpr;
 import dst.ds.LoopStatement;
 import dst.ds.ReturnStatement;
 import dst.ds.UnaryExpr;
+import dst.ds.CastExpr.CastType;
 import ssa.ds.AllocaInst;
 import ssa.ds.BasicBlock;
 import ssa.ds.BinopInst;
 import ssa.ds.CastInst;
+import ssa.ds.CastOp;
 import ssa.ds.ConstantValue;
 import ssa.ds.Func;
 import ssa.ds.FuncValue;
@@ -95,7 +98,7 @@ public class FakeSSAGenerator {
 
     private void visitGlobalDecl(FakeSSAGeneratorContext ctx, Decl decl) {
         GlobalVariable gv = new GlobalVariable(decl.id, convertDstType(decl.type));
-        gv.isConst = decl.declType == DeclType.CONST;
+        gv.isConst = decl.isConst();
         ctx.module.globs.add(gv);
         ctx.varMap.put(decl, gv);
         // 初始值
@@ -280,19 +283,33 @@ public class FakeSSAGenerator {
     }
 
     private Value visitDstExpr(FakeSSAGeneratorContext ctx, Func curFunc, Expr expr_) {
+        if (expr_ instanceof CastExpr) {
+            var expr = (CastExpr) expr_;
+            var val = visitDstExpr(ctx, curFunc, expr.child);
+            CastOp op = null;
+            if (expr.castType == CastType.I2F) {
+                op = CastOp.I2F;
+            } else if (expr.castType == CastType.F2I) {
+                op = CastOp.F2I;
+            }
+            var cast = new CastInst(ctx.current, val, op);
+            cast.comments = expr.reason;
+            ctx.addToCurrent(cast);
+            return null;
+        }
+
         if (expr_ instanceof BinaryExpr) {
             var expr = (BinaryExpr) expr_;
             var l = visitDstExpr(ctx, curFunc, expr.left);
             var r = visitDstExpr(ctx, curFunc, expr.right);
             Value[] arr = {l,r};
-            handleCast(ctx, arr);
             var ret = ctx.addToCurrent(new BinopInst(ctx.current, arr[0].type, expr.op, arr[0], arr[1]));
             return ret;
         }
 
         if (expr_ instanceof FuncCall) {
             var expr = (FuncCall) expr_;
-            // return;
+            return null;
         }
 
         if (expr_ instanceof LiteralExpr) {
@@ -303,51 +320,43 @@ public class FakeSSAGenerator {
 
         if (expr_ instanceof LogicExpr) {
             var expr = (LogicExpr) expr_;
-            // return;
+            return null;
         }
 
         if (expr_ instanceof LValExpr) {
             var expr = (LValExpr) expr_;
-            // return;
+            return null;
         }
 
         if (expr_ instanceof UnaryExpr) {
             var expr = (UnaryExpr) expr_;
-            // return;
+            return null;
         }
         throw new RuntimeException("Unknown Expr type.");
     }
 
-    // 传递len为2的value array
-    private void handleCast(FakeSSAGeneratorContext ctx, Value[] arr) {
-        assert arr.length == 2;
-        assert !arr[0].type.isArray();
-        assert !arr[1].type.isArray();
-        if (arr[0].type.baseType != arr[1].type.baseType) {
-            if (arr[0].type.baseType == PrimitiveTypeTag.INT && arr[1].type.baseType == PrimitiveTypeTag.FLOAT) {
-                arr[0] = ctx.addToCurrent(new CastInst(ctx.current, arr[0]));
-            } else if (arr[1].type.baseType == PrimitiveTypeTag.INT && arr[0].type.baseType == PrimitiveTypeTag.FLOAT) {
-                arr[1] = ctx.addToCurrent(new CastInst(ctx.current, arr[1]));
-            } else {
-                throw new UnsupportedOperationException();
-            }
-        }
-    }
-
     // 局部变量的Decl
-    private void visitDstDecl(FakeSSAGeneratorContext ctx, ssa.ds.Func func, Decl decl) {
+    private void visitDstDecl(FakeSSAGeneratorContext ctx, ssa.ds.Func curFunc, Decl decl) {
+        // 是非array的Const变量则不需要生成语句，直接后面用ConstantValue即可。
+        if (!decl.type.isArray && decl.isConst()) {
+            ConstantValue cv = convertEvaledValue(decl.initVal.evaledVal);
+            ctx.varMap.put(decl, cv);
+            return;
+        }
         // 生成alloca语句，即使是array也能一个指令解决
         var alloc = new AllocaInst.Builder(ctx.current).addType(convertDstType(decl.type)).build();
         ctx.addToCurrent(alloc);
         alloc.name = decl.id+"_";
         ctx.varMap.put(decl, alloc);
-        // 处理初始值
+        // 处理非Const普通变量的初始值，可能是复杂表达式。
+        // 语义分析没有计算evaledVal
         if (!decl.type.isArray) {
-            ConstantValue cv = convertEvaledValue(decl.initVal.evaledVal);
+            var cv = visitDstExpr(ctx, curFunc, decl.initVal.value);
             var inst = new StoreInst.Builder(ctx.current).addType(convertDstType(decl.type)).addOperand(cv, alloc).build();
             ctx.addToCurrent(inst);
         } else {
-            // TODO array memset to 0 and set content.
+            // TODO array memset to 0 and getelementptr and set content.
+
         }
     }
 }

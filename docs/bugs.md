@@ -7,4 +7,4 @@ exp 展开成变量时，走的是`PrimaryExp → '(' Exp ')' | LVal | Numbe`，
 
 ### 坑点
 
-TODO 解决`-2147483648`当作unaryop和number时，数字超过int大小的相关的解析问题
+DONE 解决`-2147483648`当作unaryop和number时，数字超过int大小的相关的解析问题

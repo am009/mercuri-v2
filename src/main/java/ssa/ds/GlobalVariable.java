@@ -30,11 +30,10 @@ public class GlobalVariable extends Value {
             b.append("global ");
         }
         
-        // b.append(type.toString());
+        b.append(varType.toString());
         if (init != null) {
-            b.append(init.toString());
+            b.append(" ").append(init.toValueString());
         } else {
-            b.append(varType.toString());
             b.append(" zeroinitializer");
         }
         b.append("\n");

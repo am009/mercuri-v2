@@ -40,6 +40,10 @@ public class Decl extends BlockStatement {
         this.initVal = initVal;
     }
 
+    public boolean isConst() {
+        return declType == DeclType.CONST;
+    }
+
     public static Decl fromSimpleParam(String id, BasicType basicType) {
         return new Decl(DeclType.VAR, true, false, basicType, id, null, null);
     }

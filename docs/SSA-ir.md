@@ -12,6 +12,13 @@ https://mapping-high-level-constructs-to-llvm-ir.readthedocs.io/en/latest/README
 
 考虑使用Basic Block Argument 替代Phi指令 TODO 加资料
 
+TODO
+1. 字符串收集起来放到Module的全局变量里。
+1. 控制流相关生成，更多语句的生成
+1. array的初始化生成（等写了函数调用生成之后）
+1. 加入Phi节点，转SSA
+
+
 ### 基础
 
 指令Instruction类为各种指令的基类，指令分为可以在基本块内的普通指令和分割基本块（只能放在基本块末尾）的TerminatorInstruction（包含Branch，Jump和Ret）。
@@ -85,7 +92,3 @@ Context里有一个current指针，指向当前基本块。语句生成结束后
 比如生成if语句这种需要基本块结构的情况，先生成计算条件的语句和跳转指令，指向if和else两个基本块。然后首先将current指向if的基本块，然后递归visit if块生成语句，然后再将current指向else块，递归调用visit生成else块内的语句。最后由于没有和if语句同级的块，需要再生成一个exit块，将if和else无条件跳转到这个块，然后将current恢复到这个块。
 
 由于控制流语句可能会提前生成后续结构，所以生成的时候允许current结尾是无条件跳转，插入时插入到中间。首先split basic block，即将无条件跳转放到新的单独的BasicBlock，原来的BasicBlock作为Entry，新的BasicBlock作为Exit。（或者使用BasicBlock.addBeforeTerminator直接插入到中间）
-
-TODO
-0. 确实是要这种TypedConstant结构，每个子层次都有自己的类型。
-1. 字符串收集起来放到Module的全局变量里。GlobalVariable如何能表示字符串？i8数组。
