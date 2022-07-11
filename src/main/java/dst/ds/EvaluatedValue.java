@@ -56,6 +56,29 @@ public class EvaluatedValue {
         return evaluatedValue;
     }
 
+    public static EvaluatedValue getDefault(BasicType b) {
+        if (b == BasicType.INT) {
+            return EvaluatedValue.ofInt(0);
+        } else if (b == BasicType.FLOAT) {
+            return EvaluatedValue.ofFloat(0);
+        } else if (b == BasicType.STRING_LITERAL) {
+            return EvaluatedValue.ofString("");
+        }
+        throw new UnsupportedOperationException();
+    }
+
+    public boolean isDefault() {
+        if (basicType == BasicType.INT) {
+            return intValue.equals(0);
+        } else if (basicType == BasicType.FLOAT) {
+            // return floatValue.equals(0.0f);
+            return Math.signum(floatValue) == 0;
+        } else if (basicType == BasicType.STRING_LITERAL) {
+            return stringValue.equals("");
+        }
+        throw new UnsupportedOperationException();
+    }
+
     @Override
     public String toString() {
         switch (basicType) {

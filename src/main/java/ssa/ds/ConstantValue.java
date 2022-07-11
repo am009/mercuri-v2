@@ -70,7 +70,7 @@ public class ConstantValue extends Value {
         if (!isArray()) {
             b.append(val.toString());
         } else {
-            var sj = new StringJoiner(",", "[", "]");
+            var sj = new StringJoiner(", ", "[", "]");
             for (var c: children) {
                 sj.add(c.toString());
             }

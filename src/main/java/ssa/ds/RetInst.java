@@ -10,7 +10,7 @@ public class RetInst extends TerminatorInst {
 
     public RetInst(BasicBlock parent) {
         this.parent = parent;
-        // 从Value那边继承的Type就直接是void，防止本指令的返回值被使用。
+        // 防止本指令的返回值被使用。
         type = Type.Void;
     }
 

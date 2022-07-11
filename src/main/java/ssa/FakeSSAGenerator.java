@@ -38,7 +38,9 @@ import ssa.ds.CastOp;
 import ssa.ds.ConstantValue;
 import ssa.ds.Func;
 import ssa.ds.FuncValue;
+import ssa.ds.GetElementPtr;
 import ssa.ds.GlobalVariable;
+import ssa.ds.LoadInst;
 import ssa.ds.Module;
 import ssa.ds.ParamValue;
 import ssa.ds.PrimitiveTypeTag;
@@ -98,10 +100,15 @@ public class FakeSSAGenerator {
     }
 
     private void visitGlobalDecl(FakeSSAGeneratorContext ctx, Decl decl) {
+        if ((!decl.isArray()) && decl.isConst()) { // 只有这个不用生成全局变量
+            // initVal必然不为null
+            ctx.globVarMap.put(decl, convertEvaledValue(decl.initVal.evaledVal));
+            return;
+        }
         GlobalVariable gv = new GlobalVariable(decl.id, convertDstType(decl.type));
         gv.isConst = decl.isConst();
         ctx.module.globs.add(gv);
-        ctx.varMap.put(decl, gv);
+        ctx.globVarMap.put(decl, gv);
         // 初始值
         if (decl.initVal != null) {
             gv.init = visitConstInitVal(ctx, decl.type, decl.initVal);
@@ -275,7 +282,7 @@ public class FakeSSAGenerator {
             var stmt = (ReturnStatement) stmt_;
             var val = visitDstExpr(ctx, curFunc, stmt.retval);
             var b = new RetInst.Builder(ctx.current);
-            b.addType(val.type);
+            b.addType(curFunc.getRetType());
             if (!val.type.equals(Type.Void)) {
                 b.addOperand(val);
             }
@@ -323,13 +330,16 @@ public class FakeSSAGenerator {
 
         if (expr_ instanceof LiteralExpr) {
             var expr = (LiteralExpr) expr_;
-            // 字符串放到全局变量里，然后返回i8*
             var constant = convertEvaledValue(expr.value);
-            var gv = new GlobalVariable(".str."+ctx.getStrInd(), constant.type.clone());
-            gv.init = constant;
-            ctx.module.globs.add(gv);
-            // LLVM 是用 get element ptr 获取起始i8* 地址，我这里直接bitcast应该也行
-            return ctx.addToCurrent(new CastInst.Builder(ctx.current, gv).strBitCast(gv.type).build());
+            if (expr.value.basicType == BasicType.STRING_LITERAL) {
+                // 字符串放到全局变量里，然后返回i8*
+                var gv = new GlobalVariable(".str."+ctx.getStrInd(), constant.type.clone());
+                gv.init = constant;
+                ctx.module.globs.add(gv);
+                // LLVM 是用 get element ptr 获取起始i8* 地址，我这里直接bitcast应该也行
+                return ctx.addToCurrent(new CastInst.Builder(ctx.current, gv).strBitCast(gv.type).build());
+            }
+            return constant;
         }
 
         if (expr_ instanceof LogicExpr) {
@@ -339,16 +349,33 @@ public class FakeSSAGenerator {
 
         if (expr_ instanceof LValExpr) {
             var expr = (LValExpr) expr_;
-            if (!expr.isArray) {
-                if (expr.declSymbol.decl.isGlobal) {
-                    // TODO 生成load语句
-                } else {
-                    return ctx.varMap.get(expr.declSymbol.decl);
-                }
-            } else {
-                // TODO 生成GetElementPtr
+            Value val;
+            if (expr.declSymbol.decl.isGlobal) {
+                val = ctx.globVarMap.get(expr.declSymbol.decl);
+            } else  {
+                val = ctx.varMap.get(expr.declSymbol.decl);
             }
-            return null;
+            if (!expr.isArray) {
+                if (expr.declSymbol.decl.isConst()) { // 最简单情况，直接找到ConstantValue返回
+                    return val;
+                } else {
+                    // 生成load语句
+                    return ctx.addToCurrent(new LoadInst(ctx.current, val));
+                }
+            } else { // 担心常量数组可能传函数参数，所以就当普通数组处理了。
+                // 此时val应该是指针。
+                var gep = new GetElementPtr(ctx.current, val);
+                ctx.addToCurrent(gep);
+                expr.indices.forEach(exp -> {
+                    var val_ = visitDstExpr(ctx, curFunc, exp);
+                    gep.addIndex(val_);
+                });
+                if (gep.type.isArray()) {
+                    return gep;
+                } else {                
+                    return ctx.addToCurrent(new LoadInst(ctx.current, gep));
+                }
+            }
         }
 
         if (expr_ instanceof UnaryExpr) {
@@ -373,13 +400,54 @@ public class FakeSSAGenerator {
         ctx.varMap.put(decl, alloc);
         // 处理非Const普通变量的初始值，可能是复杂表达式。
         // 语义分析没有计算evaledVal
-        if (!decl.type.isArray) {
-            var cv = visitDstExpr(ctx, curFunc, decl.initVal.value);
-            var inst = new StoreInst.Builder(ctx.current).addOperand(cv, alloc).build();
-            ctx.addToCurrent(inst);
-        } else {
-            // TODO array memset to 0 and getelementptr and set content.
+        if(decl.initVal != null) {
+            if (!decl.type.isArray) {
+                var cv = visitDstExpr(ctx, curFunc, decl.initVal.value);
+                var inst = new StoreInst.Builder(ctx.current).addOperand(cv, alloc).build();
+                ctx.addToCurrent(inst);
+            } else {
+                // TODO array memset to 0 and getelementptr and set content.
+                setArrayInitialVal(ctx, curFunc, alloc, decl.initVal, decl.type.dims);
+            }
+        }
+    }
 
+    void setArrayInitialVal(FakeSSAGeneratorContext ctx, ssa.ds.Func curFunc, Value ptr, InitValue initValue, List<Integer> dims) {
+        if (initValue.isAllZero) { // 为了第一次调用时检查。
+            return;
+        }
+
+        assert initValue.isArray;
+        if (dims.size() > 1) {
+            int currentSize = dims.get(0);
+            dims = dims.subList(1, dims.size());
+            for (int i=0;i<currentSize;i++) {
+                var iv = initValue.values.get(i);
+                if (!iv.isAllZero) {
+                    // 生成Gep
+                    var ptr_ = new GetElementPtr(ctx.current, ptr);
+                    ptr_.addIndex(ConstantValue.ofInt(i));
+                    ctx.addToCurrent(ptr_);
+                    // 递归调用
+                    setArrayInitialVal(ctx, curFunc, ptr_, iv, dims);
+                }
+            }
+        } else {
+            int currentSize = dims.get(0);
+            for (int i=0;i<currentSize;i++) {
+                var iv = initValue.values.get(i);
+                assert !iv.isArray;
+                // 如果iv不是默认值则生成gep和store
+                if (iv.value instanceof LiteralExpr && ((LiteralExpr)(iv.value)).value.isDefault()) {
+                } else {
+                    var ptr_ = new GetElementPtr(ctx.current, ptr);
+                    ptr_.addIndex(ConstantValue.ofInt(i));
+                    ctx.addToCurrent(ptr_);
+                    var val = visitDstExpr(ctx, curFunc, iv.value);
+                    var inst = new StoreInst.Builder(ctx.current).addOperand(val, ptr_).build();
+                    ctx.addToCurrent(inst);
+                }
+            }
         }
     }
 }

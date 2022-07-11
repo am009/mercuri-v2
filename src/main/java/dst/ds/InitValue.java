@@ -13,6 +13,7 @@ public class InitValue {
     // is array init value?
     public Boolean isArray = false;
     public List<InitValue> values;
+    public boolean isAllZero = false; // 便于对局部变量生成初始化代码。
 
     public InitValType initType; // 仅标识是Const还是Var，是否是数组还是看isArray
 

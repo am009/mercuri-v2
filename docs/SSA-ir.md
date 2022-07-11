@@ -13,7 +13,7 @@ https://mapping-high-level-constructs-to-llvm-ir.readthedocs.io/en/latest/README
 考虑使用Basic Block Argument 替代Phi指令 TODO 加资料
 
 TODO
-1. 字符串收集起来放到Module的全局变量里。
+1. 把一些指令的LLVM IR打印改成用格式化字符串😂
 1. 控制流相关生成，更多语句的生成
 1. array的初始化生成（等写了函数调用生成之后）
 1. 加入Phi节点，转SSA
@@ -92,3 +92,15 @@ Context里有一个current指针，指向当前基本块。语句生成结束后
 比如生成if语句这种需要基本块结构的情况，先生成计算条件的语句和跳转指令，指向if和else两个基本块。然后首先将current指向if的基本块，然后递归visit if块生成语句，然后再将current指向else块，递归调用visit生成else块内的语句。最后由于没有和if语句同级的块，需要再生成一个exit块，将if和else无条件跳转到这个块，然后将current恢复到这个块。
 
 由于控制流语句可能会提前生成后续结构，所以生成的时候允许current结尾是无条件跳转，插入时插入到中间。首先split basic block，即将无条件跳转放到新的单独的BasicBlock，原来的BasicBlock作为Entry，新的BasicBlock作为Exit。（或者使用BasicBlock.addBeforeTerminator直接插入到中间）
+
+### GetElementPtr 第一维是否一直是0
+
+普通的计算地址时，比如直接访问数组变量，确实一直是0。构建指令的时候传入数组类型的指针值（全局变量或者局部变量（alloca）都是），然后先0，再index到数组内。
+
+当数组作为函数参数第一维省略的时候，直接变成少一维的指针类型了。此时就没有0，直接index就到数组内了。（参数为指针也仅可能是数组传参这一种情况。）
+
+### 递归设置数组变量初始值
+
+首先调用memset将数组区域归零。然后遍历赋值每个非零值。
+通过InitValue新增的isAllZero的flag判断是否需要进入。
+递归的过程参照之前的flatten的过程。但是更简单

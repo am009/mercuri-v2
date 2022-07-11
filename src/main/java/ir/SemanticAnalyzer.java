@@ -74,16 +74,10 @@ public class SemanticAnalyzer {
             if (decl.initVal != null) {
                 // 将数组的初始化展开
                 assert decl.initVal.isArray;
-                InitValue def;
+                
                 // 准备默认值
                 InitValType ty = decl.initVal.initType;
-                if (decl.basicType == BasicType.INT) {
-                    def = InitValue.ofExpr(ty, new LiteralExpr(EvaluatedValue.ofInt(0)));
-                } else if (decl.basicType == BasicType.FLOAT) {
-                    def = InitValue.ofExpr(ty, new LiteralExpr(EvaluatedValue.ofFloat(0)));
-                } else {
-                    def = InitValue.ofExpr(ty, new LiteralExpr(EvaluatedValue.ofString("")));
-                }
+                InitValue def = InitValue.ofExpr(ty, new LiteralExpr(EvaluatedValue.getDefault(decl.basicType)));
                 var flattened = flattenInitVal(evaledDims, new LinkedList<InitValue>(decl.initVal.values), decl.initVal.initType, def);
                 Global.logger.trace("--- flatten " + decl.id + " ---");
                 Global.logger.trace(flattened.toString());
@@ -417,8 +411,10 @@ public class SemanticAnalyzer {
 
     // 根据dims，基于initVal和数组初始化规则（算法见文档），填充得到新的initVal。使用InitValue.ofDefault填充
     // 内部是抽象的Expr类型，并不一定是int或Float常量
+    // 同时填入initVal的isAllZero属性，
     private InitValue flattenInitVal(List<Integer> dims, Queue<InitValue> initVal, InitValType ty, InitValue def) {
         if (dims.size() > 1) { // 削减一维得到子问题，递归求解
+            boolean isAllZero = true;
             List<InitValue> result = new LinkedList<>();
             int currentSize = dims.get(0);
             dims = dims.subList(1, dims.size());
@@ -426,6 +422,7 @@ public class SemanticAnalyzer {
                 var front = initVal.size() > 0 ? initVal.peek() : null;
                 Queue<InitValue> subQueue;
                 if (front != null) {
+                    isAllZero = false;
                     if (front.isArray) { // 解包大括号成功，子问题仅使用front
                         subQueue = new LinkedList<>(front.values);
                         initVal.remove();
@@ -437,12 +434,16 @@ public class SemanticAnalyzer {
                 }
                 result.add(flattenInitVal(dims, subQueue, ty, def));
             }
-            return InitValue.ofArray(ty, result);
+            var ret = InitValue.ofArray(ty, result);
+            ret.isAllZero = isAllZero;
+            return ret;
         } else { // 处理仅一维的情况
+            boolean isAllZero = true;
             List<InitValue> result = new LinkedList<>();
             int currentSize = dims.get(0);
             for (int i=0;i<currentSize;i++) {
                 if (!initVal.isEmpty()) {
+                    isAllZero = false;
                     if (! (initVal.peek().isArray)) { 
                         result.add(initVal.poll());
                     } else {
@@ -456,7 +457,9 @@ public class SemanticAnalyzer {
                     result.add(def); // 结果缺失，放入int 0，类型转换由后面考虑
                 }
             }
-            return InitValue.ofArray(ty, result);
+            var ret = InitValue.ofArray(ty, result);
+            ret.isAllZero = isAllZero;
+            return ret;
         }
     }
 
