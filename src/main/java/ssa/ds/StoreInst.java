@@ -1,5 +1,7 @@
 package ssa.ds;
 
+import ds.Global;
+
 public class StoreInst extends Instruction {
 
     public StoreInst() {
@@ -17,12 +19,24 @@ public class StoreInst extends Instruction {
         public Builder addOperand(Value val, Value ptr) {
             inst.oprands.add(new Use(inst, val));
             inst.oprands.add(new Use(inst, ptr));
+            if (!StoreInst.checkType(val.type, ptr.type)) {
+                Global.logger.warning("Store Inst type mismatch !!! "+this.toString());
+            }
             return this;
         }
 
         public StoreInst build() {
             return inst;
         }
+    }
+
+    public static boolean checkType(Type val, Type ptr) {
+        if (!ptr.isPointer){
+            return false;
+        }
+        Type ty = ptr.clone();
+        ty.isPointer = false;
+        return ty.equals(val);
     }
 
     // store <ty> <value>, <ty>* <pointer>

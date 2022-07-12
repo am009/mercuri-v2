@@ -66,6 +66,8 @@ clean:
 	rm *.ll
 ```
 
+2022年7月12日 遇到了奇怪的lli报错现象，和这里：https://groups.google.com/g/llvm-dev/c/hy-nHM6Xd1o 说的一样。但是我没有用C++啊。。。总之还是编译到二进制再执行吧，先不用lli了。
+
 ### DST的IR生成
 
 #### 类型

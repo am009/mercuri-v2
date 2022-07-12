@@ -41,12 +41,19 @@ public class CastInst extends Instruction {
             return this;
         }
 
+        // from [n x i8]* to i8*
+        public Builder f2d() {
+            inst.op = CastOp.FPEXT;
+            inst.type = Type.Double;
+            inst.from = Type.Float;
+            return this;
+        }
+
         public CastInst build() {
             return inst;
         }
     }
 
-    // 目前只考虑了fptosi和sitofp的格式
     // <result> = fptosi <ty> <value> to <ty2>
     // <result> = sitofp <ty> <value> to <ty2>
     @Override

@@ -5,6 +5,7 @@ public enum CastOp {
     TYPE, // bitcast from pointer to pointer
     ZEXT,
     SEXT,
+    FPEXT,
     TRUNC, // down cast
     I2F, // sitofp
     F2I; // fptosi
@@ -24,6 +25,8 @@ public enum CastOp {
                 return "bitcast";
             case ZEXT:
                 return "zext";
+            case FPEXT:
+                return "fpext";
             default:
                 return super.toString();
         }

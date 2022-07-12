@@ -25,6 +25,7 @@ import ast.SysyParser.UnaryExprContext;
 import ast.SysyParser.UnaryFuncContext;
 import ast.SysyParser.UnaryOpExprContext;
 import ast.SysyParser.UnaryPrimaryExprContext;
+import common.Util;
 import dst.ds.BinaryExpr;
 import dst.ds.BinaryOp;
 import dst.ds.DstGeneratorContext;
@@ -202,7 +203,9 @@ public class AstExprVisitor extends SysyBaseVisitor<Expr> {
     }
 
     public LiteralExpr visitFuncArgStr(FuncArgStrContext arg, DstGeneratorContext ctx) {
-        return new LiteralExpr(EvaluatedValue.ofString(arg.STRING_LITERAL().getText()));
+        String raw = arg.STRING_LITERAL().getText();
+        raw = raw.substring(1, raw.length()-1); // 去除首尾双引号
+        return new LiteralExpr(EvaluatedValue.ofString(Util.unescapeStringLiteral(raw)));
     }
 
     public Expr visitFuncArgExpr(FuncArgExprContext arg, DstGeneratorContext ctx) {

@@ -16,19 +16,8 @@ public class BinopInst extends Instruction {
         this.oprands.add(new Use(this, rhs));
     }
 
-    // @Override
-    // public String toString() {
-    //     var b = new StringBuilder(toValueString()).append(" = ");
-    //     b.append(op.toString(type.baseType == PrimitiveTypeTag.FLOAT));
-    //     b.append(" ").append(type.toString());
-    //     var sj = new StringJoiner(", ", " ", "");
-    //     oprands.forEach(use -> sj.add(use.value.toValueString()));
-    //     b.append(sj.toString());
-    //     return b.toString();
-    // }
-
     @Override
     public String getOpString() {
-        return op.toString(type.baseType == PrimitiveTypeTag.FLOAT) + " " + type.toString();
+        return op.toString(type.baseType.isFloat()) + " " + type.toString();
     }
 }

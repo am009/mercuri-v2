@@ -39,4 +39,31 @@ public class Util {
         }
     }
 
+    /**
+     * 调用前先手动去除前后双引号
+     * unescape string literal rule
+     * fragment CHAR_LITERAL
+        :   ~["\\\r\n]
+        |   '\\' ['"?abfnrtv\\]
+        |   '\\\n'
+        |   '\\\r\n'
+        ;
+     * @param s
+     * @return
+     */
+    public static String unescapeStringLiteral(String s) {
+        // TODO 反斜杠换行？
+        return s.replace("\\\\", "\\")
+          .replace("\\?", "\u003f")
+          .replace("\\v", "\u000b")
+          .replace("\\a", "\u0007")
+          .replace("\\t", "\t")
+          .replace("\\b", "\b")
+          .replace("\\n", "\n")
+          .replace("\\r", "\r")
+          .replace("\\f", "\f")
+          .replace("\\'", "\'")
+          .replace("\\\"", "\"");
+    }
+
 }

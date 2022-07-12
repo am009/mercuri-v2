@@ -4,9 +4,11 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
+import ds.Global;
 import dst.ds.AssignStatement;
 import dst.ds.BasicType;
 import dst.ds.BinaryExpr;
+import dst.ds.BinaryOp;
 import dst.ds.Block;
 import dst.ds.BlockStatement;
 import dst.ds.BreakStatement;
@@ -28,6 +30,7 @@ import dst.ds.LogicExpr;
 import dst.ds.LoopStatement;
 import dst.ds.ReturnStatement;
 import dst.ds.UnaryExpr;
+import dst.ds.UnaryOp;
 import dst.ds.CastExpr.CastType;
 import ssa.ds.AllocaInst;
 import ssa.ds.BasicBlock;
@@ -225,7 +228,10 @@ public class FakeSSAGenerator {
     private void visitDstStmt(FakeSSAGeneratorContext ctx, Func curFunc, BlockStatement stmt_) {
         if (stmt_ instanceof AssignStatement) {
             var stmt = (AssignStatement) stmt_;
-            
+             // 在assign左边的LVal一般直接是值
+            var left = visitLValExpr(ctx, curFunc, stmt.left, true); // 获取代表的地址
+            var right = visitDstExpr(ctx, curFunc, stmt.expr);
+            ctx.addToCurrent(new StoreInst.Builder(ctx.current).addOperand(right, left).build());
             return;
         }
 
@@ -287,7 +293,7 @@ public class FakeSSAGenerator {
                 b.addOperand(val);
             }
             ctx.addToCurrent(b.build());
-            // TODO 如果current末尾有jump可以消除掉？
+            // TODO 如果current末尾有jump可以消除掉？还是算了
             return;
         }
     }
@@ -322,7 +328,13 @@ public class FakeSSAGenerator {
             var cb = new CallInst.Builder(ctx.current, fv);
             if (expr.args != null) {
                 for(int i=0;i<expr.args.length;i++) {
-                    cb.addArg(visitDstExpr(ctx, curFunc, expr.args[i]));
+                    var val = visitDstExpr(ctx, curFunc, expr.args[i]);
+                    // Float需要提升到Double再传入vararg？
+                    if ((i >= expr.funcSymbol.func.params.size()) && val.type.equals(Type.Float)) {
+                        assert expr.funcSymbol.func.isVariadic;
+                        val = ctx.addToCurrent(new CastInst.Builder(ctx.current, val).f2d().build());
+                    }
+                    cb.addArg(val);
                 }
             }
             return ctx.addToCurrent(cb.build());
@@ -349,40 +361,74 @@ public class FakeSSAGenerator {
 
         if (expr_ instanceof LValExpr) {
             var expr = (LValExpr) expr_;
-            Value val;
-            if (expr.declSymbol.decl.isGlobal) {
-                val = ctx.globVarMap.get(expr.declSymbol.decl);
-            } else  {
-                val = ctx.varMap.get(expr.declSymbol.decl);
+            return visitLValExpr(ctx, curFunc, expr, false);
+        }
+
+        if (expr_ instanceof UnaryExpr) {
+            var expr = (UnaryExpr) expr_;
+            if (expr.op == UnaryOp.POS) {
+                Global.logger.warning("Will someone actually use UnaryOp.POS`+` ?");
+                return visitDstExpr(ctx, curFunc, expr.expr);
+            } else if (expr.op == UnaryOp.NEG) {
+                Type ty; ConstantValue cv;
+                if (expr.type.basicType == BasicType.FLOAT) {
+                    ty = Type.Float; cv = ConstantValue.ofFloat(0.0f);
+                } else if (expr.type.basicType == BasicType.INT) {
+                    ty = Type.Int; cv = ConstantValue.ofInt(0);
+                } else { throw new RuntimeException("UnaryOp.NEG does not support this type."); }
+                var val = visitDstExpr(ctx, curFunc, expr.expr);
+                return ctx.addToCurrent(new BinopInst(ctx.current, ty, BinaryOp.SUB, cv, val));
+            } else if (expr.op == UnaryOp.NOT) {
+                // 转为 icmp eq 0, xxx;
+                var val = visitDstExpr(ctx, curFunc, expr.expr);
+                assert val.type.equals(Type.Boolean); // 仅出现在条件表达式中
+                return ctx.addToCurrent(new BinopInst(ctx.current, Type.Boolean, BinaryOp.LOG_EQ, ConstantValue.ofBoolean(false), val));
+            } else {
+                throw new RuntimeException("Unknown UnaryOp type.");
             }
-            if (!expr.isArray) {
-                if (expr.declSymbol.decl.isConst()) { // 最简单情况，直接找到ConstantValue返回
+        }
+        throw new RuntimeException("Unknown Expr type.");
+    }
+
+    private Value visitLValExpr(FakeSSAGeneratorContext ctx, Func curFunc, LValExpr expr, boolean expectPtr) {
+        Value val;
+        if (expr.declSymbol.decl.isGlobal) {
+            val = ctx.globVarMap.get(expr.declSymbol.decl);
+        } else  {
+            val = ctx.varMap.get(expr.declSymbol.decl);
+        }
+        if (!expr.isArray) {
+            if (expr.declSymbol.decl.isConst()) { // 最简单情况，直接找到ConstantValue返回
+                assert expectPtr == false;
+                return val;
+            } else {
+                if (expectPtr) {
                     return val;
                 } else {
                     // 生成load语句
                     return ctx.addToCurrent(new LoadInst(ctx.current, val));
                 }
-            } else { // 担心常量数组可能传函数参数，所以就当普通数组处理了。
-                // 此时val应该是指针。
-                var gep = new GetElementPtr(ctx.current, val);
-                ctx.addToCurrent(gep);
-                expr.indices.forEach(exp -> {
-                    var val_ = visitDstExpr(ctx, curFunc, exp);
-                    gep.addIndex(val_);
-                });
-                if (gep.type.isArray()) {
-                    return gep;
-                } else {                
-                    return ctx.addToCurrent(new LoadInst(ctx.current, gep));
-                }
             }
+        } else { // 担心常量数组可能传函数参数，所以就当普通数组处理了。
+            // 此时val应该是指针。
+            var gep = new GetElementPtr(ctx.current, val);
+            ctx.addToCurrent(gep);
+            expr.indices.forEach(exp -> {
+                var val_ = visitDstExpr(ctx, curFunc, exp);
+                gep.addIndex(val_);
+            });
+            if (gep.type.isArray()) {
+                assert expectPtr; // 如果index没有取到底，必然是地址
+            }
+            // 都返回地址，后面要用到的时候再load？
+            if (expectPtr) {
+                return gep;
+            } else {
+                return ctx.addToCurrent(new LoadInst(ctx.current, gep));
+            }
+            
+            
         }
-
-        if (expr_ instanceof UnaryExpr) {
-            var expr = (UnaryExpr) expr_;
-            return null;
-        }
-        throw new RuntimeException("Unknown Expr type.");
     }
 
     // 局部变量的Decl

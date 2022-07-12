@@ -15,6 +15,7 @@ public class Type implements Cloneable {
     public static Type Char = new Type(PrimitiveTypeTag.CHAR, null, false);
     public static Type Int = new Type(PrimitiveTypeTag.INT, null, false);
     public static Type Float = new Type(PrimitiveTypeTag.FLOAT, null, false);
+    public static Type Double = new Type(PrimitiveTypeTag.DOUBLE, null, false);
     public static Type String = new Type(PrimitiveTypeTag.CHAR, null, true);
 
     public Type(PrimitiveTypeTag baseType, List<Integer> dims, boolean isPointer) {
@@ -71,5 +72,27 @@ public class Type implements Cloneable {
             if (isPointer) {b.append("*");}
             return b.toString();
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Type type = (Type) o;
+
+        if (isPointer != type.isPointer) return false;
+        if (!baseType.equals(type.baseType)) return false;
+        if (dims != null ? !dims.equals(type.dims) : type.dims != null) return false;
+
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = baseType.hashCode();
+        result = 31 * result + (dims != null ? dims.hashCode() : 0);
+        result = 31 * result + (isPointer ? 1 : 0);
+        return result;
     }
 }
