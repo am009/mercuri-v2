@@ -17,6 +17,7 @@ public class NumValueNamer {
     }
 
     public void visitFunc(Func f) {
+        count = 0;
         f.bbs.forEach(bb -> visitBlock(bb));
     }
 

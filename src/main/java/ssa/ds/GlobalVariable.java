@@ -36,7 +36,6 @@ public class GlobalVariable extends Value {
         } else {
             b.append(" zeroinitializer");
         }
-        b.append("\n");
         return b.toString();
     }
 

@@ -20,6 +20,28 @@ public enum BinaryOp {
     LOG_LE,
     LOG_GE;
 
+    public boolean isLogic() {
+        switch (this) {
+            case ADD:
+            case DIV:
+            case MOD:
+            case MUL:
+            case SUB:
+                return false;
+            case LOG_AND:
+            case LOG_EQ:
+            case LOG_GE:
+            case LOG_GT:
+            case LOG_LE:
+            case LOG_LT:
+            case LOG_NEQ:
+            case LOG_OR:
+                return true;
+            default:
+                throw new IllegalArgumentException("Unknown binary operator: " + this);
+        }
+    }
+
     public static BinaryOp fromString(String s) {
         switch (s) {
             case "+":

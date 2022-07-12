@@ -2,7 +2,7 @@ package dst.ds;
 
 public enum BasicType {
     INT,
-    FLOAT,    
+    FLOAT,
     STRING_LITERAL;
 
     public static BasicType fromString(String s) {

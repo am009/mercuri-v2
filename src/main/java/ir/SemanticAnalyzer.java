@@ -39,7 +39,6 @@ import dst.ds.ReturnStatement;
 import dst.ds.Type;
 import dst.ds.UnaryExpr;
 import dst.ds.CastExpr.CastType;
-import dst.ds.LogicExpr.AryType;
 
 public class SemanticAnalyzer {
 
@@ -312,24 +311,8 @@ public class SemanticAnalyzer {
 
         if (expr_ instanceof LogicExpr) {
             var expr = (LogicExpr) expr_;
-            if (expr.aryType == AryType.Binary) {
-                visitDstExpr(ctx, curFunc, expr.binaryExpr.left);
-                visitDstExpr(ctx, curFunc, expr.binaryExpr.right);
-                if (expr.binaryExpr.left.type.basicType != expr.binaryExpr.right.type.basicType) { // 类型提升
-                    var c = getCastType(expr.binaryExpr.left.type, expr.binaryExpr.right.type);
-                    if (c == CastType.F2I) { // 左i右f
-                        var cast = new CastExpr(expr.binaryExpr.left, CastExpr.CastType.I2F, "expr promote");
-                        expr.binaryExpr.left = cast;
-                    } else {
-                        var cast = new CastExpr(expr.binaryExpr.right, CastExpr.CastType.I2F, "expr promote");
-                        expr.binaryExpr.right = cast;
-                    }
-                }
-                expr.setType(Type.getCommon(expr.binaryExpr.left.type, expr.binaryExpr.right.type));
-            } else {
-                visitDstExpr(ctx, curFunc, expr.unaryExpr);
-                expr.setType(expr.unaryExpr.type);
-            }
+            visitDstExpr(ctx, curFunc, expr.expr);
+            expr.setType(expr.expr.type);
             return;
         }
 

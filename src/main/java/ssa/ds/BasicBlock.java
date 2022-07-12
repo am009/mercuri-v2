@@ -14,6 +14,20 @@ public class BasicBlock {
         insts = new ArrayList<>();
     }
 
+    public BasicBlockValue getValue() {
+        if (val == null) {
+            val = new BasicBlockValue(this);
+        }
+        return val;
+    }
+
+    public boolean hasTerminator() {
+        if (insts.size() == 0 || !(insts.get(insts.size()-1) instanceof TerminatorInst)) {
+            return false;
+        }
+        return true;
+    }
+
     public Instruction addBeforeTerminator(Instruction i) {
         if (insts.size() == 0 || !(insts.get(insts.size()-1) instanceof TerminatorInst)) {
             insts.add(i);

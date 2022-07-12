@@ -1,32 +1,18 @@
 package dst.ds;
 
+import ds.Global;
 import ir.ds.Scope;
 
+// 表示此处进入了条件判断
 public class LogicExpr extends Expr {
-    public enum AryType {
-        Binary, Unary
-    }
+    public Expr expr;
 
-    public AryType aryType;
-    public BinaryExpr binaryExpr;
-    public Expr unaryExpr;
-
-    public LogicExpr(BinaryExpr binaryExpr) {
-        this.aryType = AryType.Binary;
-        this.binaryExpr = binaryExpr;
-    }
-
-    public LogicExpr(Expr unaryExpr) {
-        this.aryType = AryType.Unary;
-        this.unaryExpr = unaryExpr;
+    public LogicExpr(Expr e) {
+        expr = e;
     }
 
     @Override
     public EvaluatedValue eval(Scope scope) {
-        if (aryType == AryType.Binary) {
-            return binaryExpr.eval(scope);
-        } else {
-            return unaryExpr.eval(scope);
-        }
+        return expr.eval(scope);
     }
 }

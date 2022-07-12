@@ -20,9 +20,9 @@ public class Module {
         var builder = new StringBuilder("source_filename = \"" + name + "\"\n\n");
         builtins.forEach(func -> builder.append(func.toString()));
         builder.append("\n");
-        globs.forEach(gv -> builder.append(gv.toString()));
+        globs.forEach(gv -> builder.append(gv.toString()).append("\n"));
         builder.append("\n");
-        funcs.forEach(func -> builder.append(func.toString()));
+        funcs.forEach(func -> builder.append(func.toString()).append("\n\n"));
         return builder.toString();
     }
 }

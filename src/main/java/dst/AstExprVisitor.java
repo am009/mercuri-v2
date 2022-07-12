@@ -227,14 +227,14 @@ public class AstExprVisitor extends SysyBaseVisitor<Expr> {
      * | logicOrExp '||' logicAndExpr
      * ;
      */
-    public LogicExpr visitLogicOrExpr(LogicOrExpContext ast, DstGeneratorContext ctx) {
+    public Expr visitLogicOrExpr(LogicOrExpContext ast, DstGeneratorContext ctx) {
         if (ast.logicOrExp() == null) {
             return this.visitLogicAndExpr(ast.logicAndExpr(), ctx);
         } else {
             Expr left = this.visitLogicOrExpr(ast.logicOrExp(), ctx);
             Expr right = this.visitLogicAndExpr(ast.logicAndExpr(), ctx);
             var op = BinaryOp.LOG_OR;
-            return new LogicExpr(new BinaryExpr(left, right, op));
+            return new BinaryExpr(left, right, op);
         }
     }
 
@@ -244,14 +244,14 @@ public class AstExprVisitor extends SysyBaseVisitor<Expr> {
      * | logicAndExpr '&&' eqExpr
      * ;
      */
-    private LogicExpr visitLogicAndExpr(LogicAndExprContext logicAndExpr, DstGeneratorContext ctx) {
+    private Expr visitLogicAndExpr(LogicAndExprContext logicAndExpr, DstGeneratorContext ctx) {
         if (logicAndExpr.logicAndExpr() == null) {
             return this.visitEqExpr(logicAndExpr.eqExpr(), ctx);
         } else {
             Expr left = this.visitLogicAndExpr(logicAndExpr.logicAndExpr(), ctx);
             Expr right = this.visitEqExpr(logicAndExpr.eqExpr(), ctx);
             var op = BinaryOp.LOG_AND;
-            return new LogicExpr(new BinaryExpr(left, right, op));
+            return new BinaryExpr(left, right, op);
         }
     }
 
@@ -261,14 +261,14 @@ public class AstExprVisitor extends SysyBaseVisitor<Expr> {
      * | eqExpr ('==' | '!=') relExpr
      * ;
      */
-    private LogicExpr visitEqExpr(EqExprContext eqExpr, DstGeneratorContext ctx) {
+    private Expr visitEqExpr(EqExprContext eqExpr, DstGeneratorContext ctx) {
         if (eqExpr.eqExpr() == null) {
             return this.visitRelExpr(eqExpr.relExpr(), ctx);
         } else {
-            Expr left = this.visitEqExpr(eqExpr, ctx);
+            Expr left = this.visitEqExpr(eqExpr.eqExpr(), ctx);
             Expr right = this.visitRelExpr(eqExpr.relExpr(), ctx);
             var op = BinaryOp.fromString(eqExpr.getChild(1).getText());
-            return new LogicExpr(new BinaryExpr(left, right, op));
+            return new BinaryExpr(left, right, op);
         }
     }
 
@@ -278,20 +278,15 @@ public class AstExprVisitor extends SysyBaseVisitor<Expr> {
      * | relExpr ('<' | '>' | '<=' | '>=' ) addExpr
      * ;
      */
-    private LogicExpr visitRelExpr(RelExprContext relExpr, DstGeneratorContext ctx) {
+    private Expr visitRelExpr(RelExprContext relExpr, DstGeneratorContext ctx) {
         if (relExpr.relExpr() == null) {
             var exprGeneric = this.visitAddExpr(relExpr.addExpr(), ctx);
-            if (exprGeneric instanceof BinaryExpr) {
-
-                return new LogicExpr((BinaryExpr) exprGeneric);
-            } else {
-                return new LogicExpr((Expr) exprGeneric);
-            }
+            return exprGeneric;
         } else {
             Expr left = this.visitRelExpr(relExpr.relExpr(), ctx);
             Expr right = this.visitAddExpr(relExpr.addExpr(), ctx);
             var op = BinaryOp.fromString(relExpr.getChild(1).getText());
-            return new LogicExpr(new BinaryExpr(left, right, op));
+            return new BinaryExpr(left, right, op);
         }
     }
 
@@ -301,7 +296,7 @@ public class AstExprVisitor extends SysyBaseVisitor<Expr> {
      * ;
      */
     public LogicExpr visitCond(CondContext cond, DstGeneratorContext ctx) {
-        return visitLogicOrExpr(cond.logicOrExp(), ctx);
+        return new LogicExpr(visitLogicOrExpr(cond.logicOrExp(), ctx));
     }
 
 }

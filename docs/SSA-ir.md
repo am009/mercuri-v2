@@ -87,13 +87,18 @@ sysy只有基本的类型int float和较为复杂的数组类型，没有复杂�
 @a = dso_local global [3 x [2 x [2 x i32]]] [[2 x [2 x i32]] [[2 x i32] [i32 1, i32 0], [2 x i32] zeroinitializer], [2 x [2 x i32]] [[2 x i32] [i32 6, i32 2], [2 x i32] [i32 4, i32 5]], [2 x [2 x i32]] zeroinitializer], align 16
 ```
 
-#### 生成时的隐性约定
+#### 生成控制流
 
 Context里有一个current指针，指向当前基本块。语句生成结束后需要确保这个指针指向的基本块是和整个语句同级的。
 
 比如生成if语句这种需要基本块结构的情况，先生成计算条件的语句和跳转指令，指向if和else两个基本块。然后首先将current指向if的基本块，然后递归visit if块生成语句，然后再将current指向else块，递归调用visit生成else块内的语句。最后由于没有和if语句同级的块，需要再生成一个exit块，将if和else无条件跳转到这个块，然后将current恢复到这个块。
 
-由于控制流语句可能会提前生成后续结构，所以生成的时候允许current结尾是无条件跳转，插入时插入到中间。首先split basic block，即将无条件跳转放到新的单独的BasicBlock，原来的BasicBlock作为Entry，新的BasicBlock作为Exit。（或者使用BasicBlock.addBeforeTerminator直接插入到中间）
+在`if(){return;}else{}`中生成if-true块时，由于可能已经有相关return语句结束了当前BasicBlock，想要生成if结束跳转到exit的指令时会出现问题。所以就直接不生成了？
+
+目前会出现这种问题的情况还有：TODO
+
+目前解决方案：生成到一个没有人跳转过去的新的临时基本块了。
+
 
 ### GetElementPtr 第一维是否一直是0
 

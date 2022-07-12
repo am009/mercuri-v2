@@ -6,11 +6,18 @@ import dst.ds.BinaryOp;
 
 // UnaryOp也直接转换为Binop。sub -> sub 0, xxx。not -> eq 0, xxx
 public class BinopInst extends Instruction {
+    public Type opType;
     public BinaryOp op;
 
-    public BinopInst(BasicBlock parent, Type type, BinaryOp op, Value lhs, Value rhs) {
+    public BinopInst(BasicBlock parent, BinaryOp op, Value lhs, Value rhs) {
         this.parent = parent;
+        assert lhs.type.equals(rhs.type); // 确保两边类型相同
+        Type type = lhs.type;
+        this.opType = type;
         this.type = type;
+        if (op.isLogic()) {
+            this.type = Type.Boolean;
+        }
         this.op = op;
         this.oprands.add(new Use(this, lhs));
         this.oprands.add(new Use(this, rhs));
@@ -18,6 +25,6 @@ public class BinopInst extends Instruction {
 
     @Override
     public String getOpString() {
-        return op.toString(type.baseType.isFloat()) + " " + type.toString();
+        return op.toString(type.baseType.isFloat()) + " " + opType.toString();
     }
 }

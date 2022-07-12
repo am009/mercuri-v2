@@ -23,6 +23,19 @@ public class ConstantValue extends Value {
         return false;
     }
 
+    public static ConstantValue getDefault(Type ty) {
+        if (ty.equals(Type.Boolean)) {
+            return ConstantValue.ofBoolean(false);
+        } else if (ty.equals(Type.Int)) {
+            return ConstantValue.ofInt(0); 
+        } else if (ty.equals(Type.Float)) {
+            return ConstantValue.ofFloat(0f);
+        } else {
+            throw new UnsupportedOperationException("Cannot get default ConstanValue for complex types.");
+        }
+    }
+
+
     // for simple value
     public static ConstantValue ofInt(int i) {
         var ret = new ConstantValue(Type.Int.clone(), null);

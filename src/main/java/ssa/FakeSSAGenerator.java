@@ -35,6 +35,7 @@ import dst.ds.CastExpr.CastType;
 import ssa.ds.AllocaInst;
 import ssa.ds.BasicBlock;
 import ssa.ds.BinopInst;
+import ssa.ds.BranchInst;
 import ssa.ds.CallInst;
 import ssa.ds.CastInst;
 import ssa.ds.CastOp;
@@ -43,6 +44,7 @@ import ssa.ds.Func;
 import ssa.ds.FuncValue;
 import ssa.ds.GetElementPtr;
 import ssa.ds.GlobalVariable;
+import ssa.ds.JumpInst;
 import ssa.ds.LoadInst;
 import ssa.ds.Module;
 import ssa.ds.ParamValue;
@@ -172,6 +174,7 @@ public class FakeSSAGenerator {
         ctx.module.funcs.add(func);
         FuncValue val = func.getValue();
         ctx.funcMap.put(dstFunc, val);
+        ctx.currentFunc = func;
 
         // 入口基本块
         func.bbs = new LinkedList<>();
@@ -267,11 +270,29 @@ public class FakeSSAGenerator {
 
         if (stmt_ instanceof IfElseStatement) {
             var stmt = (IfElseStatement) stmt_;
-            this.visitDstExpr(ctx, curFunc, stmt.condition);
-            this.visitDstStmt(ctx, curFunc, stmt.thenBlock);
+            var cond = this.visitDstExpr(ctx, curFunc, stmt.condition);
+            int ind = ctx.getBBInd();
+            var trueBlock = new BasicBlock("if_true_"+ind);
+            var exitBlock = new BasicBlock("if_end_"+ind);
+            var falseBlock = exitBlock;
             if (stmt.elseBlock != null) {
-                this.visitDstStmt(ctx, curFunc, stmt.elseBlock);
+                falseBlock = new BasicBlock("if_false_"+ind);
             }
+            ctx.addToCurrent(new BranchInst(ctx.current, cond, trueBlock.getValue(), falseBlock.getValue()));
+
+            // 在true block生成指令
+            ctx.current = trueBlock;
+            curFunc.bbs.add(trueBlock);
+            this.visitDstStmt(ctx, curFunc, stmt.thenBlock);
+            ctx.addToCurrent(new JumpInst(ctx.current, exitBlock.getValue()));
+            if (stmt.elseBlock != null) {
+                ctx.current = falseBlock;
+                curFunc.bbs.add(falseBlock);
+                this.visitDstStmt(ctx, curFunc, stmt.elseBlock);
+                ctx.addToCurrent(new JumpInst(ctx.current, exitBlock.getValue()));
+            }
+            ctx.current = exitBlock;
+            curFunc.bbs.add(exitBlock);
             return;
         }
 
@@ -293,7 +314,6 @@ public class FakeSSAGenerator {
                 b.addOperand(val);
             }
             ctx.addToCurrent(b.build());
-            // TODO 如果current末尾有jump可以消除掉？还是算了
             return;
         }
     }
@@ -318,7 +338,7 @@ public class FakeSSAGenerator {
             var expr = (BinaryExpr) expr_;
             var l = visitDstExpr(ctx, curFunc, expr.left);
             var r = visitDstExpr(ctx, curFunc, expr.right);
-            var ret = ctx.addToCurrent(new BinopInst(ctx.current, l.type, expr.op, l, r));
+            var ret = ctx.addToCurrent(new BinopInst(ctx.current, expr.op, l, r));
             return ret;
         }
 
@@ -356,7 +376,12 @@ public class FakeSSAGenerator {
 
         if (expr_ instanceof LogicExpr) {
             var expr = (LogicExpr) expr_;
-            return null;
+            var val = visitDstExpr(ctx, curFunc, expr.expr);
+            if (val.type.equals(Type.Boolean)) {
+                return val; // 是逻辑表达式
+            }
+            // cast val to i1; (x) -> (x ne 0)
+            return ctx.addToCurrent(new BinopInst(ctx.current, BinaryOp.LOG_NEQ, ConstantValue.getDefault(val.type), val));
         }
 
         if (expr_ instanceof LValExpr) {
@@ -369,20 +394,9 @@ public class FakeSSAGenerator {
             if (expr.op == UnaryOp.POS) {
                 Global.logger.warning("Will someone actually use UnaryOp.POS`+` ?");
                 return visitDstExpr(ctx, curFunc, expr.expr);
-            } else if (expr.op == UnaryOp.NEG) {
-                Type ty; ConstantValue cv;
-                if (expr.type.basicType == BasicType.FLOAT) {
-                    ty = Type.Float; cv = ConstantValue.ofFloat(0.0f);
-                } else if (expr.type.basicType == BasicType.INT) {
-                    ty = Type.Int; cv = ConstantValue.ofInt(0);
-                } else { throw new RuntimeException("UnaryOp.NEG does not support this type."); }
+            } else if (expr.op == UnaryOp.NEG || expr.op == UnaryOp.NOT) {
                 var val = visitDstExpr(ctx, curFunc, expr.expr);
-                return ctx.addToCurrent(new BinopInst(ctx.current, ty, BinaryOp.SUB, cv, val));
-            } else if (expr.op == UnaryOp.NOT) {
-                // 转为 icmp eq 0, xxx;
-                var val = visitDstExpr(ctx, curFunc, expr.expr);
-                assert val.type.equals(Type.Boolean); // 仅出现在条件表达式中
-                return ctx.addToCurrent(new BinopInst(ctx.current, Type.Boolean, BinaryOp.LOG_EQ, ConstantValue.ofBoolean(false), val));
+                return ctx.addToCurrent(new BinopInst(ctx.current, BinaryOp.SUB, ConstantValue.getDefault(val.type), val));
             } else {
                 throw new RuntimeException("Unknown UnaryOp type.");
             }
