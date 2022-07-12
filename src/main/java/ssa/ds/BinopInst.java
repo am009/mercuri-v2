@@ -15,7 +15,7 @@ public class BinopInst extends Instruction {
         Type type = lhs.type;
         this.opType = type;
         this.type = type;
-        if (op.isLogic()) {
+        if (op.isBoolean()) {
             this.type = Type.Boolean;
         }
         this.op = op;

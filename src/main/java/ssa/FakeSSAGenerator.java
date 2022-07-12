@@ -28,12 +28,14 @@ import dst.ds.LValExpr;
 import dst.ds.LiteralExpr;
 import dst.ds.LogicExpr;
 import dst.ds.LoopStatement;
+import dst.ds.NonShortLogicExpr;
 import dst.ds.ReturnStatement;
 import dst.ds.UnaryExpr;
 import dst.ds.UnaryOp;
 import dst.ds.CastExpr.CastType;
 import ssa.ds.AllocaInst;
 import ssa.ds.BasicBlock;
+import ssa.ds.BasicBlockValue;
 import ssa.ds.BinopInst;
 import ssa.ds.BranchInst;
 import ssa.ds.CallInst;
@@ -272,7 +274,6 @@ public class FakeSSAGenerator {
 
         if (stmt_ instanceof IfElseStatement) {
             var stmt = (IfElseStatement) stmt_;
-            var cond = this.visitDstExpr(ctx, curFunc, stmt.condition);
             int ind = ctx.getBBInd();
             var trueBlock = new BasicBlock("if_true_"+ind);
             var exitBlock = new BasicBlock("if_end_"+ind);
@@ -280,7 +281,9 @@ public class FakeSSAGenerator {
             if (stmt.elseBlock != null) {
                 falseBlock = new BasicBlock("if_false_"+ind);
             }
-            ctx.addToCurrent(new BranchInst(ctx.current, cond, trueBlock.getValue(), falseBlock.getValue()));
+            // var cond = this.visitDstExpr(ctx, curFunc, stmt.condition);
+            // ctx.addToCurrent(new BranchInst(ctx.current, cond, trueBlock.getValue(), falseBlock.getValue()));
+            visitCondExprs(ctx, curFunc, stmt.condition.expr, trueBlock.getValue(), falseBlock.getValue());
 
             // 在true block生成指令
             ctx.current = trueBlock;
@@ -306,10 +309,12 @@ public class FakeSSAGenerator {
             ctx.addToCurrent(new JumpInst(ctx.current, entBlock.getValue()));
             ctx.current = entBlock;
             curFunc.bbs.add(entBlock);
-            var cond = this.visitDstExpr(ctx, curFunc, stmt.condition);
             var bodyBlock = new BasicBlock("while_body_"+ind);
             var exitBlock = new BasicBlock("while_end_"+ind);
-            ctx.addToCurrent(new BranchInst(ctx.current, cond, bodyBlock.getValue(), exitBlock.getValue()));
+            // var cond = this.visitDstExpr(ctx, curFunc, stmt.condition);
+            // ctx.addToCurrent(new BranchInst(ctx.current, cond, bodyBlock.getValue(), exitBlock.getValue()));
+            visitCondExprs(ctx, curFunc, stmt.condition.expr, bodyBlock.getValue(), exitBlock.getValue());
+
             // set continue and brek map;
             ctx.breakMap.put(stmt, exitBlock.getValue());
             ctx.continueMap.put(stmt, entBlock.getValue());
@@ -355,6 +360,7 @@ public class FakeSSAGenerator {
 
         if (expr_ instanceof BinaryExpr) {
             var expr = (BinaryExpr) expr_;
+            assert !expr.op.isShortCircuit();
             var l = visitDstExpr(ctx, curFunc, expr.left);
             var r = visitDstExpr(ctx, curFunc, expr.right);
             var ret = ctx.addToCurrent(new BinopInst(ctx.current, expr.op, l, r));
@@ -393,16 +399,6 @@ public class FakeSSAGenerator {
             return constant;
         }
 
-        if (expr_ instanceof LogicExpr) {
-            var expr = (LogicExpr) expr_;
-            var val = visitDstExpr(ctx, curFunc, expr.expr);
-            if (val.type.equals(Type.Boolean)) {
-                return val; // 是逻辑表达式
-            }
-            // cast val to i1; (x) -> (x ne 0)
-            return ctx.addToCurrent(new BinopInst(ctx.current, BinaryOp.LOG_NEQ, ConstantValue.getDefault(val.type), val));
-        }
-
         if (expr_ instanceof LValExpr) {
             var expr = (LValExpr) expr_;
             return visitLValExpr(ctx, curFunc, expr, false);
@@ -413,13 +409,31 @@ public class FakeSSAGenerator {
             if (expr.op == UnaryOp.POS) {
                 Global.logger.warning("Will someone actually use UnaryOp.POS`+` ?");
                 return visitDstExpr(ctx, curFunc, expr.expr);
-            } else if (expr.op == UnaryOp.NEG || expr.op == UnaryOp.NOT) {
+            } else if (expr.op == UnaryOp.NEG) {
                 var val = visitDstExpr(ctx, curFunc, expr.expr);
                 return ctx.addToCurrent(new BinopInst(ctx.current, BinaryOp.SUB, ConstantValue.getDefault(val.type), val));
-            } else {
+            } else if (expr.op == UnaryOp.NOT) {
+                var val = visitDstExpr(ctx, curFunc, expr.expr);
+                return ctx.addToCurrent(new BinopInst(ctx.current, BinaryOp.LOG_EQ, ConstantValue.getDefault(val.type), val));
+            }  else {
                 throw new RuntimeException("Unknown UnaryOp type.");
             }
         }
+        
+        if (expr_ instanceof NonShortLogicExpr) { // 说明要cast到i1类型了
+            var expr = (NonShortLogicExpr) expr_;
+            var val = visitDstExpr(ctx, curFunc, expr.expr);
+            if (val.type.equals(Type.Boolean)) {
+                return val; // 是逻辑表达式
+            }
+            // cast val to i1; (x) -> (x ne 0)
+            return ctx.addToCurrent(new BinopInst(ctx.current, BinaryOp.LOG_NEQ, ConstantValue.getDefault(val.type), val));
+        }
+
+        if (expr_ instanceof LogicExpr) {
+            throw new RuntimeException("Cannot process logic expr in visitDstExpr, use visitCondExprs instead.");
+        }
+
         throw new RuntimeException("Unknown Expr type.");
     }
 
@@ -488,6 +502,39 @@ public class FakeSSAGenerator {
                 // TODO array memset to 0 and getelementptr and set content.
                 setArrayInitialVal(ctx, curFunc, alloc, decl.initVal, decl.type.dims);
             }
+        }
+    }
+
+    /**
+     * 递归处理and和or的短路求值
+     * @param ctx
+     * @param curFunc
+     * @param inLogic expr in LogicExpr (normally `stmt.condition.expr`)
+     * @param t
+     * @param f
+     */
+    private void visitCondExprs(FakeSSAGeneratorContext ctx, ssa.ds.Func curFunc, Expr inLogic, BasicBlockValue t, BasicBlockValue f) {
+        if (inLogic instanceof BinaryExpr && ((BinaryExpr)inLogic).op.isShortCircuit()) { // logic and/or
+            BinaryExpr expr = (BinaryExpr) inLogic;
+            // 如果是and，true跳转到右边，false跳转到f。
+            // 如果是or，true跳转到t，false跳转到右边。
+            // 继续在右边递归生成。
+            int ind = ctx.getBBInd();
+            BasicBlock next;
+            if (expr.op == BinaryOp.LOG_AND) {
+                next = new BasicBlock("and_right_"+ind);
+                visitCondExprs(ctx, curFunc, expr.left, next.getValue(), f);
+            } else {
+                assert expr.op == BinaryOp.LOG_OR;
+                next = new BasicBlock("or_right_"+ind);
+                visitCondExprs(ctx, curFunc, expr.left, t, next.getValue());
+            }
+            ctx.current = next;
+            curFunc.bbs.add(next);
+            visitCondExprs(ctx, curFunc, expr.right, t, f);
+        } else { // 正常生成，通过NonShortLogicExpr已经确保是i1类型
+            var cond = this.visitDstExpr(ctx, curFunc, inLogic);
+            ctx.addToCurrent(new BranchInst(ctx.current, cond, t, f));
         }
     }
 

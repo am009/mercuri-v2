@@ -35,6 +35,7 @@ import dst.ds.FuncCall;
 import dst.ds.LValExpr;
 import dst.ds.LiteralExpr;
 import dst.ds.LogicExpr;
+import dst.ds.NonShortLogicExpr;
 import dst.ds.UnaryExpr;
 import dst.ds.UnaryOp;
 
@@ -263,12 +264,12 @@ public class AstExprVisitor extends SysyBaseVisitor<Expr> {
      */
     private Expr visitEqExpr(EqExprContext eqExpr, DstGeneratorContext ctx) {
         if (eqExpr.eqExpr() == null) {
-            return this.visitRelExpr(eqExpr.relExpr(), ctx);
+            return new NonShortLogicExpr(this.visitRelExpr(eqExpr.relExpr(), ctx));
         } else {
             Expr left = this.visitEqExpr(eqExpr.eqExpr(), ctx);
             Expr right = this.visitRelExpr(eqExpr.relExpr(), ctx);
             var op = BinaryOp.fromString(eqExpr.getChild(1).getText());
-            return new BinaryExpr(left, right, op);
+            return new NonShortLogicExpr(new BinaryExpr(left, right, op));
         }
     }
 

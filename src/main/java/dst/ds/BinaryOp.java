@@ -20,7 +20,30 @@ public enum BinaryOp {
     LOG_LE,
     LOG_GE;
 
-    public boolean isLogic() {
+
+    public boolean isShortCircuit() {
+        switch (this) {
+            case ADD:
+            case DIV:
+            case MOD:
+            case MUL:
+            case SUB:
+            case LOG_GE:
+            case LOG_GT:
+            case LOG_LE:
+            case LOG_LT:
+            case LOG_EQ:
+            case LOG_NEQ:
+                return false;
+            case LOG_AND:
+            case LOG_OR:
+                return true;
+            default:
+                throw new IllegalArgumentException("Unknown binary operator: " + this);
+        }
+    }
+
+    public boolean isBoolean() {
         switch (this) {
             case ADD:
             case DIV:

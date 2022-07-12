@@ -35,6 +35,7 @@ import dst.ds.LValExpr;
 import dst.ds.LiteralExpr;
 import dst.ds.LogicExpr;
 import dst.ds.LoopStatement;
+import dst.ds.NonShortLogicExpr;
 import dst.ds.ReturnStatement;
 import dst.ds.Type;
 import dst.ds.UnaryExpr;
@@ -311,6 +312,13 @@ public class SemanticAnalyzer {
 
         if (expr_ instanceof LogicExpr) {
             var expr = (LogicExpr) expr_;
+            visitDstExpr(ctx, curFunc, expr.expr);
+            expr.setType(expr.expr.type);
+            return;
+        }
+
+        if (expr_ instanceof NonShortLogicExpr) {
+            var expr = (NonShortLogicExpr) expr_;
             visitDstExpr(ctx, curFunc, expr.expr);
             expr.setType(expr.expr.type);
             return;

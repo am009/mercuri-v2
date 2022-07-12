@@ -87,6 +87,12 @@ sysy只有基本的类型int float和较为复杂的数组类型，没有复杂�
 @a = dso_local global [3 x [2 x [2 x i32]]] [[2 x [2 x i32]] [[2 x i32] [i32 1, i32 0], [2 x i32] zeroinitializer], [2 x [2 x i32]] [[2 x i32] [i32 6, i32 2], [2 x i32] [i32 4, i32 5]], [2 x [2 x i32]] zeroinitializer], align 16
 ```
 
+#### boolean 相关
+
+由于源码中没有boolean类型，但是IR中跟随LLVM支持boolean类型，因此在Sematic分析阶段和IR生成阶段是不同的角度看待逻辑表达式的。Sematic阶段是把大于小于这种都看作int类型的操作，只不过只返回1或者0，最后在condition的时候通过比较是不是0来跳转。而IR阶段中让这种操作返回i1。遇到了NonShortLogicExpr的时候说明即使不是i1也要转换为i1了。
+
+因此Sematic阶段的Type不支持表示boolean，而IR阶段的Type则支持。
+
 #### 生成控制流
 
 Context里有一个current指针，指向当前基本块。语句生成结束后需要确保这个指针指向的基本块是和整个语句同级的。
@@ -111,3 +117,11 @@ Context里有一个current指针，指向当前基本块。语句生成结束后
 首先调用memset将数组区域归零。然后遍历赋值每个非零值。
 通过InitValue新增的isAllZero的flag判断是否需要进入。
 递归的过程参照之前的flatten的过程。但是更简单
+
+### 短路求值
+
+一种方法是求值LogicExpr的时候传入一个true block和false block。从if和while那边就要开始传，他们也不用生成跳转指令了。然后在处理binaryop的逻辑表达式的时候，and指令是第一个表达式跳转到false或者到另外一个求值。而or指令是第一个表达式跳转到true或者第二个表达式的求值。到最后普通表达式的时候就正常生成了。
+
+cond -> logicOrExp（BinOp） -> logicAndExpr（BinOp） -> eqExpr、neExpr（BinOp） -> relExpr -> addExpr(这里开始进入正常的表达式了。)
+
+另外一种就需要提前生成Phi节点，那边把不同路径上的merge起来。
