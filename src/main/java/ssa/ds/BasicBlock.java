@@ -12,12 +12,10 @@ public class BasicBlock {
     public BasicBlock(String name) {
         label = name;
         insts = new ArrayList<>();
+        val = new BasicBlockValue(this);
     }
 
     public BasicBlockValue getValue() {
-        if (val == null) {
-            val = new BasicBlockValue(this);
-        }
         return val;
     }
 

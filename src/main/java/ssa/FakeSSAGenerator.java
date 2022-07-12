@@ -246,13 +246,15 @@ public class FakeSSAGenerator {
 
         if (stmt_ instanceof BreakStatement) {
             var stmt = (BreakStatement) stmt_;
-
+            var inst = ctx.addToCurrent(new JumpInst(ctx.current, ctx.breakMap.get(stmt.loop)));
+            inst.comments = "break";
             return;
         }
 
         if (stmt_ instanceof ContinueStatement) {
             var stmt = (ContinueStatement) stmt_;
-
+            var inst = ctx.addToCurrent(new JumpInst(ctx.current, ctx.continueMap.get(stmt.loop)));
+            inst.comments = "continue";
             return;
         }
 
@@ -298,10 +300,27 @@ public class FakeSSAGenerator {
 
         if (stmt_ instanceof LoopStatement) {
             var stmt = (LoopStatement) stmt_;
+            // 由于要跳转到expr计算的前面，这里要分割一个基本块
+            int ind = ctx.getBBInd();
+            var entBlock = new BasicBlock("while_entry_"+ind);
+            ctx.addToCurrent(new JumpInst(ctx.current, entBlock.getValue()));
+            ctx.current = entBlock;
+            curFunc.bbs.add(entBlock);
             var cond = this.visitDstExpr(ctx, curFunc, stmt.condition);
-            
-            this.visitDstStmt(ctx, curFunc, stmt.bodyBlock);
+            var bodyBlock = new BasicBlock("while_body_"+ind);
+            var exitBlock = new BasicBlock("while_end_"+ind);
+            ctx.addToCurrent(new BranchInst(ctx.current, cond, bodyBlock.getValue(), exitBlock.getValue()));
+            // set continue and brek map;
+            ctx.breakMap.put(stmt, exitBlock.getValue());
+            ctx.continueMap.put(stmt, entBlock.getValue());
 
+            ctx.current = bodyBlock;
+            curFunc.bbs.add(bodyBlock);
+            this.visitDstStmt(ctx, curFunc, stmt.bodyBlock);
+            ctx.addToCurrent(new JumpInst(ctx.current, entBlock.getValue()));
+
+            ctx.current = exitBlock;
+            curFunc.bbs.add(exitBlock);
             return;
         }
 

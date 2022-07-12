@@ -5,6 +5,7 @@ import java.util.Map;
 
 import dst.ds.LoopStatement;
 import ssa.ds.BasicBlock;
+import ssa.ds.BasicBlockValue;
 import ssa.ds.Func;
 import ssa.ds.Instruction;
 import ssa.ds.Module;
@@ -21,8 +22,8 @@ public class FakeSSAGeneratorContext {
     // 全局变量由于直接取的是地址，所以单独分开
     public Map<dst.ds.Decl, Value> globVarMap;
     // 等效于LoopStatement多了一个Value成员，保存break和Continue需要的BasicBlockValue
-    public Map<LoopStatement, Value> breakMap;
-    public Map<LoopStatement, Value> continueMap;
+    public Map<LoopStatement, BasicBlockValue> breakMap;
+    public Map<LoopStatement, BasicBlockValue> continueMap;
 
     // 方便指令生成时，指定从哪个基本块继续生成。
     public Func currentFunc;
@@ -33,6 +34,8 @@ public class FakeSSAGeneratorContext {
         varMap = new HashMap<>();
         funcMap = new HashMap<>();
         globVarMap = new HashMap<>();
+        breakMap = new HashMap<>();
+        continueMap = new HashMap<>();
     }
 
     public Instruction addToCurrent(Instruction i) {
