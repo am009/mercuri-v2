@@ -55,11 +55,6 @@ public class Type implements Cloneable {
         if (type1.basicType != type2.basicType) {
             return false;
         }
-        // 类型是否匹配不需要关系该类型是否是const变量
-        // isMatch in Type.getCommon always return false when one is const and the other is not.
-        // if (type1.isConst != type2.isConst) {
-        //     return false;
-        // }
         if (type1.isArray != type2.isArray) {
             return false;
         }
@@ -82,6 +77,7 @@ public class Type implements Cloneable {
         return true;
     }
 
+    // binary expr在语法检查时使用。因此暂时不需要关心数组类型
     public static Type getCommon(Type type1, Type type2) {
         if (isMatch(type1, type2)) {
             return type1;
@@ -92,7 +88,6 @@ public class Type implements Cloneable {
         if (isMatch(type1,Type.Integer) && isMatch(type2,Type.Float)) {
             return Type.Float;
         }
-        // TODO: completely support array
         if (type1.isArray && type2.isArray) {
             if (type1.basicType == type2.basicType) {
                 return type1;

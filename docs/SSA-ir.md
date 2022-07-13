@@ -13,10 +13,10 @@ https://mapping-high-level-constructs-to-llvm-ir.readthedocs.io/en/latest/README
 考虑使用Basic Block Argument 替代Phi指令 TODO 加资料
 
 TODO
-1. 把一些指令的LLVM IR打印改成用格式化字符串😂
-1. 控制流相关生成，更多语句的生成
-1. array的初始化生成（等写了函数调用生成之后）
-1. 加入Phi节点，转SSA
+1. 加入Phi节点，
+1. 模仿mimic写SSA construction(mem2reg)
+1. 用split critical edge的方法实现ssa destruction(reg2mem)
+1. pass manager？
 
 
 ### 基础
@@ -101,9 +101,7 @@ Context里有一个current指针，指向当前基本块。语句生成结束后
 
 在`if(){return;}else{}`中生成if-true块时，由于可能已经有相关return语句结束了当前BasicBlock，想要生成if结束跳转到exit的指令时会出现问题。所以就直接不生成了？
 
-目前会出现这种问题的情况还有：TODO
-
-目前解决方案：生成到一个没有人跳转过去的新的临时基本块了。
+目前解决方案：生成到一个没有人跳转过去的新的临时基本块了。如果当前的基本块已经有terminator了，就新建一个基本块再往里放当前要生成的terminator，不然那边LLVM IR里会有一个unnamed block影响标号。
 
 
 ### GetElementPtr 第一维是否一直是0

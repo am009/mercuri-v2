@@ -226,7 +226,6 @@ public class FakeSSAGenerator {
         if (!(current.insts.get(current.insts.size()-1) instanceof RetInst)) {
             throw new RuntimeException("Function " + dstFunc.id + ": generated code not end with return.");
         }
-        // TODO 修复基本块之间的双向链接？？(trivial compiler)
     }
 
     private void visitDstStmt(FakeSSAGeneratorContext ctx, Func curFunc, BlockStatement stmt_) {
