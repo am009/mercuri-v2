@@ -3,3 +3,4 @@
 *.tar.gz
 target
 *.log
+test/lib/sylib.ll
