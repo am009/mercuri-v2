@@ -193,7 +193,7 @@ public class FakeSSAGenerator {
                 ctx.varMap.put(param, ref);
             } else {
                 var alloc = new AllocaInst.Builder(ent).addType(convertDstType(param.type)).build();
-                alloc.name = param.id+"_"+ctx.getVarInd();
+                alloc.name = ctx.nameLocal(param.id);
                 ctx.addToCurrent(alloc);
                 ctx.varMap.put(param, alloc);
                 var inst = new StoreInst.Builder(ent).addOperand(ref, alloc).build();
@@ -333,7 +333,7 @@ public class FakeSSAGenerator {
             var val = visitDstExpr(ctx, curFunc, stmt.retval);
             var b = new RetInst.Builder(ctx.current);
             b.addType(curFunc.getRetType());
-            if (!val.type.equals(Type.Void)) {
+            if (curFunc.retType != FuncType.VOID) {
                 b.addOperand(val);
             }
             ctx.addToCurrent(b.build());
@@ -362,6 +362,15 @@ public class FakeSSAGenerator {
             assert !expr.op.isShortCircuit();
             var l = visitDstExpr(ctx, curFunc, expr.left);
             var r = visitDstExpr(ctx, curFunc, expr.right);
+            if (expr.op.isBoolean()) {
+                if (!l.type.equals(r.type)) { // 检查两边类型，一边i1一边非i1时，需要cast到i1。
+                    if (l.type.equals(Type.Boolean)) {
+                        r = ctx.addToCurrent(new BinopInst(ctx.current, BinaryOp.LOG_NEQ, ConstantValue.getDefault(r.type), r));
+                    } else if (r.type.equals(Type.Boolean)) {
+                        l = ctx.addToCurrent(new BinopInst(ctx.current, BinaryOp.LOG_NEQ, ConstantValue.getDefault(l.type), l));
+                    } else {throw new RuntimeException("Wrong type for BinaryExpr "+expr.op.toString());}
+                }
+            }
             var ret = ctx.addToCurrent(new BinopInst(ctx.current, expr.op, l, r));
             return ret;
         }
@@ -434,6 +443,10 @@ public class FakeSSAGenerator {
             throw new RuntimeException("Cannot process logic expr in visitDstExpr, use visitCondExprs instead.");
         }
 
+        if (expr_ == null) { // empty stmt
+            return null;
+        }
+
         throw new RuntimeException("Unknown Expr type.");
     }
 
@@ -481,7 +494,8 @@ public class FakeSSAGenerator {
                     }
                 }
             }
-        } else { // 担心常量数组可能传函数参数，所以就当普通数组处理了。
+        } else { // 是数组，同时也有取下标运算
+            // 担心常量数组可能传函数参数，所以就当普通数组处理了。
             // 此时val应该是指针。
             var gep = new GetElementPtr(ctx.current, val);
             ctx.addToCurrent(gep);
@@ -491,7 +505,13 @@ public class FakeSSAGenerator {
             });
             if (gep.type.isArray()) { // index没有取到底
                 assert toAssign == false;
-                return gep;
+                // 一般是函数调用出现，因此要再省略一维下标
+                var gep2 = new GetElementPtr(ctx.current, gep);
+                gep2.comments = "forget one dim";
+                ctx.addToCurrent(gep2);
+                // 非ParamValue自动加一个0
+                gep2.addIndex(ConstantValue.ofInt(0));
+                return gep2;
             } else {
                 // 都返回地址，后面要用到的时候再load？
                 if (toAssign) {
@@ -514,7 +534,7 @@ public class FakeSSAGenerator {
         // 生成alloca语句，即使是array也能一个指令解决
         var alloc = new AllocaInst.Builder(ctx.current).addType(convertDstType(decl.type)).build();
         ctx.addToCurrent(alloc);
-        alloc.name = decl.id+"_"+ctx.getVarInd();
+        alloc.name = ctx.nameLocal(decl.id);
         ctx.varMap.put(decl, alloc);
         // 处理非Const普通变量的初始值，可能是复杂表达式。
         // 语义分析没有计算evaledVal

@@ -66,4 +66,11 @@ public class FakeSSAGeneratorContext {
         return varInd++;
     }
 
+    public String nameLocal(String id) {
+        if (id.length() > 10) {
+            id = id.substring(0,10);
+        }
+        return id+"_"+getVarInd();
+    }
+
 }

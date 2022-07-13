@@ -9,6 +9,7 @@ echo "RUN_DIR: $RUN_DIR"
 SRC_FILES=$(find -type f -name "*.java" -printf "%p ")
 echo "SRC_FILES: $SRC_FILES"
 # 编译
+echo "Compiling..."
 javac -d $RUN_DIR/classes \
       -encoding utf-8 \
       -cp .:$ANTLR_LIB \
@@ -21,5 +22,6 @@ if [ $? -ne 0 ]; then
 fi
 
 cd $RUN_DIR/classes
+echo "Packing jar..."
 jar xf $ANTLR_LIB
 jar --create --file $RUN_DIR/compiler.jar --main-class Compiler -C $RUN_DIR/classes .

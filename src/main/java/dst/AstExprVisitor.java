@@ -46,7 +46,10 @@ public class AstExprVisitor extends SysyBaseVisitor<Expr> {
     }
 
     public Expr visitExpr(ExprContext ast, DstGeneratorContext ctx) {
-        return this.visitAddExpr(ast.addExpr(), ctx);
+        if (ast != null) {
+            return this.visitAddExpr(ast.addExpr(), ctx);
+        }
+        return null;
     }
 
     /**

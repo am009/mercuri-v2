@@ -341,8 +341,14 @@ public class SemanticAnalyzer {
             if (expr.isArray) {
                 Type base = declSymbol.decl.type.clone();
                 // no need for bound check
-                expr.indices.forEach(i -> {base.dims.remove(0);});
-                if (base.dims.size() == 0) {
+                expr.indices.forEach(i -> { 
+                    if (base.isPointer) {
+                        base.isPointer = false;
+                    } else {
+                        base.dims.remove(0);
+                    }
+                });
+                if (base.dims == null || base.dims.size() == 0) {
                     base.isArray = false;
                     base.dims = null;
                 }

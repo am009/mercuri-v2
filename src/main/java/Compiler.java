@@ -33,15 +33,15 @@ public class Compiler {
         var dstGen = new DstGenerator();
         CompUnit dst = dstGen.process(parser.compUnit(), args.getInFile());
         // !! IF_DEBUG
-        var gb = new com.google.gson.GsonBuilder();
-        gb.setPrettyPrinting();
-        var gson = gb.create();
+        // var gb = new com.google.gson.GsonBuilder();
+        // gb.setPrettyPrinting();
+        // var gson = gb.create();
         // !! END_IF
 
         // !! IF_DEBUG
-        var jsonDst = gson.toJson(dst);
-        Global.logger.trace("--- dst ---");
-        Global.logger.trace(jsonDst);
+        // var jsonDst = gson.toJson(dst);
+        // Global.logger.trace("--- dst ---");
+        // Global.logger.trace(jsonDst);
         // !! END_IF
         var semAnalyzer = new SemanticAnalyzer();
         semAnalyzer.process(dst);

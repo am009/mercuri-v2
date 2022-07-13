@@ -1,6 +1,7 @@
 package ssa;
 
 import ssa.ds.BasicBlock;
+import ssa.ds.ConstantValue;
 import ssa.ds.Func;
 import ssa.ds.Instruction;
 import ssa.ds.Module;
@@ -31,7 +32,7 @@ public class NumValueNamer {
     }
 
     public void visitValue(Value i) {
-        if ((!i.type.equals(Type.Void)) && i.name == null) {
+        if ((!i.type.equals(Type.Void)) && i.name == null && (!(i instanceof ConstantValue))) {
             i.name = String.valueOf(count++);
         }
     }
