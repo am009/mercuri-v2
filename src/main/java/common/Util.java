@@ -66,4 +66,32 @@ public class Util {
           .replace("\\\"", "\"");
     }
 
+    // ----------------------------------------------------
+    // https://gist.github.com/alcides/0bedeabd0c078298af27d544a64df307
+    public static String floatToLLVM(float f) {
+        return "0x" + toHexString(Double.doubleToRawLongBits((double) f));
+    }
+    
+    public static String doubleToLLVM(double d) {
+        return "0x" + toHexString(Double.doubleToRawLongBits(d));
+    }
+    
+    private static String toHexString(long l) {
+        int count = (l == 0L) ? 1 : ((64 - Long.numberOfLeadingZeros(l)) + 3) / 4;
+        StringBuilder buffer = new StringBuilder(count);
+        long k = l;
+        do {
+            long t = k & 15L;
+            if (t > 9) {
+                t = t - 10 + 'A';
+            } else {
+                t += '0';
+            }
+            count -= 1;
+            buffer.insert(0, (char) t);
+            k = k >> 4;
+        } while (count > 0);
+        return buffer.toString();
+    }
+
 }

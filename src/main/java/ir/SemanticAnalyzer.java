@@ -21,7 +21,6 @@ import dst.ds.CastExpr;
 import dst.ds.CompUnit;
 import dst.ds.ContinueStatement;
 import dst.ds.Decl;
-import dst.ds.DeclType;
 import dst.ds.EvaluatedValue;
 import dst.ds.Expr;
 import dst.ds.ExprStatement;
@@ -95,13 +94,7 @@ public class SemanticAnalyzer {
 
         // 先填入type，再递归访问expr。
         if (decl.initVal != null) {
-            visitInitValue(ctx, curFunc, decl.initVal);
-            if (!decl.type.isArray) { // 插入类型转换节点
-                if (!Type.isMatch(decl.type, decl.initVal.value.type)) {
-                    var cast = new CastExpr(decl.initVal.value, getCastType(decl.type, decl.initVal.value.type), "decl initial value");
-                    decl.initVal.value = cast;
-                }
-            }
+            visitInitValue(ctx, curFunc, decl.initVal, Type.frombasicType(decl.type.basicType));
         }
 
         if (decl.isConst()) {
@@ -257,7 +250,7 @@ public class SemanticAnalyzer {
             var expr = (BinaryExpr) expr_;
             visitDstExpr(ctx, curFunc, expr.left);
             visitDstExpr(ctx, curFunc, expr.right);
-            if (expr.left.type.basicType != expr.right.type.basicType) { // 类型提升
+            if ((!expr.op.isShortCircuit()) && expr.left.type.basicType != expr.right.type.basicType) { // 类型提升
                 var c = getCastType(expr.left.type, expr.right.type);
                 if (c == CastType.F2I) { // 左i右f
                     var cast = new CastExpr(expr.left, CastExpr.CastType.I2F, "expr promote");
@@ -379,13 +372,18 @@ public class SemanticAnalyzer {
     }
 
     // 递归调用visitDstExpr
-    private void visitInitValue(SemanticAnalysisContext ctx, FuncSymbol curFunc, InitValue initVal) {
+    private void visitInitValue(SemanticAnalysisContext ctx, FuncSymbol curFunc, InitValue initVal, Type elemType) {
         if (initVal.isArray) {
             for (var i: initVal.values) {
-                visitInitValue(ctx, curFunc, i);
+                visitInitValue(ctx, curFunc, i, elemType);
             }
         } else {
+            // 插入类型转换节点
             this.visitDstExpr(ctx, curFunc, initVal.value);
+            if (!Type.isMatch(initVal.value.type, elemType)) { // 类型转换
+                var cast = new CastExpr(initVal.value, getCastType(elemType, initVal.value.type), "array init");
+                initVal.value = cast;
+            }
         }
     }
 

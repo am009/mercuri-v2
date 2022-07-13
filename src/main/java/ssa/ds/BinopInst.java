@@ -25,6 +25,6 @@ public class BinopInst extends Instruction {
 
     @Override
     public String getOpString() {
-        return op.toString(type.baseType.isFloat()) + " " + opType.toString();
+        return op.toString(opType.baseType.isFloat()) + " " + opType.toString();
     }
 }

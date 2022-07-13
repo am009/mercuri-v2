@@ -36,7 +36,7 @@ public class Scope {
     }
 
     public boolean register(Symbol symbol) {
-        if (this.resolve(symbol.getName()) != null) {
+        if (values.get(symbol.getName()) != null) {
             return false;
         }
         values.put(symbol.getName(), symbol);
@@ -45,6 +45,7 @@ public class Scope {
 
     public Symbol resolve(String name) {
         Symbol symbol = values.get(name);
+        // 递归的，所以只需要if，不需要用while
         if (symbol == null && parent != null) {
             symbol = parent.resolve(name);
         }

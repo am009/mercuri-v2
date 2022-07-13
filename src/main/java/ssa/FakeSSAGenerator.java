@@ -16,7 +16,6 @@ import dst.ds.CastExpr;
 import dst.ds.CompUnit;
 import dst.ds.ContinueStatement;
 import dst.ds.Decl;
-import dst.ds.DeclType;
 import dst.ds.EvaluatedValue;
 import dst.ds.Expr;
 import dst.ds.ExprStatement;
@@ -194,7 +193,7 @@ public class FakeSSAGenerator {
                 ctx.varMap.put(param, ref);
             } else {
                 var alloc = new AllocaInst.Builder(ent).addType(convertDstType(param.type)).build();
-                alloc.name = param.id+"_";
+                alloc.name = param.id+"_"+ctx.getVarInd();
                 ctx.addToCurrent(alloc);
                 ctx.varMap.put(param, alloc);
                 var inst = new StoreInst.Builder(ent).addOperand(ref, alloc).build();
@@ -373,6 +372,7 @@ public class FakeSSAGenerator {
             var cb = new CallInst.Builder(ctx.current, fv);
             if (expr.args != null) {
                 for(int i=0;i<expr.args.length;i++) {
+                    // 考虑数组传一部分的情况？
                     var val = visitDstExpr(ctx, curFunc, expr.args[i]);
                     // Float需要提升到Double再传入vararg？
                     if ((i >= expr.funcSymbol.func.params.size()) && val.type.equals(Type.Float)) {
@@ -437,23 +437,48 @@ public class FakeSSAGenerator {
         throw new RuntimeException("Unknown Expr type.");
     }
 
-    private Value visitLValExpr(FakeSSAGeneratorContext ctx, Func curFunc, LValExpr expr, boolean expectPtr) {
+    /**
+     * 处理LVal中取数组下标的情况
+     * @param ctx
+     * @param curFunc
+     * @param expr
+     * @param toAssign 是否位于Assign语句左边
+     * @return
+     */
+    private Value visitLValExpr(FakeSSAGeneratorContext ctx, Func curFunc, LValExpr expr, boolean toAssign) {
         Value val;
         if (expr.declSymbol.decl.isGlobal) {
             val = ctx.globVarMap.get(expr.declSymbol.decl);
         } else  {
             val = ctx.varMap.get(expr.declSymbol.decl);
         }
-        if (!expr.isArray) {
-            if (expr.declSymbol.decl.isConst()) { // 最简单情况，直接找到ConstantValue返回
-                assert expectPtr == false;
+
+        if (!expr.isArray) { // 不需要处理数组访问
+            if (expr.declSymbol.decl.isArray()) { // 没有取下标，但是是数组
+                // 数组要么是alloca，要么是全局变量，要么是函数参数，这两种情况都直接是地址
+                assert toAssign == false;
+                // 忘记数组第一维
+                if (!(expr.declSymbol.decl.isDimensionOmitted)) {
+                    assert !(val instanceof ParamValue);
+                    var gep = new GetElementPtr(ctx.current, val);
+                    gep.comments = "forget first dim";
+                    ctx.addToCurrent(gep);
+                    gep.addIndex(ConstantValue.ofInt(0));
+                    return gep;
+                }
+                assert val instanceof ParamValue;
                 return val;
-            } else {
-                if (expectPtr) {
+            } else { // 不需要处理数组访问也不是数组
+                if (expr.declSymbol.decl.isConst()) { // 最简单情况，直接找到ConstantValue返回
+                    assert toAssign == false;
                     return val;
                 } else {
-                    // 生成load语句
-                    return ctx.addToCurrent(new LoadInst(ctx.current, val));
+                    if (toAssign) {
+                        return val;
+                    } else {
+                        // 生成load语句
+                        return ctx.addToCurrent(new LoadInst(ctx.current, val));
+                    }
                 }
             }
         } else { // 担心常量数组可能传函数参数，所以就当普通数组处理了。
@@ -464,17 +489,17 @@ public class FakeSSAGenerator {
                 var val_ = visitDstExpr(ctx, curFunc, exp);
                 gep.addIndex(val_);
             });
-            if (gep.type.isArray()) {
-                assert expectPtr; // 如果index没有取到底，必然是地址
-            }
-            // 都返回地址，后面要用到的时候再load？
-            if (expectPtr) {
+            if (gep.type.isArray()) { // index没有取到底
+                assert toAssign == false;
                 return gep;
             } else {
-                return ctx.addToCurrent(new LoadInst(ctx.current, gep));
-            }
-            
-            
+                // 都返回地址，后面要用到的时候再load？
+                if (toAssign) {
+                    return gep;
+                } else {
+                    return ctx.addToCurrent(new LoadInst(ctx.current, gep));
+                }
+            }            
         }
     }
 
@@ -489,7 +514,7 @@ public class FakeSSAGenerator {
         // 生成alloca语句，即使是array也能一个指令解决
         var alloc = new AllocaInst.Builder(ctx.current).addType(convertDstType(decl.type)).build();
         ctx.addToCurrent(alloc);
-        alloc.name = decl.id+"_";
+        alloc.name = decl.id+"_"+ctx.getVarInd();
         ctx.varMap.put(decl, alloc);
         // 处理非Const普通变量的初始值，可能是复杂表达式。
         // 语义分析没有计算evaledVal

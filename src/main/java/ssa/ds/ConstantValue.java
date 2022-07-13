@@ -3,6 +3,8 @@ package ssa.ds;
 import java.util.List;
 import java.util.StringJoiner;
 
+import common.Util;
+
 // 要么是普通常数，Number不为空，children为空
 // 要么children不为空，Number为空
 public class ConstantValue extends Value {
@@ -64,16 +66,7 @@ public class ConstantValue extends Value {
     @Override
     public String toString() {
         var b = new StringBuilder();
-        b.append(type.toString()).append(" ");
-        if (!isArray()) {
-            b.append(val.toString());
-        } else {
-            var sj = new StringJoiner(", ", "[", "]");
-            for (var c: children) {
-                sj.add(c.toString());
-            }
-            b.append(sj.toString());
-        }
+        b.append(type.toString()).append(" ").append(toValueString());
         return b.toString();
     }
 
@@ -81,7 +74,14 @@ public class ConstantValue extends Value {
     public String toValueString() {
         var b = new StringBuilder();
         if (!isArray()) {
-            b.append(val.toString());
+            if (val instanceof Float) {
+                // To more exact representation
+                b.append(Util.floatToLLVM((Float)val));
+            } else if (val instanceof Double) {
+                b.append(Util.doubleToLLVM((Double)val));
+            } else {
+                b.append(val.toString());
+            }
         } else {
             var sj = new StringJoiner(", ", "[", "]");
             for (var c: children) {

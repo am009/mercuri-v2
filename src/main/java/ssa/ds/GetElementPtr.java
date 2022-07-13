@@ -12,7 +12,7 @@ public class GetElementPtr extends Instruction {
         assert ptr.type.isPointer;
         parent = p;
         oprands.add(new Use(this, ptr));
-        // 非参数时第一维是0
+        // 非参数时第一维是0 (是参数时必然省略第一维)
         if (!(ptr instanceof ParamValue)) {
             oprands.add(new Use(this, ConstantValue.ofInt(0)));
         }

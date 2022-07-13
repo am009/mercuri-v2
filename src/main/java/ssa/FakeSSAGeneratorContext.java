@@ -61,4 +61,9 @@ public class FakeSSAGeneratorContext {
         return BBInd++;
     }
 
+    int varInd = 0;
+    public int getVarInd() {
+        return varInd++;
+    }
+
 }

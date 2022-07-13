@@ -125,3 +125,11 @@ Context里有一个current指针，指向当前基本块。语句生成结束后
 cond -> logicOrExp（BinOp） -> logicAndExpr（BinOp） -> eqExpr、neExpr（BinOp） -> relExpr -> addExpr(这里开始进入正常的表达式了。)
 
 另外一种就需要提前生成Phi节点，那边把不同路径上的merge起来。
+
+### LVal与数组变量取部分下标
+
+LVal表达式中可能直接是数组变量，也可能取了部分下标。一个是出现在getfarray这种函数的参数，一个是函数调用的时候传入部分数组。
+
+`void f(int arg[]); int a[2]; f(a);`这种情况下，f的参数中出现了一个a。原语类型和数组类型不一样，原语类型直接写出名字是代表对应的值，即直接传值进去。而数组类型，比如这里写出一个a，如果按照原语类型一样来应该是直接传`[2 x i32] [i32 0, i32 0]`这种东西或者load出来的值`%18 = load [10 x float], [10 x float]* %arr_8`。按照结构体的传指针思想，传的也应该是`[2 x i32]*`。然而实际上，a代表的是`i32 *`。意思大概是定义了数组之后就叫你直接忘记第一维。
+
+`void f(int arg[]); int a[2][2]; f(a[0]);`这种情况下，f的类型首先会被转成`void f(int* arg)`。

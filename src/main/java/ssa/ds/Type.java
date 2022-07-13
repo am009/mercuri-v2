@@ -83,7 +83,15 @@ public class Type implements Cloneable {
 
         if (isPointer != type.isPointer) return false;
         if (!baseType.equals(type.baseType)) return false;
-        if (dims != null ? !dims.equals(type.dims) : type.dims != null) return false;
+        var dims1 = dims;
+        var dims2 = type.dims;
+        if (dims1 != null && dims1.size() == 0) {
+            dims1 = null;
+        }
+        if (dims2 != null && dims2.size() == 0) {
+            dims2 = null;
+        }
+        if (dims1 != null ? !dims1.equals(dims2) : (dims2 != null)) return false;
 
         return true;
     }
