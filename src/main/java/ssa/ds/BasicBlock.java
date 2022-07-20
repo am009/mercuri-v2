@@ -46,6 +46,27 @@ public class BasicBlock {
         return i;
     }
 
+    // 根据BasicBlockValue被使用的情况获取。
+    public List<BasicBlock> pred() {
+        var val = getValue();
+        ArrayList<BasicBlock> ret = new ArrayList<>();
+        for(Use u: val.getUses()) {
+            // 目前User仅有Instruction，以后多了新的User需要再次考虑此处
+            // 目前使用BasicBlockValue的也仅有TerminatorInst。
+            assert u.user instanceof TerminatorInst;
+            TerminatorInst inst = (TerminatorInst) u.user;
+            ret.add(inst.parent);
+        }
+        return ret;
+    }
+
+    // 获取最后跳转指令的目标
+    public List<BasicBlock> succ() {
+        assert insts.size() != 0 && insts.get(insts.size()-1) instanceof TerminatorInst;
+        TerminatorInst t = (TerminatorInst)insts.get(insts.size()-1);
+        return t.getSuccessors();
+    }
+
     @Override
     public String toString() {
         var b = new StringBuilder();

@@ -37,7 +37,7 @@ public class RetInst extends TerminatorInst {
     }
 
     @Override
-    List<BasicBlockValue> getSuccessors() {
+    List<BasicBlock> getSuccessors() {
         return Collections.emptyList();
     }
 
