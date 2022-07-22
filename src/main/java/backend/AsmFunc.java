@@ -5,8 +5,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import backend.arm.Reg;
 import ssa.ds.Func;
-import ssa.ds.ParamValue;
 
 public class AsmFunc implements Iterable<AsmBlock> {
     public String label;
@@ -17,15 +17,16 @@ public class AsmFunc implements Iterable<AsmBlock> {
     public List<AsmBlock> bbs;
     public Func ssaFunc;
 
-    public int stack_size;
+    public StackManager sm;
 
-    // 寄存器分配辅助数据
-    public Map<ParamValue, VirtReg> regPreAlloc;
+    // 寄存器分配的起始约束
+    public List<Map.Entry<Reg, VirtReg>> paramPreAlloc;
 
     public AsmFunc(Func ssaFunc) {
         this.ssaFunc = ssaFunc;
         label = ssaFunc.name;
         this.bbs = new ArrayList<>();
+        sm = new StackManager();
     }
 
     @Override

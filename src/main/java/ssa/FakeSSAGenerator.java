@@ -185,8 +185,10 @@ public class FakeSSAGenerator {
 
         // 函数参数
         // dstFunc.params.forEach(param -> visitFuncParamDecl(ctx, ));
-        dstFunc.params.forEach(param -> {
-            var ref = new ParamValue(param.id, convertDstType(param.type));
+        // dstFunc.params.forEach(param -> {
+        for (int i=0;i<dstFunc.params.size();i++) {
+            var param = dstFunc.params.get(i);
+            var ref = pvs.get(i);
             ref.name = param.id;
             if (param.isArray()) {
                 // array参数不需要创建alloca指令
@@ -199,7 +201,8 @@ public class FakeSSAGenerator {
                 var inst = new StoreInst.Builder(ent).addOperand(ref, alloc).build();
                 ctx.addToCurrent(inst);
             }
-        });
+        }
+        // });
 
         
         dstFunc.body.statements.forEach(bs -> {visitDstStmt(ctx, func, bs);});

@@ -36,4 +36,9 @@ public class Reg extends AsmOperand {
     public Reg(Type t) {
         ty = t;
     }
+
+    @Override
+    public String toString() {
+        return ty.toString();
+    }
 }

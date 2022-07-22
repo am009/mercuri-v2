@@ -1,5 +1,6 @@
 package backend;
 
+import backend.arm.LabelImm;
 import ssa.ds.GlobalVariable;
 import ssa.ds.PrimitiveTypeTag;
 
@@ -12,9 +13,13 @@ public class AsmGlobalVariable {
     // 还是在打印的时候根据ssaGlob动态打印initVal吧，方便带上注释。
     // List<Number> initVal;
 
+    // 代表对应地址常量的Immediate值
+    public LabelImm imm;
+
     public AsmGlobalVariable(GlobalVariable g) {
         ssaGlob = g;
         base = g.varType.baseType;
+        imm = new LabelImm(g.name);
     }
 
     @Override

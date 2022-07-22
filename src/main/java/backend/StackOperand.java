@@ -1,6 +1,4 @@
-package backend.arm;
-
-import backend.AsmOperand;
+package backend;
 
 /** Low address, stack grow upwards
  * ┌─────────────┐
@@ -11,7 +9,7 @@ import backend.AsmOperand;
  * │ spilled reg │-12
  * │     ...     │-a
  * │ alloca local│-4
- * ├    bp/lr    ┤0 - bp
+ * ├─   bp/lr   ─┤0 - bp
  * │    bp/lr    │+4
  * │    arg1     │+8
  * │    arg2     │+12

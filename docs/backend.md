@@ -2,7 +2,8 @@
 
 并不是直接转换为汇编指令，还是有一些抽象层次，比如Prologue指令和Ret指令。
 
-TODO: 
+TODO:
+1. 完善窥孔优化逻辑，使用更多指令。 
 1. 写一个线性优化pass，分析代码之间距离，对跳转超出32MB范围的改为绝对地址跳转。
 1. 未来加入新的后端架构的时候考虑架构相关的和架构无关的逻辑的解耦，和设计相关的接口。
 
@@ -14,7 +15,7 @@ TODO:
 
 ### 指令选择架构
 
-没有采用更高级的Tree pattern matching，还是基于更简单的直接生成，通过后续的窥孔优化来保证代码质量。
+没有采用更高级的Tree pattern matching，还是基于更简单的直接生成，通过后续的窥孔优化来保证代码质量。也因此各个指令需要直接生成较为底层的指令（除了prologue和epilogue），而不是在toString的时候直接生成等价的多条指令。
 
 相关资料：
 1. 《Engineering a Compiler》的指令选择一章
@@ -30,7 +31,16 @@ TODO：
 相关资料：
 1. 《Engineering a Compiler》的寄存器分配一章
 
-#### valueMap
+##### r12 的用途
+Intra-Procedure-call scratch register，为了方便prologue和epilogue计算留下的寄存器，总之作为临时用一用的寄存器。比如MOV32带上另外一个指令这种临时加载一个值然后用的情况。
+
+##### LDM指令
+
+https://keleshev.com/ldm-my-favorite-arm-instruction/ 
+
+一开始还有点怀疑ldm的reg list是有限制的，没想到真的是随便选寄存器加载。
+
+#### 虚拟寄存器到SSA-IR临时值的映射
 
 生成当前指令的时候怎么拿到之前的指令的结果作为操作数？需要用一个valueMap，从ssa的tmp值映射到虚拟寄存器。如果用到了参数，需要在函数开头将参数放入虚拟寄存器。用到了全局变量的值时，也要加载到虚拟寄存器里。
 
@@ -46,6 +56,8 @@ https://developer.arm.com/documentation/qrc0001/m 最新版的参考卡，但是
 https://gitlab.eduxiji.net/nscscc/compiler2021/-/blob/master/ARM%E5%92%8CThumb-2%E6%8C%87%E4%BB%A4%E9%9B%86%E5%BF%AB%E9%80%9F%E5%8F%82%E8%80%83%E5%8D%A1.pdf 
 
 https://d1.amobbs.com/bbs_upload782111/files_31/ourdev_570540.pdf 中文版的另一个
+
+有指令看不懂的时候可以看看《ARM+Cortex-M3与Cortex-M4权威指南》虽然有很多不相关和不一样的地方。但是讲得非常简单易懂
 
 ### 目标架构
 
@@ -166,3 +178,10 @@ Relocation section '.rel.text' at offset 0x158 contains 1 entry:
 - 比如`printf("%a", 1.0f);`中，r0保存字符串指针，r2-r3保存提升后的double
 
 因此需要为每个函数计算一遍该过程，设置好参数需要预留的空间（遍历到Call指令的时候要将当前预留的参数空间设置为Call指令需要的最大值。）
+
+### 硬件不直接支持的运算
+
+部分不支持的运算要转换为函数调用，而且这一步要在汇编指令生成前用一个Pass去处理
+
+1. modulo 取模：调用`___modsi3`
+2. 浮点数相关：
