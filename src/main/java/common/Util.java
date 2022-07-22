@@ -68,6 +68,7 @@ public class Util {
 
     // ----------------------------------------------------
     // https://gist.github.com/alcides/0bedeabd0c078298af27d544a64df307
+    // LLVM 中的 hex 表示形式里，float也要表示为16位hex。
     public static String floatToLLVM(float f) {
         return "0x" + toHexString(Double.doubleToRawLongBits((double) f));
     }
@@ -78,6 +79,28 @@ public class Util {
     
     private static String toHexString(long l) {
         int count = (l == 0L) ? 1 : ((64 - Long.numberOfLeadingZeros(l)) + 3) / 4;
+        StringBuilder buffer = new StringBuilder(count);
+        long k = l;
+        do {
+            long t = k & 15L;
+            if (t > 9) {
+                t = t - 10 + 'A';
+            } else {
+                t += '0';
+            }
+            count -= 1;
+            buffer.insert(0, (char) t);
+            k = k >> 4;
+        } while (count > 0);
+        return buffer.toString();
+    }
+
+    public static String floatToASM(float f) {
+        return "0x" + to32HexString(Float.floatToRawIntBits(f));
+    }
+
+    private static String to32HexString(int l) {
+        int count = (l == 0L) ? 1 : ((32 - Integer.numberOfLeadingZeros(l)) + 3) / 4;
         StringBuilder buffer = new StringBuilder(count);
         long k = l;
         do {

@@ -12,6 +12,33 @@ public enum PrimitiveTypeTag {
         return this == FLOAT || this == DOUBLE;
     }
 
+    public String toAsmString() {
+        switch (this) {
+            case CHAR:
+                return "byte";
+            case INT:
+                return "long";
+            case FLOAT:
+                return "long";
+            default:
+                throw new IllegalArgumentException("Cannot call getSize on: " + super.toString());
+        }
+    }
+
+    // 也是用于后端代码生成
+    public long getByteSize() {
+        switch (this) {
+            case CHAR:
+                return 1;
+            case INT:
+                return 4;
+            case FLOAT:
+                return 4;
+            default:
+                throw new IllegalArgumentException("Cannot call getSize on: " + super.toString());
+        }
+    }
+
     @Override
     public String toString() {
         switch (this) {

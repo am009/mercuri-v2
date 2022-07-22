@@ -1,8 +1,5 @@
 package ssa.ds;
 
-import java.util.ArrayList;
-import java.util.List;
-
 // https://llvm.org/docs/LangRef.html#getelementptr-instruction
 // https://llvm.org/docs/GetElementPtr.html
 public class GetElementPtr extends Instruction {

@@ -8,7 +8,7 @@ import common.Util;
 // 要么是普通常数，Number不为空，children为空
 // 要么children不为空，Number为空
 public class ConstantValue extends Value {
-    Number val;
+    public Number val;
 
     public List<ConstantValue> children;
 
@@ -90,5 +90,17 @@ public class ConstantValue extends Value {
             b.append(sj.toString());
         }
         return b.toString();
+    }
+    
+    // used by asm gen
+    public String valToAsmString() {
+        assert !isArray();
+        if (val instanceof Float) {
+            return Util.floatToASM((Float)val);
+        } else if (val instanceof Double) {
+            return Util.doubleToLLVM((Double)val);
+        } else {
+            return val.toString();
+        }
     }
 }

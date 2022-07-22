@@ -2,7 +2,7 @@ package ssa.ds;
 
 // 直接使用GlobalVariable时代表全局变量的地址，访问内部值需要一个Load指令。
 public class GlobalVariable extends Value {
-    Type varType; // Value内的Type为指针类型，这里保存原始类型
+    public Type varType; // Value内的Type为指针类型，这里保存原始类型
     public ConstantValue init;
 
     public boolean isConst;

@@ -7,6 +7,7 @@ import org.antlr.v4.runtime.CommonTokenStream;
 
 import ast.SysyLexer;
 import ast.SysyParser;
+import backend.AsmModule;
 import ds.CliArgs;
 import ds.Global;
 import ds.Logger.LogLevel;
@@ -59,6 +60,9 @@ public class Compiler {
         if (args.getOutFile().endsWith(".ll")) { // 生成LLVM IR
             Files.writeString(Path.of(args.getOutFile()), ssa.toString());
         }
+        AsmModule asm = backend.arm.Generator.process(ssa);
+        Global.logger.trace("--- asm ---");
+        Global.logger.trace(asm.toString());
     }
 
     private static void initLogger() throws IOException {

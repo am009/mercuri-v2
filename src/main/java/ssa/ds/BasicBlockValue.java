@@ -1,7 +1,7 @@
 package ssa.ds;
 
 public class BasicBlockValue extends Value {
-    BasicBlock b;
+    public BasicBlock b;
 
     public BasicBlockValue(BasicBlock b) {
         this.name = b.label;

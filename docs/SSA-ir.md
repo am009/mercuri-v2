@@ -18,6 +18,9 @@ TODO
 1. 用split critical edge的方法实现ssa destruction(reg2mem)
 1. pass manager？
 
+目前还有设计需要进一步考虑的地方：
+- 跳转指令不应该完全跟着LLVM走，跳转指令在IR就直接带着一个比较运算的话，后端生成可以直接生成`cmp ; b<cond>` ? （但是SYSY是否允许比较运算的嵌套？比如`((a>2)==1)`）
+
 
 ### 基础
 

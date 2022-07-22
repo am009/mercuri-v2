@@ -27,4 +27,14 @@ public abstract class Instruction extends User {
         }
         return b.toString();
     }
+
+    public Value getOperand0() {
+        return oprands.get(0).value;
+    }
+    public Value getOperand1() {
+        return oprands.get(1).value;
+    }
+    public Value getOperand2() {
+        return oprands.get(2).value;
+    }
 }

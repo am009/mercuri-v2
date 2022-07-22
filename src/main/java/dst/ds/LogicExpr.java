@@ -1,6 +1,5 @@
 package dst.ds;
 
-import ds.Global;
 import ir.ds.Scope;
 
 // 表示此处进入了条件判断
