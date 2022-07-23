@@ -27,7 +27,9 @@ public class AsmBlock {
         var sb = new StringBuilder();
         sb.append(label).append(":\n");
         for (var inst: insts) {
-            sb.append("\t").append(inst.toString()).append("\n");
+            sb.append("\t").append(inst.toString());
+            sb.append(inst.getCommentStr());
+            sb.append("\n");
         }
 
         return sb.toString();

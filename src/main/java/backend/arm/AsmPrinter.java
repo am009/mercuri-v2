@@ -14,10 +14,11 @@ public class AsmPrinter {
         +".syntax unified\n"
         +".file 1 \"%s\"\n\n"; // 这里%s会不会有转义的问题，比如结尾是反斜杠，然后链接器那边报错
 
-    public static String funcHeader = ".global\t%s\n"
+    public static String funcHeader = "\t.global\t%s\n"
         +"\t.type\t%s, %%function\n"
         +"\t.p2align\t2\n"
-        +"\t.code\t32\n";
+        +"\t.code\t32\n"
+        +"%s:\n";
 
     public static String varHeader = ".global\t%s\n"
         +"\t.type\t%s, %%object\n"
@@ -65,7 +66,7 @@ public class AsmPrinter {
 
     public static String emitFunc(AsmFunc func) {
         var sb = new StringBuilder();
-        sb.append(funcHeader.formatted(func.label, func.label));
+        sb.append(funcHeader.formatted(func.label, func.label, func.label));
         for (var bb: func) {
             sb.append(bb.toString());
         }

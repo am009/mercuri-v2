@@ -9,4 +9,13 @@ public class RetInst extends AsmInst {
     public RetInst(AsmBlock p) {
         parent = p;
     }
+
+    @Override
+    public String toString() {
+        if (uses.size() > 0) {
+            return "RetInst "+ uses.get(0).toString();
+        } else {
+            return "RetInst";
+        }
+    }
 }

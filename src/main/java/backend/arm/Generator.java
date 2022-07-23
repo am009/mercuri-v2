@@ -3,8 +3,10 @@ package backend.arm;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import backend.AsmBlock;
 import backend.AsmFunc;
@@ -49,7 +51,7 @@ public class Generator {
     // public AssemblyBlock memCurrent; // 当前生成到的双向链表的末尾
 
     HashMap<BasicBlock, AsmBlock> bbMap; // 当前已经生成的基本块。
-    HashMap<Value, VirtReg> vregMap; // 为IR的temp值分配的虚拟寄存器
+    HashMap<Value, AsmOperand> vregMap; // 为IR的temp值分配的虚拟寄存器
     HashMap<GlobalVariable, AsmGlobalVariable> gvMap;
 
     // TODO 之后寄存器分配也要用到，放在哪里合适？
@@ -242,7 +244,7 @@ public class Generator {
             var tb = bbMap.get(((BasicBlockValue)inst.getOperand1()).b);
             var fb = bbMap.get(((BasicBlockValue)inst.getOperand2()).b);
             // generate cmp and bnz.
-            abb.insts.add(new CMPInst(abb, cond, new NumImm(0)));
+            abb.insts.addAll(expandCmpImm(new CMPInst(abb, cond, new NumImm(0))));
             if (tb == abb.next) { //  ==0 跳转到false
                 abb.insts.add(new BrInst.Builder(abb, fb).addCond(Cond.EQ).build());
             } else if (fb == abb.next) { // != 0跳转到true
@@ -262,6 +264,7 @@ public class Generator {
             var inst = (AllocaInst) inst_;
             long offset = func.sm.allocLocal(getSize(inst.ty));
             var bin = new BinOpInst(abb, BinaryOp.SUB, convertValue(inst, func, abb), new Reg(Reg.Type.fp), new NumImm(Math.toIntExact(offset)));
+            bin.comment = inst.toString();
             abb.insts.addAll(expandBinOp(bin));
             return;
         }
@@ -270,8 +273,21 @@ public class Generator {
             var inst = (BinopInst) inst_;
             var op1 = convertValue(inst.oprands.get(0).value, func, abb);
             var op2 = convertValue(inst.oprands.get(1).value, func, abb);
-            var bin = new BinOpInst(abb, inst.op, convertValue(inst, func, abb), op1, op2);
-            abb.insts.addAll(expandInstImm(bin));
+            if (!inst.op.isBoolean()) {
+                var bin = new BinOpInst(abb, inst.op, convertValue(inst, func, abb), op1, op2);
+                bin.comment = inst.toString();
+                abb.insts.addAll(expandBinOp(bin));
+            } else { // LOG_GE 生成CMP; MOVW dst, #0; MOV<cond> dst #1;
+                var cmp = new CMPInst(abb, op1, op2);
+                cmp.comment = inst.toString();
+                abb.insts.addAll(expandCmpImm(cmp));
+                var dest = convertValue(inst, func, abb);
+                abb.insts.addAll(MovInst.loadImm(abb, dest, new NumImm(0)));
+                var mov = new MovInst(abb, MovInst.Ty.MOVW, dest, new NumImm(1));
+                mov.cond = convertLogicOp(inst.op);
+                mov.comment = inst.toString();
+                abb.insts.add(mov);
+            }
             return;
         }
 
@@ -285,16 +301,27 @@ public class Generator {
             return;
         }
 
-        if (inst_ instanceof GetElementPtr) {
+        if (inst_ instanceof GetElementPtr) { // getelementptr [4 x [2 x i32]], [4 x [2 x i32]]* %b_1, i32 0, i32 0
             var inst = (GetElementPtr) inst_;
+            var addr = convertValue(inst.oprands.get(0).value, func, abb);
+            var nums = inst.oprands.subList(1, inst.oprands.size()).stream().map(u -> ((Integer)((ConstantValue)u.value).val)).collect(Collectors.toList());
+            long offset = calcGep(getSize(inst.base), new ArrayList<>(inst.base.dims), nums);
+            if (offset != 0) {
+                var bin = new BinOpInst(abb, BinaryOp.ADD, convertValue(inst, func, abb), addr, new NumImm(Math.toIntExact(offset)));
+                bin.comment = inst.toString();
+                abb.insts.addAll(expandBinOp(bin));
+            } else {
+                vregMap.put(inst, addr);
+            }
             return;
         }
 
         if (inst_ instanceof LoadInst) { // load i32, i32* %a_0
             var inst = (LoadInst) inst_;
             var addr = convertValue(inst.oprands.get(0).value, func, abb);
-            var sto = new backend.arm.inst.LoadInst(abb, convertValue(inst, func, abb), addr);
-            abb.insts.addAll(expandInstImm(sto));
+            var asm = new backend.arm.inst.LoadInst(abb, convertValue(inst, func, abb), addr);
+            asm.comment = inst.toString();
+            abb.insts.addAll(expandInstImm(asm));
             return;
         }
 
@@ -303,35 +330,91 @@ public class Generator {
             var val = convertValue(inst.oprands.get(0).value, func, abb);
             var addr = convertValue(inst.oprands.get(1).value, func, abb);
             var sto = new backend.arm.inst.StoreInst(abb, val, addr);
+            sto.comment = inst.toString();
             abb.insts.addAll(expandInstImm(sto));
             return;
         }
         throw new RuntimeException("Unknown Terminator Inst.");
     }
 
+    private Cond convertLogicOp(BinaryOp op) {
+        switch (op) {
+            case LOG_EQ: return Cond.EQ;
+            case LOG_GE: return Cond.GE;
+            case LOG_GT: return Cond.GT;
+            case LOG_LE: return Cond.LE;
+            case LOG_LT: return Cond.LT;
+            case LOG_NEQ: return Cond.NE;
+            default:
+                throw new UnsupportedOperationException();
+        }
+    }
+
+    // 为了防止相关list被修改，传入计算前先拷贝
+    private long calcGep(long baseSize, List<Integer> dims, List<Integer> nums) {
+        long offset = 0;
+        for (int num: nums) {
+            offset += baseSize * num;
+            if (dims.size() > 0) {
+                baseSize = baseSize / dims.remove(0);
+            } else {
+                // assert last iteration
+                return offset;
+            }
+        }
+        return offset;
+    }
+
+    private List<AsmInst> expandCmpImm(CMPInst inst) {
+        List<AsmInst> ret = new ArrayList<>();
+        List<AsmOperand> newuse = new ArrayList<>();
+        expandImm(inst.uses.get(0), newuse, ret, inst.parent);
+        expandOperand2(inst.uses.get(1), newuse, ret, inst.parent);
+        inst.uses = newuse;
+        ret.add(inst);
+        return ret;
+    }
+
     private List<AsmInst> expandInstImm(AsmInst inst) {
         List<AsmInst> ret = new ArrayList<>();
         List<AsmOperand> newuse = new ArrayList<>();
-        boolean ipUsed = false;
         for(var op: inst.uses) {
-            if (op instanceof NumImm) {
-                AsmOperand tmp;
-                if (ipUsed) {
-                    tmp = getVReg();
-                } else {
-                    tmp = new Reg(Reg.Type.ip); // 需要单个临时寄存器直接用ip
-                    ipUsed = true;
-                }
-                ret.addAll(MovInst.loadImm(inst.parent, tmp, ((NumImm)op)));
-                newuse.add(tmp);
-            } else {
-                // 不变
-                newuse.add(op);
-            }
+            expandImm(op, newuse, ret, inst.parent);
         }
         inst.uses = newuse;
         ret.add(inst);
         return ret;
+    }
+
+    private void expandImm(AsmOperand op, List<AsmOperand> newOps, List<AsmInst> insts, AsmBlock p) {
+        if (op instanceof NumImm) {
+            AsmOperand tmp;
+            tmp = getVReg();
+            insts.addAll(MovInst.loadImm(p, tmp, ((NumImm)op)));
+            newOps.add(tmp);
+        } else {
+            // 不变
+            newOps.add(op);
+        }
+    }
+
+    // Flexible Operand 2 can be Imm8m
+    private void expandOperand2(AsmOperand op, List<AsmOperand> newOps, List<AsmInst> insts, AsmBlock p) {
+        if (op instanceof NumImm) {
+            var immop = (NumImm) op;
+            // within 8bit then OK
+            if (immop.highestOneBit() < 255) {
+                newOps.add(immop);
+                return;
+            }
+            AsmOperand tmp;
+            tmp = getVReg();
+            insts.addAll(MovInst.loadImm(p, tmp, immop));
+            newOps.add(tmp);
+        } else {
+            // 不变
+            newOps.add(op);
+        }
     }
 
     private long getSize(Type ty) {

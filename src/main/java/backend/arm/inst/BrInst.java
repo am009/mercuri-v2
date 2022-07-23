@@ -15,6 +15,7 @@ public class BrInst extends AsmInst {
             inst = new BrInst();
             inst.parent = parent;
             inst.target = target;
+            inst.cond = Cond.AL;
         }
 
         public Builder addCond(Cond c) {

@@ -10,4 +10,10 @@ public class CMPInst extends AsmInst {
         uses.add(op1);
         uses.add(op2);
     }
+
+    @Override
+    public String toString() {
+        return String.format("CMP\t%s, %s", 
+                    uses.get(0).toString(), uses.get(1).toString());
+    }
 }

@@ -3,7 +3,7 @@ package ssa.ds;
 // https://llvm.org/docs/LangRef.html#getelementptr-instruction
 // https://llvm.org/docs/GetElementPtr.html
 public class GetElementPtr extends Instruction {
-    Type base;
+    public Type base;
 
     public GetElementPtr(BasicBlock p, Value ptr) {
         assert ptr.type.isPointer;

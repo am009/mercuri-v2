@@ -3,6 +3,7 @@ package backend.arm;
 import backend.AsmOperand;
 
 public class NumImm extends Imm {
+    // 当作Unsigned使用
     int value;
 
     public NumImm(int val) {

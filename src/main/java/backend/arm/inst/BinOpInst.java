@@ -40,6 +40,6 @@ public class BinOpInst extends AsmInst {
     @Override
     public String toString() {
         return String.format("%s\t%s, %s, %s", opToString(op), defs.get(0).toString(), 
-            uses.get(0).toString(), uses.get(1).toString());
+                                    uses.get(0).toString(), uses.get(1).toString());
     }
 }
