@@ -17,15 +17,24 @@ package backend;
  * ├─────────────┤
  * │             │
  * High address
+ * 所以要注意，SELF_ARG的偏移要+8跳过push的sp和fp
+ * LOCAL要先加地址再返回偏移
+ * CALL_PARAM要先返回偏移再增加，对应CallingConvention的解析
  */
 public class StackOperand extends AsmOperand {
     public enum Type {
         LOCAL, // bp - xx
         SPILL, // bp - local - xx
-        CALL_ARG, // sp + xx
+        CALL_PARAM, // sp + xx
         SELF_ARG, // bp + xx
         ;
     }
-    long offset;
-    String comment;
+    public Type type;
+    public long offset;
+    public String comment;
+
+    public StackOperand(Type ty, long offset) {
+        type = ty;
+        this.offset = offset;
+    }
 }

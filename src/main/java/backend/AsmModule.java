@@ -25,7 +25,7 @@ public class AsmModule{
         // 打印需要用到的宏
         sb.append(backend.arm.AsmPrinter.header);
         // 打印.text
-        sb.append(backend.arm.AsmPrinter.textHeader.formatted(name));
+        sb.append(String.format(backend.arm.AsmPrinter.textHeader, name));
         
         // 打印函数
         for(var func: funcs) {

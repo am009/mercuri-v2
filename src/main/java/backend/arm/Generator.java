@@ -1,9 +1,9 @@
 package backend.arm;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -53,9 +53,10 @@ public class Generator {
     HashMap<BasicBlock, AsmBlock> bbMap; // 当前已经生成的基本块。
     HashMap<Value, AsmOperand> vregMap; // 为IR的temp值分配的虚拟寄存器
     HashMap<GlobalVariable, AsmGlobalVariable> gvMap;
+    HashMap<Func, AsmFunc> funcMap;
 
     // TODO 之后寄存器分配也要用到，放在哪里合适？
-    public static HashMap<Func, CallingConvention> ccMap = new HashMap<>(); // CallingConvention解析结果
+    public static HashMap<Func, VfpCallingConvention> ccMap = new HashMap<>(); // CallingConvention解析结果
 
     public int vregInd = 0;
 
@@ -64,17 +65,20 @@ public class Generator {
         bbMap = new HashMap<>();
         vregMap = new HashMap<>();
         gvMap = new HashMap<>();
+        funcMap = new HashMap<>();
     }
 
-    public CallingConvention getCC(Func f) {
+    public VfpCallingConvention getCC(Func f) {
         if (ccMap.containsKey(f)) {
             return ccMap.get(f);
         }
-        CallingConvention ret;
+        VfpCallingConvention ret;
+        List<ssa.ds.Type> params = f.argType.stream().map(pv -> pv.type).collect(Collectors.toList());
         if (f.isVariadic) {
-            ret = CallingConvention.resolveBase(f.argType);
+            // ret = new BaseCallingConvention().resolve(params, f.retType);
+            throw new UnsupportedOperationException();
         } else {
-            ret = CallingConvention.resolveVFP(f.argType);
+            ret = new VfpCallingConvention().resolve(params, f.retType);
         }
         ccMap.put(f, ret);
         return ret;
@@ -98,6 +102,7 @@ public class Generator {
             var cv = (ConstantValue) v;
             assert !cv.isArray();
             if (cv.val instanceof Float) {
+                // 怎么加载到浮点寄存器里 TODO
                 return new NumImm(Float.floatToRawIntBits((Float)(cv.val)));
             } else if (cv.val instanceof Integer) {
                 return new NumImm((Integer) cv.val);
@@ -117,11 +122,16 @@ public class Generator {
         // 如果是参数且在内存中，则生成load指令
         // 使用CallingConvention的解析结果。
         if(v instanceof ParamValue) {
-            var cc = getCC(func.ssaFunc);
-            var loc = cc.getLoc((ParamValue)v);
+            var pv = (ParamValue)v;
+            var index = func.ssaFunc.argType.indexOf(pv);
+            assert index != -1;
+            var cc = getCC(func.ssaFunc); // 有函数体的必然不是vararg的。
+            var loc = cc.selfArg.get(index);
+            assert loc instanceof StackOperand; // 其他的应该在前面就取到了vreg。
             if (loc instanceof StackOperand) {
                 // 生成Load指令加载内存里的值到虚拟寄存器里。
-                abb.insts.add(new backend.arm.inst.LoadInst(abb, ret, loc));
+                var load = new backend.arm.inst.LoadInst(abb, ret, loc);
+                abb.insts.addAll(expandStackOperandLoadStore(load));
             }
         }
 
@@ -160,6 +170,7 @@ public class Generator {
 
     private void visitFunc(Func f) {
         AsmFunc asmFunc = new AsmFunc(f);
+        funcMap.put(f, asmFunc);
         module.funcs.add(asmFunc);
         // 当前生成到的双向链表的末尾
         AsmBlock prev = null;
@@ -180,14 +191,23 @@ public class Generator {
 
         asmFunc.entry.insts.add(new Prologue(asmFunc.entry));
         // 把在寄存器里的参数也预先分配VReg。对于内存中的参数由getVReg生成load指令
-        asmFunc.paramPreAlloc = new ArrayList<>();
+        asmFunc.argConstraint = new ArrayList<>();
         var cc = getCC(f);
-        for (var pv: f.argType) {
-            var loc = cc.getLoc(pv);
+        for (int i=0; i<f.argType.size();i++) {
+            var pv = f.argType.get(i);
+            var loc = cc.selfArg.get(i);
+            VirtReg vreg;
             if (loc instanceof Reg) {
-                var vreg = getVReg();
+                vreg = getVReg();
+                asmFunc.argConstraint.add(Map.entry(((Reg)loc), vreg));
                 vregMap.put(pv, vreg);
-                asmFunc.paramPreAlloc.add(Map.entry(((Reg)loc), vreg));
+            } else if (loc instanceof VfpReg) {
+                vreg = getVReg(); vreg.isFloat = true;
+                asmFunc.fpArgConstraint.add(Map.entry((VfpReg)loc, vreg));
+                vregMap.put(pv, vreg);
+            } else {
+                // 留给convertValue处理
+                assert loc instanceof StackOperand;
             }
         }
 
@@ -291,13 +311,52 @@ public class Generator {
             return;
         }
 
+        // CompUnit的变量/常量/函数声明的作用域从声明处开始到文件结尾。所以不会出现前面的函数调用后面的函数的找不到的情况
         if (inst_ instanceof CallInst) {
             var inst = (CallInst) inst_;
+            backend.arm.inst.CallInst call;
+            // 解析调用约定
+            var ssaFunc = ((FuncValue)inst.oprands.get(0).value).func;
+            // var targetAsmFunc = funcMap.get(ssaFunc);
+            // assert targetAsmFunc != null; // sylib的函数目前没有对应的AsmFunc
+            if(!ssaFunc.isVariadic) {
+                var cc = getCC(ssaFunc);
+                call = new backend.arm.inst.CallInst(abb, new LabelImm(ssaFunc.name), cc);
+                for (int i=0;i<ssaFunc.argType.size();i++) {
+                    var loc = cc.callParam.get(i);
+                    var op = convertValue(inst.oprands.get(i+1).value, func, abb);
+                    processCallArg(call, op, loc, abb);
+                }
+            } else { // isVariadic
+                List<ssa.ds.Type> params = ssaFunc.argType.stream().map(pv -> pv.type).collect(Collectors.toList());
+                var cc = new BaseCallingConvention().resolve(params, ssaFunc.retType);
+                call = new backend.arm.inst.CallInst(abb, new LabelImm(ssaFunc.name), cc);
+                for (int i=0;i<inst.oprands.size()-1;i++) {
+                    var val = inst.oprands.get(i+1).value;
+                    if (i >= ssaFunc.argType.size()) { // 是额外的参数
+                        cc.addParam(val.type);
+                    }
+                    var loc = cc.callParam.get(i);
+                    var op = convertValue(val, func, abb);
+                    processCallArg(call, op, loc, abb);
+                }
+            }
+            // 更新def
+            var ret = call.cc.getRetReg();
+            if (ret != null) {
+                call.defs.add(ret);
+            }
+            // 更新当前函数需要的最大函数调用栈空间的大小
+            func.sm.preserveArgSize(call.cc.getStackSize());
+            abb.insts.add(call);
             return;
         }
 
         if (inst_ instanceof CastInst) {
             var inst = (CastInst) inst_;
+            // __aeabi_i2f
+            // __aeabi_i2d
+            
             return;
         }
 
@@ -337,6 +396,28 @@ public class Generator {
         throw new RuntimeException("Unknown Terminator Inst.");
     }
 
+    private void processCallArg(backend.arm.inst.CallInst call, AsmOperand op, AsmOperand loc, AsmBlock abb) {
+        // 如果是常量，转换一下
+        if (op instanceof Imm) {
+            var tmp = getVReg();
+            abb.insts.addAll(MovInst.loadImm(abb, tmp, (Imm)op));
+            op = tmp;
+        }
+        assert op instanceof VirtReg;
+        var vreg = (VirtReg) op;
+        if (loc instanceof Reg) { // 维护寄存器分配约束
+            call.paramConstraints.add(Map.entry((Reg)loc, vreg));
+            call.uses.add(vreg);
+        } else if (loc instanceof VfpReg) { // 维护寄存器分配约束
+            call.vfpParamConstraints.add(Map.entry((VfpReg)loc, vreg));
+            // 维护use
+            call.uses.add(vreg);
+        } else if (loc instanceof StackOperand) { // 对内存中的参数生成store
+            var store = new backend.arm.inst.StoreInst(abb, vreg, loc);
+            abb.insts.addAll(expandStackOperandLoadStore(store));
+        }
+    }
+
     private Cond convertLogicOp(BinaryOp op) {
         switch (op) {
             case LOG_EQ: return Cond.EQ;
@@ -365,6 +446,19 @@ public class Generator {
         return offset;
     }
 
+    // 检查第二个参数StackOperand是否满足要求，不满足则展开为多个指令
+    // Load dst, addr
+    // Store val, addr
+    private List<AsmInst> expandStackOperandLoadStore(AsmInst inst) {
+        List<AsmInst> ret = new ArrayList<>();
+        List<AsmOperand> newuse = new ArrayList<>();
+        expandImm(inst.uses.get(0), newuse, ret, inst.parent);
+        expandStackOperand(inst.uses.get(1), newuse, ret, inst.parent);
+        inst.uses = newuse;
+        ret.add(inst);
+        return ret;
+    }
+
     private List<AsmInst> expandCmpImm(CMPInst inst) {
         List<AsmInst> ret = new ArrayList<>();
         List<AsmOperand> newuse = new ArrayList<>();
@@ -391,6 +485,37 @@ public class Generator {
             AsmOperand tmp;
             tmp = getVReg();
             insts.addAll(MovInst.loadImm(p, tmp, ((NumImm)op)));
+            newOps.add(tmp);
+        } else {
+            // 不变
+            newOps.add(op);
+        }
+    }
+
+    private void expandStackOperand(AsmOperand op, List<AsmOperand> newOps, List<AsmInst> insts,
+                                        AsmBlock p) {
+        if (op instanceof StackOperand) {
+            var so = (StackOperand) op;
+            // – 4095 to +4095 then OK。但由于后面要加减一些，所以范围放窄一些TODO
+            if (so.offset <= 4070 && so.offset >= -4070) {
+                newOps.add(so);
+                return;
+            }
+            // 超出了4095，则add sub的imm字段也放不下
+            AsmOperand tmp= getVReg();
+            var tmp2 = getVReg();
+            assert so.type != StackOperand.Type.SPILL; // 指令选择阶段不能分配spill空间。
+            if (so.type == StackOperand.Type.SELF_ARG) {
+                insts.addAll(MovInst.loadImm(p, tmp, new NumImm(Math.toIntExact(so.offset))));
+                insts.add(new BinOpInst(p, BinaryOp.ADD, tmp2, new Reg(Reg.Type.fp), tmp));
+            } else if (so.type == StackOperand.Type.LOCAL) {
+                insts.addAll(MovInst.loadImm(p, tmp, new NumImm(Math.toIntExact(so.offset))));
+                insts.add(new BinOpInst(p, BinaryOp.SUB, tmp2, new Reg(Reg.Type.fp), tmp));
+            } else if (so.type == StackOperand.Type.CALL_PARAM) {
+                insts.addAll(MovInst.loadImm(p, tmp, new NumImm(Math.toIntExact(so.offset))));
+                insts.add(new BinOpInst(p, BinaryOp.ADD, tmp2, new Reg(Reg.Type.sp), tmp));
+            } else {throw new UnsupportedOperationException();}
+
             newOps.add(tmp);
         } else {
             // 不变

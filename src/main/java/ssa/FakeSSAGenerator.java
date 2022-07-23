@@ -610,7 +610,7 @@ public class FakeSSAGenerator {
             for (int i=0;i<currentSize;i++) {
                 var iv = initValue.values.get(i);
                 assert !iv.isArray;
-                // 如果iv不是默认值则生成gep和store
+                // 如果iv不是默认值则生成gep和store？ TODO
                 if (iv.value instanceof LiteralExpr && ((LiteralExpr)(iv.value)).value.isDefault()) {
                 } else {
                     var ptr_ = new GetElementPtr(ctx.current, ptr);

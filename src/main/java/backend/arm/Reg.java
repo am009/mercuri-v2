@@ -22,13 +22,15 @@ public class Reg extends AsmOperand {
         ip,
         sp,
         lr,
-        pc,
+        pc;
         // some aliases
         // fp = r11,  // frame pointer (omitted), allocatable
         // ip = r12,  // ipc scratch register, used in some instructions (caller saved)
         // sp = r13,  // stack pointer
         // lr = r14,  // link register (caller saved)
         // pc = r15,  // program counter
+
+        public static Type[] values = Type.values();
     }
     Type ty;
     String comment;

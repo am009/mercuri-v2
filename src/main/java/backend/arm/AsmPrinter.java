@@ -44,7 +44,7 @@ public class AsmPrinter {
     
         // visiable to linker
         // 链接器符号相关
-        sb.append(varHeader.formatted(ssaGv.name, ssaGv.name, ssaGv.name, gv.size));
+        sb.append(String.format(varHeader, ssaGv.name, ssaGv.name, ssaGv.name, gv.size));
         // sb.append(".global\t").append(ssaGv.name).append("\n");
         // sb.append("\t.type\t").append(ssaGv.name).append(", %object\n");
         // sb.append("\t.size\t").append(ssaGv.name).append(", ").append(gv.size).append("\n");
@@ -66,7 +66,7 @@ public class AsmPrinter {
 
     public static String emitFunc(AsmFunc func) {
         var sb = new StringBuilder();
-        sb.append(funcHeader.formatted(func.label, func.label, func.label));
+        sb.append(String.format(funcHeader, func.label, func.label, func.label));
         for (var bb: func) {
             sb.append(bb.toString());
         }

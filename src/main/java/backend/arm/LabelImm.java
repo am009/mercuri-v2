@@ -7,7 +7,7 @@ public class LabelImm extends Imm {
         LOW
     }
     State state = State.LABEL;
-    String label;
+    public String label;
 
     public LabelImm(String label) {
         this.label = label;

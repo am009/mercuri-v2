@@ -6,7 +6,7 @@ import backend.AsmBlock;
 import backend.AsmInst;
 import backend.AsmOperand;
 import backend.arm.Cond;
-import backend.arm.NumImm;
+import backend.arm.Imm;
 
 public class MovInst extends AsmInst {
     public enum Ty {
@@ -35,7 +35,7 @@ public class MovInst extends AsmInst {
         cond = Cond.AL;
     }
 
-    public static List<MovInst> loadImm(AsmBlock p, AsmOperand reg, NumImm imm) {
+    public static List<MovInst> loadImm(AsmBlock p, AsmOperand reg, Imm imm) {
         if (imm.highestOneBit() < 65535) {
             return List.<MovInst>of(new MovInst(p, Ty.MOVW, reg, imm));
         } else {
