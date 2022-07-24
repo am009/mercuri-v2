@@ -3,10 +3,7 @@ package backend;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 
-import backend.arm.Reg;
-import backend.arm.VfpReg;
 import ssa.ds.Func;
 
 public class AsmFunc implements Iterable<AsmBlock> {
@@ -20,15 +17,14 @@ public class AsmFunc implements Iterable<AsmBlock> {
 
     public StackManager sm;
 
-    // 寄存器分配的起始约束
-    public List<Map.Entry<Reg, VirtReg>> argConstraint;
-    public List<Map.Entry<VfpReg, VirtReg>> fpArgConstraint;
+    public List<AsmOperand> usedCalleeSavedReg;
 
     public AsmFunc(Func ssaFunc) {
         this.ssaFunc = ssaFunc;
         label = ssaFunc.name;
         this.bbs = new ArrayList<>();
         sm = new StackManager();
+        usedCalleeSavedReg = new ArrayList<>();
     }
 
     @Override

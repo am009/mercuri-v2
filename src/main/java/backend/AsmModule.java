@@ -6,7 +6,6 @@ import java.util.List;
 public class AsmModule{
     public String name;
     public List<AsmFunc> funcs;
-    // TODO rodata?
     public List<AsmGlobalVariable> dataGlobs;
     // bss段存放初始值全零的变量
     public List<AsmGlobalVariable> bssGlobs;
@@ -21,9 +20,8 @@ public class AsmModule{
     @Override
     public String toString() {
         var sb = new StringBuilder();
-        // TODO
-        // 打印需要用到的宏
-        sb.append(backend.arm.AsmPrinter.header);
+        // 打印需要用到的宏：目前不用了
+        // sb.append(backend.arm.AsmPrinter.header);
         // 打印.text
         sb.append(String.format(backend.arm.AsmPrinter.textHeader, name));
         

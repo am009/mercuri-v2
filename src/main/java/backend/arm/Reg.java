@@ -3,7 +3,7 @@ package backend.arm;
 import backend.AsmOperand;
 
 public class Reg extends AsmOperand {
-    enum Type {
+    public enum Type {
         // args and return value (caller saved)
         r0,
         r1,
@@ -31,9 +31,29 @@ public class Reg extends AsmOperand {
         // pc = r15,  // program counter
 
         public static Type[] values = Type.values();
+        public int toInt() {
+            switch (this) {
+                case r0: return 0;
+                case r1: return 1;
+                case r2: return 2;
+                case r3: return 3;
+                case r4: return 4;
+                case r5: return 5;
+                case r6: return 6;
+                case r7: return 7;
+                case r8: return 8;
+                case r9: return 9;
+                case r10: return 10;
+                case fp: return 11;
+                case ip: return 12;
+                case sp: return 13;
+                case lr: return 14;
+                case pc: return 15;
+                default: throw new UnsupportedOperationException();
+            }
+        }    
     }
-    Type ty;
-    String comment;
+    public Type ty;
 
     public Reg(Type t) {
         ty = t;

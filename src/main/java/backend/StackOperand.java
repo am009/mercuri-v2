@@ -9,8 +9,8 @@ package backend;
  * │ spilled reg │-12
  * │     ...     │-a
  * │ alloca local│-4
- * ├─   bp/lr   ─┤0 - bp
- * │    bp/lr    │+4
+ * ├─   fp/lr   ─┤0 - fp
+ * │    fp/lr    │+4
  * │    arg1     │+8
  * │    arg2     │+12
  * │    ...      │
@@ -23,15 +23,14 @@ package backend;
  */
 public class StackOperand extends AsmOperand {
     public enum Type {
-        LOCAL, // bp - xx
-        SPILL, // bp - local - xx
+        LOCAL, // fp - xx
+        SPILL, // fp - xx
         CALL_PARAM, // sp + xx
-        SELF_ARG, // bp + xx
+        SELF_ARG, // fp + xx
         ;
     }
     public Type type;
     public long offset;
-    public String comment;
 
     public StackOperand(Type ty, long offset) {
         type = ty;

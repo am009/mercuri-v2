@@ -23,6 +23,11 @@ public class BrInst extends AsmInst {
             return this;
         }
 
+        public Builder addComment(String c) {
+            inst.comment = c;
+            return this;
+        }
+
         public BrInst build() {
             return inst;
         }

@@ -185,3 +185,86 @@ Relocation section '.rel.text' at offset 0x158 contains 1 entry:
 
 1. modulo 取模：调用`___modsi3`
 2. 浮点数相关：
+
+### 栈布局
+
+栈分为三块，如下图所示：好处是，我先不生成prologue和epilogue，即不确定栈的大小，指令生成的时候可以直接基于fp取到参数，遇到alloca可以直接沿着fp向上分配空间。然后指令生成阶段结束后，寄存器分配需要spill寄存器的时候就基于指令生成分配的空间继续向上分配。遇到函数调用需要栈空间的，直接基于sp向下放置参数，最后留的时候取最大的空间要求即可。最后把这几部分空间都加起来得到整个栈的空间。
+
+```
+/** Low address, stack grow upwards
+ * ┌─────────────┐
+ * │             │
+ * │             │
+ * │space for arg│- sp
+ * │     ...     │
+ * │ spilled reg │-12
+ * │     ...     │-a
+ * │ alloca local│-4
+ * ├─   fp/lr   ─┤0 - fp
+ * │    fp/lr    │+4
+ * │    arg1     │+8
+ * │    arg2     │+12
+ * │    ...      │
+ * ├─────────────┤
+ * │             │
+ * High address
+```
+
+优点非常明显，即很多offset不需要后面返回来fixup。但是问题也很严重，没有考虑到callee saved register需要在prologue和epilogue push指令带着push的情况。即原本只占8字节的fp/lr现在长度从8字节到24字节长度不等。影响了访问参数时基于fp的offset。而offset的变化甚至会潜在地影响指令生成，即如果导致立即数字段超范围了，则需要生成add/sub指令等。
+
+一个解决的办法是，这些寄存器直接不push，由寄存器分配算法在函数开头和结尾的时候放到spilled reg空间里。但是相比前面的解决办法多了很多store和load指令。另外一种办法是，直接。
+
+在 https://godbolt.org/ 用armv7a-clang 9.0.1 看到另外一个办法是，保存fp的时候不是直接mov，而是改为一个add指令，将fp还是调整到现在这种假装自己只push了两个寄存器的状态，然后把多push的寄存器看作是那边分配的。然后也不严格区分alloca区域和spilled reg区域。但是后期确定了这部分的大小之后要反过来修复alloca相关的指令的offset。
+
+搜了下，好像性能上并不会快很多，毕竟还是要访存的，那我还是沿用旧的设计思路，把需要保存的寄存器放到spill的空间里，虽然代码大小大了一点。
+
+https://stackoverflow.com/questions/61375336/why-do-compilers-insist-on-using-a-callee-saved-register-here 
+
+### 寄存器分配
+
+现在看来，寄存器分配的问题的场景是，在指令选择中用到的所有虚拟寄存器都基本上是最后要变成真实寄存器的。而通过插入load和store指令将某些寄存器先临时保存到栈上，让这些虚拟寄存器都能在指令选择相关运算中临时成为真实寄存器。此外比较麻烦的一点是，函数调用约定和返回值约定使得在各种程序点都需要让某些虚拟寄存器放到正确的位置上。
+
+听说正确实现线扫也非常复杂，所以最开始需要开发使用更加简单的寄存器分配算法。选择基于《Engineering a compiler》里的BottemUp分配算法。而Local（仅支持单个基本块）的算法为了拓展到global的，在基本块分界的时候要把所有的global变量放到内存里。
+
+写的时候感觉非常复杂，不得不说寄存器分配真的难写。使复杂度暴增的主要是：
+- 需要支持浮点寄存器的分配
+- 需要处理调用约定所带来的约束：如函数r0-r4传参，浮点数s0-s15传参
+- 处理callee saved reg在函数开始和结束的保存
+
+正好要对每个基本块逆向遍历一遍，顺带可以计算出global的寄存器。
+
+#### 寄存器分配的约束如何处理
+
+书中的算法完全没有考虑调用约定所带来的约束问题。
+- 约束可能在后面，前面没考虑到。比如某变量之后要返回，需要放到r0，但是刚计算出来的时候，寄存器分配算法随便分配了一个非r0寄存器。
+- 约束本身都可能冲突：比如返回值要求某变量放在r0，参数要求该变量放在r1。
+
+这部分想了好久，最后基本还是接近回到了原点。原点是不考虑约束，先随便分配寄存器，然后在遇到约束的时候临时满足。目前的解决方案是，在预分析的时候同时收集虚拟寄存器的约束，作为一个hint，然后在分配的时候如果hint的寄存器是空闲的就优先分配，不是空闲的则依然随意分配。可以感觉到效果不会好很多。
+
+https://people.cs.rutgers.edu/~farach/pubs/cc99-tk.pdf
+
+https://www.geeksforgeeks.org/register-allocations-in-code-generation/ 关注register assignment部分
+
+- a pseudo-register represents only one live range, and thus a pseudo-register is defined at most once
+- each pseudo-register can be stored and retrieved in a designated memory location
+- (register assignment) Maps an allocated name set to the physical register set of the target machine. An assignment can be produced in linear time using Interval-Graph Coloring。
+
+论文里确实说要最后分出一个register assignment阶段，这个才是用来解决CallingConvention的各种约束的。寄存器分配的时候还是分配的“虚拟”物理寄存器，至于哪个虚拟物理寄存器分配给哪个真实寄存器由register assignment决定。关键在于前面的寄存器分配的结果要是allocated name set。只要没有同时使用超过K个寄存器即可。每次分配的都是新的寄存器。
+
+Interval-Graph Coloring 可以看 http://www.cse.msu.edu/~huding/331material/notes6.pdf 最后面一部分，挺简单的。现在想来发现这个local的寄存器分配还真的是Scheduling All Intervals。每个interval感觉上是一个虚拟寄存器的live range。寄存器分配就是当你发现同时存在的interval过多的时候，在合适的地方断开一些。实际上在书上写的算法的基础上，当一个值进入寄存器的时候作为起始点，被Free掉或者spill掉的时候作为结束点，然后这一段interval就是一个allocated name set，代表一个物理寄存器，但是至于是哪个可以留给后面的算法。每个物理寄存器都看作一条流水线，用一个Interval的List表示，每次有约束的时候就提前直接放到对应流水线里。
+
+但是带约束的Scheduling Intervals问题怎么处理？关键是如何在有冲突的时候第一时间检测出来。其实只需要维护一下每个物理寄存器被当前哪个虚拟寄存器占用了即可。
+
+对于带来复杂性的几个问题：
+- CalleeSavedReg：看作存在几个带约束的虚拟寄存器在函数开头有定义，结尾有使用。不需要作为一类特殊的寄存器，只需要初始化的时候填上已经被使用的数据，同时在函数开头和结尾约束好物理寄存器即可。
+- 函数调用导致Caller Saved reg被占用的情况：要求此时在寄存器内值spill到少于可用寄存器的数量。
+	- Call指令：拆分为几个阶段：初始阶段处理约束要求参数在对应寄存器内，同时寄存器使用完毕，能释放的可以释放，中间阶段，此时首先处理现有的有物理约束在Caller Saved reg的interval，然后处理寄存器数量约束（总之把寄存器都赶到callee saved里），结束阶段处理返回值定义且带约束。
+- 返回值约束是否会冲突？首先返回指令必然是基本块的最后一个指令，此时所有的值应该都基本被Free了。应该不可能有冲突。注意结尾不用store global值到内存中了。
+- 约束存在无法满足的情况：比如如下图三个interval，但是如果a被约束在寄存器1，c被约束在寄存器2，则a和c不能在同一个寄存器里，则无法用两个寄存器解决。而register assignment时，寄存器分配已经算是结束了，不太好重新把值spill，就算要也应该在寄存器分配那里增加检测机制，遇到冲突及时解决。
+	- 但是约束都是仅在区域头和尾出现的。我们可以先正常分配，能满足的满足，不能满足的则可以插入mov指令，强行交换到目标寄存器里。（借助空闲的IP寄存器）
+	```
+	a----  c----
+	b---------
+	```
+
+最后感觉即使拆分出register assignment，也用处不大。最后的主体代码结构基本还是参照着书上的顺序写的。
