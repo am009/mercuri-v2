@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 import backend.AsmBlock;
@@ -21,7 +20,6 @@ import backend.arm.inst.CMPInst;
 import backend.arm.inst.MovInst;
 import backend.arm.inst.Prologue;
 import dst.ds.BinaryOp;
-import dst.ds.FuncType;
 import ssa.ds.AllocaInst;
 import ssa.ds.BasicBlock;
 import ssa.ds.BasicBlockValue;
@@ -253,8 +251,7 @@ public class Generator {
 
         if (inst_ instanceof RetInst) {
             var inst = (RetInst) inst_;
-            var r = new backend.arm.inst.RetInst(abb);
-            abb.insts.add(r);
+            var r = new backend.arm.inst.RetInst(abb, func);
             if (inst.oprands.size() > 0) {
                 var cc = getCC(func.ssaFunc);
                 var op = convertValue(inst.getOperand0(), func, abb);
@@ -267,6 +264,7 @@ public class Generator {
                     r.setConstraint((VirtReg)op, (Reg)cc.retReg);
                 } else { throw new UnsupportedOperationException(); }
             }
+            abb.insts.add(r);
             r.comment = inst.toString();
             abb.succ = Collections.emptyList();
             return;
@@ -497,10 +495,10 @@ public class Generator {
     }
 
     private void expandImm(AsmOperand op, List<AsmOperand> newOps, List<AsmInst> insts, AsmBlock p) {
-        if (op instanceof NumImm) {
+        if (op instanceof Imm) {
             AsmOperand tmp;
             tmp = getVReg();
-            insts.addAll(MovInst.loadImm(p, tmp, ((NumImm)op)));
+            insts.addAll(MovInst.loadImm(p, tmp, (Imm)op));
             newOps.add(tmp);
         } else {
             // 不变
@@ -603,8 +601,15 @@ public class Generator {
     public static List<AsmInst> expandStackOperandLoadStoreIP(AsmInst inst) {
         List<AsmInst> ret = new ArrayList<>();
         List<AsmOperand> newuse = new ArrayList<>();
-        assert inst.uses.get(0) instanceof Reg || inst.uses.get(0) instanceof VfpReg;
-        expandStackOperandIP(inst.uses.get(1), inst.uses.get(0), newuse, ret, inst.parent);
+        assert inst instanceof backend.arm.inst.LoadInst || inst instanceof backend.arm.inst.StoreInst;
+        if (inst instanceof backend.arm.inst.StoreInst) {
+            assert inst.uses.get(0) instanceof Reg || inst.uses.get(0) instanceof VfpReg;
+            newuse.add(inst.uses.get(0));
+            expandStackOperandIP(inst.uses.get(1)/*可能的StackOperand*/, inst.uses.get(0), newuse, ret, inst.parent);
+        } else if (inst instanceof backend.arm.inst.LoadInst) {
+            assert inst.defs.get(0) instanceof Reg || inst.defs.get(0) instanceof VfpReg;
+            expandStackOperandIP(inst.uses.get(0), inst.defs.get(0), newuse, ret, inst.parent);
+        }
         inst.uses = newuse;
         ret.add(inst);
         return ret;

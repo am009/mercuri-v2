@@ -2,6 +2,7 @@ package backend.arm;
 
 import backend.AsmFunc;
 import backend.AsmGlobalVariable;
+import backend.StackOperand;
 import ssa.ds.ConstantValue;
 
 public class AsmPrinter {
@@ -12,6 +13,7 @@ public class AsmPrinter {
 
     public static String textHeader = ".text\n"
         +".syntax unified\n"
+        +".arch armv7-a\n"
         +".file 1 \"%s\"\n\n"; // 这里%s会不会有转义的问题，比如结尾是反斜杠，然后链接器那边报错
 
     public static String funcHeader = "\t.global\t%s\n"
@@ -72,6 +74,31 @@ public class AsmPrinter {
         }
 
         return sb.toString();
+    }
+
+    public static String emitStackOperand(StackOperand stackOperand) {
+        var offset = stackOperand.offset;
+        Reg.Type base;
+        switch (stackOperand.type) {
+            case SPILL:
+                offset = -offset;
+                base = Reg.Type.fp;
+                break;
+            case LOCAL:
+                offset = -offset;
+                base = Reg.Type.fp;
+                break;
+
+            case CALL_PARAM:
+                base = Reg.Type.sp;
+                break;
+            case SELF_ARG:
+                base = Reg.Type.fp;
+                break;
+            default:
+                throw new UnsupportedOperationException();
+        }
+        return String.format("%s, #%s", base.toString(), common.Util.toSignedHexString(offset));
     }
     
 }

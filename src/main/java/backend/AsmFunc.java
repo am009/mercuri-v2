@@ -3,6 +3,7 @@ package backend;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import ssa.ds.Func;
 
@@ -17,7 +18,7 @@ public class AsmFunc implements Iterable<AsmBlock> {
 
     public StackManager sm;
 
-    public List<AsmOperand> usedCalleeSavedReg;
+    public List<Map.Entry<AsmOperand, StackOperand>> usedCalleeSavedReg;
 
     public AsmFunc(Func ssaFunc) {
         this.ssaFunc = ssaFunc;

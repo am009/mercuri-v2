@@ -51,6 +51,14 @@ public class Reg extends AsmOperand {
                 case pc: return 15;
                 default: throw new UnsupportedOperationException();
             }
+        }
+        public boolean isCalleeSaved() {
+            int ind = this.toInt();
+            assert ind <= 10;
+            if (ind >=4 && ind <= 10) {
+                return true;
+            }
+            return false;
         }    
     }
     public Type ty;

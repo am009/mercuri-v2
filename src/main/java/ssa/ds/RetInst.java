@@ -27,7 +27,7 @@ public class RetInst extends TerminatorInst {
         }
 
         public Builder addOperand(Value v) {
-            inst.addUse(new Use(inst, v));
+            inst.oprands.add(new Use(inst, v));
             return this;
         }
 
@@ -45,7 +45,7 @@ public class RetInst extends TerminatorInst {
     public String toString() {
         var b = new StringBuilder("ret");
         b.append(" ").append(ty.toString());
-        getUses().forEach(use -> b.append(" ").append(use.value.toValueString()));
+        oprands.forEach(use -> b.append(" ").append(use.value.toValueString()));
         return b.toString();
     }
 }

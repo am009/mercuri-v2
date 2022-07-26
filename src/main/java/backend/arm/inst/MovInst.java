@@ -18,7 +18,7 @@ public class MovInst extends AsmInst {
         public String toString() {
             switch (this) {
                 case MOVT: return "MOVT";
-                case MOVW: return "MOV";
+                case MOVW: return "MOVW";
                 case REG: return "MOV";
             }
             return null;

@@ -1,4 +1,4 @@
-[TRACE] Args: { inFile='test/spec/004-const-decl.c', outFile='/root/run/testcase.s', outType='ASM'}
+[TRACE] Args: { inFile='test/functional/01_var_defn2.sy', outFile='null', outType='ASM'}
 [TRACE] enter scope
 [TRACE] leave scope
 [TRACE] enter scope
@@ -24,7 +24,7 @@
 [TRACE] enter scope
 [TRACE] leave scope
 [TRACE] --- ssa ---
-[TRACE] source_filename = "test/spec/004-const-decl.c"
+[TRACE] source_filename = "test/functional/01_var_defn2.sy"
 
 declare i32 @getint()
 declare i32 @getch()
@@ -38,48 +38,108 @@ declare void @putarray(i32, i32*)
 declare void @putfarray(i32, float*)
 declare void @putf(i8*, ...)
 
+@a = global i32 3
+@b = global i32 5
 
 define i32 @main(){
 entry:
   %a_0 = alloca i32 
-  %b_1 = alloca i32 
-  store i32 10, i32* %a_0
-  %0 = sub i32 0, 1
-  store i32 %0, i32* %b_1
-  %1 = load i32, i32* %a_0
-  %2 = load i32, i32* %b_1
-  %3 = add i32 %1, %2
-  ret i32 %3
+  store i32 5, i32* %a_0
+  %0 = load i32, i32* %a_0
+  %1 = load i32, i32* @b
+  %2 = add i32 %0, %1
+  ret i32 %2
 
 }
 
 
-[TRACE] --- asm ---
-[TRACE] .macro MOV32 reg, target
-	MOVW \reg, #:lower16:\target
-	MOVT \reg, #:upper16:\target
-.endm
-
-.text
+[TRACE] --- asm inst selection ---
+[TRACE] .text
 .syntax unified
-.file 1 "test/spec/004-const-decl.c"
+.arch armv7-a
+.file 1 "test/functional/01_var_defn2.sy"
 
-.global	main
+	.global	main
 	.type	main, %function
 	.p2align	2
 	.code	32
+main:
 main_entry:
-	backend.arm.inst.Prologue@4411d970
-	SUB	vreg0, fp, #0x4
-	SUB	vreg1, fp, #0x8
-	MOVW	ip, #0xa
-	STORE	ip, vreg0
-	MOVW	ip, #0x0
-	MOVW	vreg3, #0x1
-	SUB	vreg2, ip, vreg3
-	STORE	vreg2, vreg1
-	LOAD	vreg4, vreg0
-	LOAD	vreg5, vreg1
-	ADD	vreg6, vreg4, vreg5
-	backend.arm.inst.RetInst@6442b0a6
+	push	{fp, lr}
+	mov	fp, sp
+	SUB	sp, sp, #0x8
+
+	SUB	vreg0, fp, #0x4		@ %a_0 = alloca i32 
+	MOVW	vreg1, #0x5
+	STR	vreg1, [vreg0]		@ store i32 5, i32* %a_0
+	LDR	vreg2, [vreg0]		@ %0 = load i32, i32* %a_0
+	MOVW	vreg4, #:lower16:b
+	MOVT	vreg4, #:upper16:b
+	LDR	vreg3, [vreg4]		@ %1 = load i32, i32* @b
+	ADD	vreg5, vreg2, vreg3		@ %2 = add i32 %0, %1
+	mov	sp, fp	@ ret vreg5
+	pop	{fp, lr}
+	bx	lr		@ ret i32 %2
+
+.data
+.align 4
+.global	a
+	.type	a, %object
+	.size	a, 4
+a:
+	@ i32
+	.long	3		@ java.lang.Integer 3 
+.global	b
+	.type	b, %object
+	.size	b, 4
+b:
+	@ i32
+	.long	5		@ java.lang.Integer 5 
+
+[TRACE] --- asm reg alloc ---
+[TRACE] .text
+.syntax unified
+.arch armv7-a
+.file 1 "test/functional/01_var_defn2.sy"
+
+	.global	main
+	.type	main, %function
+	.p2align	2
+	.code	32
+main:
+main_entry:
+	push	{fp, lr}
+	mov	fp, sp
+	SUB	sp, sp, #0x10
+
+	STR	r4, [fp, #-0x8]		@ Store callee saved reg r4
+	STR	r5, [fp, #-0xc]		@ Store callee saved reg r5
+	SUB	r0, fp, #0x4		@ %a_0 = alloca i32 
+	MOVW	r1, #0x5
+	STR	r1, [r0]		@ store i32 5, i32* %a_0
+	LDR	r2, [r0]		@ %0 = load i32, i32* %a_0
+	MOVW	r3, #:lower16:b
+	MOVT	r4, #:upper16:b
+	LDR	r5, [r3]		@ %1 = load i32, i32* @b
+	ADD	r0, r2, r5		@ %2 = add i32 %0, %1
+	LDR	r4, [fp, #-0x8]		@ Load callee saved reg r4
+	LDR	r5, [fp, #-0xc]		@ Load callee saved reg r5
+	mov	sp, fp	@ ret r0
+	pop	{fp, lr}
+	bx	lr		@ ret i32 %2
+
+.data
+.align 4
+.global	a
+	.type	a, %object
+	.size	a, 4
+a:
+	@ i32
+	.long	3		@ java.lang.Integer 3 
+.global	b
+	.type	b, %object
+	.size	b, 4
+b:
+	@ i32
+	.long	5		@ java.lang.Integer 5 
 

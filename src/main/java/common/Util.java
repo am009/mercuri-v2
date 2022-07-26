@@ -117,4 +117,14 @@ public class Util {
         return buffer.toString();
     }
 
+    public static Object toSignedHexString(long offset) {
+        var sb = new StringBuilder();
+        if (offset < 0) {
+            sb.append("-");
+            offset = -offset;
+        }
+        sb.append("0x").append(Long.toHexString(offset));
+        return sb.toString();
+    }
+
 }

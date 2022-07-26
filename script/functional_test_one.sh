@@ -3,7 +3,6 @@ RED='\033[0;34m'
 NC='\033[0m' # No Color
 
 function runone {
-    printf "${RED}--- Testing ${1} ---${NC}\n"
     java -DlogLevel=trace \
         -jar $BASEDIR/target/compiler.jar \
             -S -o $2 \
@@ -19,10 +18,21 @@ set -e; # error exit
 
 file=$BASEDIR/test/functional/${1}
 name=$(basename $file)
+printf "${RED}--- Compile IR ${file} ---${NC}\n"
 runone $file $BASEDIR/target/test/functional/${name}.ll
 clang $BASEDIR/test/lib/sylib.ll $BASEDIR/target/test/functional/${name}.ll -o $BASEDIR/target/test/functional/${name}.elf
+printf "${RED}--- Testing IR ${file} ---${NC}\n"
 if [ ! -f $BASEDIR/test/functional/${name%.*}.in ]; then
-    python3 $BASEDIR/script/functional_checker.py $BASEDIR/target/test/functional/${name}.elf $BASEDIR/test/functional/${name%.*}.out
+    python3 $BASEDIR/script/functional_checker.py ir $BASEDIR/target/test/functional/${name}.elf $BASEDIR/test/functional/${name%.*}.out
 else
-    python3 $BASEDIR/script/functional_checker.py $BASEDIR/target/test/functional/${name}.elf $BASEDIR/test/functional/${name%.*}.out $BASEDIR/test/functional/${name%.*}.in
+    python3 $BASEDIR/script/functional_checker.py ir $BASEDIR/target/test/functional/${name}.elf $BASEDIR/test/functional/${name%.*}.out $BASEDIR/test/functional/${name%.*}.in
 fi
+printf "${RED}--- Compile ASM ${file} ---${NC}\n"
+runone $file $BASEDIR/target/test/functional/${name}.S
+arm-linux-gnueabihf-gcc -march=armv7 $BASEDIR/test/lib/libsysy.a $BASEDIR/target/test/functional/${name}.S -o $BASEDIR/target/test/functional/${name}.arm.elf
+if [ ! -f $BASEDIR/test/functional/${name%.*}.in ]; then
+    python3 $BASEDIR/script/functional_checker.py asm $BASEDIR/target/test/functional/${name}.arm.elf $BASEDIR/test/functional/${name%.*}.out
+else
+    python3 $BASEDIR/script/functional_checker.py asm $BASEDIR/target/test/functional/${name}.arm.elf $BASEDIR/test/functional/${name%.*}.out $BASEDIR/test/functional/${name%.*}.in
+fi
+printf "${RED}--- Testing ASM ${file} ---${NC}\n"

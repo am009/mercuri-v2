@@ -13,7 +13,7 @@ public class StoreInst extends AsmInst {
 
     @Override
     public String toString() {
-        return String.format("STORE\t%s, %s",
+        return String.format("STR\t%s, [%s]",
             uses.get(0).toString(), uses.get(1).toString());
     }
 }

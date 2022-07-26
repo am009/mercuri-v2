@@ -36,4 +36,9 @@ public class StackOperand extends AsmOperand {
         type = ty;
         this.offset = offset;
     }
+
+    @Override
+    public String toString() {
+        return backend.arm.AsmPrinter.emitStackOperand(this);
+    }
 }

@@ -21,7 +21,7 @@ public class LoadInst extends AsmInst {
 
     @Override
     public String toString() {
-        return String.format("LOAD\t%s, %s",
+        return String.format("LDR\t%s, [%s]",
             defs.get(0).toString(), uses.get(0).toString());
     }
 }

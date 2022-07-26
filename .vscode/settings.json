@@ -3,6 +3,6 @@
     "lib/**/*.jar"
   ],
   "java.project.sourcePaths": [
-    "src\\main\\java"
+    "src/main/java"
   ],
 }

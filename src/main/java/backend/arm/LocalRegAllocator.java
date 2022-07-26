@@ -3,12 +3,12 @@ package backend.arm;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Map.Entry;
 import java.util.stream.Collectors;
-
-import org.antlr.v4.runtime.misc.OrderedHashSet;
 
 import backend.AsmBlock;
 import backend.AsmFunc;
@@ -21,6 +21,7 @@ import backend.arm.inst.ConstrainRegInst;
 import backend.arm.inst.LoadInst;
 import backend.arm.inst.MovInst;
 import backend.arm.inst.Prologue;
+import backend.arm.inst.RetInst;
 import backend.arm.inst.StoreInst;
 import ds.Global;
 
@@ -33,6 +34,17 @@ public class LocalRegAllocator {
     public Set<VirtReg> globs = new HashSet<>(); // 跨基本块的全局值
     public Map<VirtReg, StackOperand> globSpill = new HashMap<>();
     public Map<AsmBlock, BlockData> blockData = new HashMap<>();
+    // 分配过的寄存器全部收集起来，之后过滤出callee saved的设置到函数里。
+    public Set<Integer> usedReg = new HashSet<>();
+    public Set<Integer> usedVfpReg = new HashSet<>();
+    private void addUsedReg(int regind, boolean isFloat) {
+        if (isFloat) {
+            usedVfpReg.add(regind);
+        } else {
+            usedReg.add(regind);
+        }
+    }
+
     public LocalRegAllocator(AsmFunc f) {
         this.func = f;
     }
@@ -56,7 +68,7 @@ public class LocalRegAllocator {
         VirtReg[] current;
         int[] next;
         // free优先使用index靠前的
-        OrderedHashSet<Integer> free = new OrderedHashSet<>();
+        LinkedHashSet<Integer> free = new LinkedHashSet<>();
         public RegClass(int count) {
             this.count = count;
             current = new VirtReg[count];
@@ -97,7 +109,8 @@ public class LocalRegAllocator {
                 if (hint != -1 && rc.free.contains(hint)) {
                     ret = hint;
                 } else {
-                    ret = rc.free.get(0);
+                    // get first element
+                    ret = rc.free.iterator().next();
                 }
             } else {
                 ret = findMaxInd(rc.next);
@@ -106,7 +119,7 @@ public class LocalRegAllocator {
             assert ret != -1;
             rc.current[ret] = vreg;
             rc.next[ret] = -1;
-            rc.free.remove(ret);
+            rc.free.remove(Integer.valueOf(ret));
             return ret;
         }
 
@@ -164,13 +177,22 @@ public class LocalRegAllocator {
             mov.comment = "LocalRegAllocator.moveTo";
             toInsertBefore.add(mov);
 
-            rc.free.remove(to);
+            rc.free.remove(Integer.valueOf(to));
             rc.current[to] = rc.current[from];
             rc.next[to] = rc.next[from];
             free(from, isFloat);
         }
 
-        public void allocateTo(VirtReg vreg, int ind) {
+        public void allocateTo(int to, VirtReg vreg, AsmBlock blk, List<AsmInst> toInsertBefore) {
+            assert to >= 0;
+            RegClass rc = rcs[b2i(vreg.isFloat)];
+            if (!rc.free.contains(to)) {
+                spillInd(to, vreg.isFloat, blk, toInsertBefore);
+                free(to, vreg.isFloat);
+            }
+            rc.free.remove(Integer.valueOf(to));
+            rc.current[to] = vreg;
+            rc.next[to] = -1;
         }
 
         public void free(int ind, boolean isFloat) {
@@ -182,7 +204,8 @@ public class LocalRegAllocator {
 
         public void setNext(int ind, boolean isFloat, int next) {
             RegClass rc = rcs[b2i(isFloat)];
-            assert rc.next[ind] == -1;
+            // 刚分配的时候应该设置为了-1，但是可能已经在寄存器里。
+            // assert rc.next[ind] == -1;
             rc.next[ind] = next;
         }
 
@@ -191,9 +214,8 @@ public class LocalRegAllocator {
             for (RegClass rc: rcs) {
                 boolean isFloat = rc.count == 32;
                 for(int i=0;i<rc.count;i++) {
-                    if (rc.current[i] != null) {
-                        var vreg = rc.current[i];
-                        assert globs.contains(vreg);
+                    var vreg = rc.current[i];
+                    if (vreg != null && globs.contains(vreg)) {
                         spillInd(i, isFloat, blk, toInsertBefore);
                     }
                 }
@@ -277,8 +299,10 @@ public class LocalRegAllocator {
                     // 如果已经在寄存器里，强行分配寄存器就先spill原有的值，然后mov过去？
                     if (constraints == null || !constraints.containsKey(vreg)) { // 没有约束，正常分配
                         var hint = bd.allocHint.get(vreg);
-                        AsmOperand phyReg = ind2Reg(state.checkInPhyReg(vreg), vreg.isFloat);
+                        int currentind = state.checkInPhyReg(vreg);
+                        AsmOperand phyReg = ind2Reg(currentind, vreg.isFloat);
                         if (phyReg != null) {
+                            addUsedReg(currentind, vreg.isFloat);
                             newUses.add(phyReg);
                             continue;
                         }
@@ -289,6 +313,7 @@ public class LocalRegAllocator {
                         var load = new LoadInst(blk, phyReg, spilledLoc);
                         load.comment = "load spilled "+vreg.comment;
                         toInsertBefore.addAll(Generator.expandStackOperandLoadStoreIP(load));
+                        addUsedReg(regind, vreg.isFloat);
                         newUses.add(ind2Reg(regind, vreg.isFloat));
                     } else {
                         var phyReg = constraints.get(vreg);
@@ -297,6 +322,7 @@ public class LocalRegAllocator {
                         int ind = reg2ind(phyReg, vreg.isFloat);
                         assert ind >= 0;
                         phyReg.comment = vreg.comment;
+                        addUsedReg(ind, vreg.isFloat);
                         newUses.add(phyReg);
                         if (currentind == ind) {
                             continue;
@@ -306,7 +332,7 @@ public class LocalRegAllocator {
                             state.moveTo(currentind, ind, vreg.isFloat, blk, toInsertBefore);
                             continue;
                         }
-                        state.allocateTo(vreg, ind);
+                        state.allocateTo(ind, vreg, blk, toInsertBefore);
                         StackOperand spilledLoc = state.getSpill(vreg);
                         var load = new LoadInst(blk, phyReg, spilledLoc);
                         load.comment = "load spilled "+vreg.comment;
@@ -340,11 +366,14 @@ public class LocalRegAllocator {
                         int regind = state.allocateReg(vreg, reg2ind(hint, vreg.isFloat), blk, toInsertBefore);
                         var phyReg = ind2Reg(regind, vreg.isFloat);
                         phyReg.comment = vreg.comment;
+                        addUsedReg(regind, vreg.isFloat);
                         newDefs.add(phyReg);
                     } else {
                         var phyReg = constraints.get(vreg);
                         phyReg.comment = vreg.comment;
-                        state.allocateTo(vreg, reg2ind(phyReg, vreg.isFloat));
+                        int regind = reg2ind(phyReg, vreg.isFloat);
+                        state.allocateTo(regind, vreg, blk, toInsertBefore);
+                        addUsedReg(regind, vreg.isFloat);
                         newDefs.add(phyReg);
                     }
                 }
@@ -394,6 +423,63 @@ public class LocalRegAllocator {
             List<AsmInst> toInsert = new ArrayList<>();
             state.onBlockEnd(blk, toInsert);
             blk.insts.addAll(toInsert);
+        }
+        // 最后更新一下用到的callee saved register到函数内
+        List<Entry<AsmOperand, StackOperand>> used = new ArrayList<>();
+        for (int ind: usedReg) {
+            Reg.Type t = Reg.Type.values()[ind];
+            if (t.isCalleeSaved()) {
+                used.add(Map.entry(new Reg(t), new StackOperand(StackOperand.Type.SPILL, func.sm.allocSpill(4))));
+            }
+        }
+        for (int ind: usedVfpReg) {
+            if(VfpReg.isCalleeSaved(ind)) {
+                used.add(Map.entry(new VfpReg(ind), new StackOperand(StackOperand.Type.SPILL, func.sm.allocSpill(4))));
+            }
+        }
+        func.usedCalleeSavedReg = used;
+        insertSaveReg();
+    }
+
+    // 在Prologue后，Ret前插入指令，保存和恢复用到的Callee Saved Reg
+    private void insertSaveReg() {
+        List<AsmInst> stores = new ArrayList<>();
+
+        for (var ent: func.usedCalleeSavedReg) {
+            var reg = ent.getKey();
+            var loc = ent.getValue();
+            if (reg instanceof Reg) {
+                var store = new StoreInst(func.entry, ent.getKey(), loc);
+                store.comment = "Store callee saved reg "+reg.toString();
+                stores.addAll(Generator.expandStackOperandLoadStoreIP(store));
+            } else if (reg instanceof VfpReg) {
+                throw new RuntimeException("TODO");
+            } else {throw new RuntimeException("Unknown Register Type to save.");}
+        }
+        // 插入到prologue后面
+        assert func.entry.insts.get(0) instanceof Prologue;
+        func.entry.insts.addAll(1, stores);
+
+        for (var abb: func.bbs) {
+            // for (var inst: abb.insts) {
+            for (int i=0;i<abb.insts.size();i++) {
+                var inst = abb.insts.get(i);
+                if (!(inst instanceof RetInst)) {continue;}
+                List<AsmInst> loads = new ArrayList<>();
+                for (var ent: func.usedCalleeSavedReg) {
+                    var reg = ent.getKey();
+                    var loc = ent.getValue();
+                    if (reg instanceof Reg) {
+                        var load = new LoadInst(func.entry, ent.getKey(), loc);
+                        load.comment = "Load callee saved reg "+reg.toString();
+                        loads.addAll(Generator.expandStackOperandLoadStoreIP(load));
+                    } else if (reg instanceof VfpReg) {
+                        throw new RuntimeException("TODO");
+                    } else {throw new RuntimeException("Unknown Register Type to save.");}
+                }
+                abb.insts.addAll(i, loads);
+                i += loads.size();
+            }
         }
     }
 

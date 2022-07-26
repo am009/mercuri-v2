@@ -13,4 +13,11 @@ public class VfpReg extends AsmOperand {
         assert index > 0;
         this.index = index;
     }
+
+    public static boolean isCalleeSaved(int ind) {
+        if (ind >= 16) {
+            return true;
+        }
+        return false;
+    }
 }
