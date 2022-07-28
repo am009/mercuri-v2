@@ -268,3 +268,20 @@ Interval-Graph Coloring 可以看 http://www.cse.msu.edu/~huding/331material/not
 	```
 
 最后感觉即使拆分出register assignment，也用处不大。最后的主体代码结构基本还是参照着书上的顺序写的。
+
+### 类型转换
+
+aeabi.h文件：https://gist.github.com/harieamjari/61aa4420ae4ded5e86f5143e46d93573
+
+|运算|需要转换的函数||
+|-|-|-|
+|~~有符号32位int除法~~|__aeabi_idiv(int numerator, int denominator)||
+|~~无符号32位int除法~~|unsigned __aeabi_uidiv(unsigned numerator, unsigned denominator);||
+|有符号取模|int __aeabi_mymod(int numerator, int denominator);（自定义）||
+
+
+SDIV和UDIV指令居然仅支持Thumb状态。。所以整数除法需要转换为函数调用 `__aeabi_idiv`。但是搜了下发现https://community.arm.com/support-forums/f/architectures-and-processors-forum/5638/how-to-understand-sdiv-instruction-availability 只要设置cpu为更新的版本即可。
+
+取模运算和除法运算居然是在一起的，返回的是一个结构体typedef struct { int quot; int rem; } idiv_return;。因为现在语法只允许函数返回int或者float，如果要直接支持比较麻烦。所以自己搞一个汇编函数吧，调用__aeabi_idivmod然后把r1(rem)放到r0返回。
+
+

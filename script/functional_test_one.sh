@@ -29,7 +29,7 @@ else
 fi
 printf "${RED}--- Compile ASM ${file} ---${NC}\n"
 runone $file $BASEDIR/target/test/functional/${name}.S
-arm-linux-gnueabihf-gcc -march=armv7 $BASEDIR/test/lib/libsysy.a $BASEDIR/target/test/functional/${name}.S -o $BASEDIR/target/test/functional/${name}.arm.elf
+arm-linux-gnueabihf-gcc -march=armv7 -static $BASEDIR/test/lib/libsysy.a $BASEDIR/target/test/functional/${name}.S -o $BASEDIR/target/test/functional/${name}.arm.elf
 if [ ! -f $BASEDIR/test/functional/${name%.*}.in ]; then
     python3 $BASEDIR/script/functional_checker.py asm $BASEDIR/target/test/functional/${name}.arm.elf $BASEDIR/test/functional/${name%.*}.out
 else

@@ -310,7 +310,7 @@ public class LocalRegAllocator {
                         int regind = state.allocateReg(vreg, reg2ind(hint, vreg.isFloat), blk, toInsertBefore);
                         StackOperand spilledLoc = state.getSpill(vreg);
                         assert spilledLoc != null;
-                        var load = new LoadInst(blk, phyReg, spilledLoc);
+                        var load = new LoadInst(blk, ind2Reg(regind, vreg.isFloat), spilledLoc);
                         load.comment = "load spilled "+vreg.comment;
                         toInsertBefore.addAll(Generator.expandStackOperandLoadStoreIP(load));
                         addUsedReg(regind, vreg.isFloat);
@@ -361,6 +361,15 @@ public class LocalRegAllocator {
                 List<AsmOperand> newDefs = new ArrayList<>();
                 assert inst instanceof Prologue || defs.size() <= 1; // 应该是吧
                 for (var vreg: defs) {
+                    // 由于MOVW+MOVT的存在，会出现def复用寄存器的情况
+                    int currentind = state.checkInPhyReg(vreg);
+                    if (currentind != -1) {
+                        assert inst instanceof MovInst;
+                        AsmOperand phyReg = ind2Reg(currentind, vreg.isFloat);
+                        addUsedReg(currentind, vreg.isFloat);
+                        newDefs.add(phyReg);
+                        continue;
+                    }
                     if (constraints == null || !constraints.containsKey(vreg)) {
                         var hint = bd.allocHint.get(vreg);
                         int regind = state.allocateReg(vreg, reg2ind(hint, vreg.isFloat), blk, toInsertBefore);
@@ -484,6 +493,10 @@ public class LocalRegAllocator {
     }
 
     private int calcDist(int currentInd, List<Integer> useList) {
+        if (useList == null) {
+            Global.logger.warning("Cannot find usage of a virtual register.");
+            return Integer.MAX_VALUE;
+        }
         for (int j = useList.size() - 1; j >= 0; j--) {
             int ind = useList.get(j);
             if (ind > currentInd) {

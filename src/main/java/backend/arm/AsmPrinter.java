@@ -13,7 +13,8 @@ public class AsmPrinter {
 
     public static String textHeader = ".text\n"
         +".syntax unified\n"
-        +".arch armv7-a\n"
+        + ".cpu cortex-a72\n"
+        // +".arch armv7-a\n"
         +".file 1 \"%s\"\n\n"; // 这里%s会不会有转义的问题，比如结尾是反斜杠，然后链接器那边报错
 
     public static String funcHeader = "\t.global\t%s\n"

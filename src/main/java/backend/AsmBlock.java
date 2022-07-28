@@ -15,9 +15,11 @@ public class AsmBlock {
     // 前驱和后继节点。pred需要初始化，succ由那边生成跳转指令的时候初始化。
     public List<AsmBlock> pred;
     public List<AsmBlock> succ;
+
+    public static String prefix = ".LBB_";
     
     public AsmBlock(String label) {
-        this.label = label;
+        this.label = prefix + label;
         insts = new ArrayList<>();
         pred = new ArrayList<>();
     }

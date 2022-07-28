@@ -354,9 +354,17 @@ public class Generator {
                 }
             }
             // 更新def
-            var ret = call.cc.getRetReg();
-            if (ret != null) {
+            var retReg = call.cc.getRetReg();
+            if (retReg != null) {
+                var ret = convertValue(inst, func, abb);
                 call.defs.add(ret);
+                assert ret instanceof VirtReg;
+                if (retReg instanceof Reg) {
+                    call.setConstraint((VirtReg)ret, (Reg)retReg);
+                } else if (retReg instanceof VfpReg) {
+                    call.setConstraint((VirtReg)ret, (VfpReg)retReg);
+                } else {throw new UnsupportedOperationException();}
+                
             }
             // 更新当前函数需要的最大函数调用栈空间的大小
             func.sm.preserveArgSize(call.cc.getStackSize());
@@ -576,9 +584,9 @@ public class Generator {
         List<AsmInst> ret = new ArrayList<>();
         var op1 = bin.uses.get(0);
         var op2 = bin.uses.get(1);
-        if (op1 instanceof NumImm) {
+        if (op1 instanceof Imm) { // 如果是label也要展开
             var tmp = new Reg(Reg.Type.ip); // 需要单个临时寄存器直接用ip
-            ret.addAll(MovInst.loadImm(bin.parent, tmp, ((NumImm)op1)));
+            ret.addAll(MovInst.loadImm(bin.parent, tmp, ((Imm)op1)));
             op1 = tmp;
         }
         if (op2 instanceof NumImm) {
