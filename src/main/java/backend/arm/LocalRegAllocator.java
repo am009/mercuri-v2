@@ -339,7 +339,7 @@ public class LocalRegAllocator {
                         // 没有约束，且没有分配寄存器，先随便分配寄存器，然后找到值，加载进来。
                         int regind = state.allocateReg(vreg, reg2ind(hint, vreg.isFloat), blk, toInsertBefore);
                         StackOperand spilledLoc = state.getSpill(vreg);
-                        assert spilledLoc != null;
+                        assert spilledLoc != null; // 
                         var load = new LoadInst(blk, ind2Reg(regind, vreg.isFloat), spilledLoc);
                         load.comment = "load spilled "+vreg.comment;
                         toInsertBefore.addAll(Generator.expandStackOperandLoadStoreIP(load));

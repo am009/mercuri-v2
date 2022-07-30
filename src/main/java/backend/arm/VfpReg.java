@@ -11,7 +11,7 @@ public class VfpReg extends AsmOperand {
     static final long count = 32; // 寄存器数量
 
     public VfpReg(long index) {
-        assert index > 0 && index < count;
+        assert index >= 0 && index < count;
         this.index = index;
     }
 

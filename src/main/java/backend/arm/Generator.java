@@ -116,6 +116,9 @@ public class Generator {
         }
 
         var ret = new VirtReg(vregInd++);
+        if (v.type.baseType.isFloat() && !v.type.isArray() && !v.type.isPointer) {
+            ret.isFloat = true;
+        }
         vregMap.put(v, ret);
 
         // 如果是参数且在内存中，则生成load指令

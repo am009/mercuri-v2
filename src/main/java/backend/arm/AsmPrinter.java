@@ -16,7 +16,7 @@ public class AsmPrinter {
         // + ".cpu cortex-a72\n"
         +".arch armv7-a\n"
         +".arch_extension idiv\n"
-        +".arch_extension vfpv3-fp16\n"
+        +".fpu vfpv3\n"
         +".file 1 \"%s\"\n\n" // 这里%s会不会有转义的问题，比如结尾是反斜杠，然后链接器那边报错
         +"__aeabi_mymod:\n"
         +"\tpush\t{r11, lr}\n"
