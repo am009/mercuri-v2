@@ -22,6 +22,13 @@ public class Value {
     }
 
     // TODO replaceAllUseWith
+    public void replaceAllUseWith(Value v) {
+        for (var u: uses) {
+            assert u.value == this;
+            var newu = new Use(u.user, v);
+            u.user.replaceUseWith(u, newu);
+        }
+    }
 
     public String toValueString() {
         if (type.baseType == PrimitiveTypeTag.VOID) {

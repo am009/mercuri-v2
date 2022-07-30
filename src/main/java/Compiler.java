@@ -17,6 +17,7 @@ import dst.ds.CompUnit;
 import ir.SemanticAnalyzer;
 import ssa.FakeSSAGenerator;
 import ssa.ds.Module;
+import ssa.pass.EABIArithmeicLowing;
 import ds.LoggerBuilder;
 
 /**
@@ -61,6 +62,10 @@ public class Compiler {
             Files.writeString(Path.of(args.getOutFile()), ssa.toString());
             return;
         }
+        // TODO pass manager
+        ssa = EABIArithmeicLowing.process(ssa);
+        Global.logger.trace("--- EABIArithmeicLowing ---");
+        Global.logger.trace(ssa.toString());
         AsmModule asm = backend.arm.Generator.process(ssa);
         Global.logger.trace("--- asm inst selection ---");
         Global.logger.trace(asm.toString());

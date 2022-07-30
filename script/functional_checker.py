@@ -17,7 +17,7 @@ def test(target_elf, out_file, in_file=None, is_asm=False):
 
     from subprocess import Popen,PIPE,STDOUT
 
-    p = Popen([target_elf], stdout=PIPE,  stdin=PIPE, stderr=PIPE)
+    p = Popen(get_commands(target_elf, is_asm), stdout=PIPE,  stdin=PIPE, stderr=PIPE)
     out, err = p.communicate(input=in_str)
     code = p.returncode
     if len(out) > 0 and out[-1] != ord('\n'):
@@ -34,7 +34,7 @@ def test(target_elf, out_file, in_file=None, is_asm=False):
     NC='\033[0m' # No Color
 
     if out.strip() == s.strip():
-        print(RED+"=========== IR Pass! ==============" +NC)
+        print(RED+"=========== Pass! ==============" +NC)
         return True
     else:
         print(RED+"Result Mismatch"+NC)
@@ -44,14 +44,15 @@ def test(target_elf, out_file, in_file=None, is_asm=False):
 debug_case = None
 # debug_case = '54_hidden_var' # uncomment to debug
 if debug_case:
-    sys.argv = ['debugir', '/mnt/c/Users/warren/d/2022/compiler-contest/mercuri-v2/script/functional_checker.py', f'/mnt/c/Users/warren/d/2022/compiler-contest/mercuri-v2/target/test/functional/{debug_case}.sy.elf', f'/mnt/c/Users/warren/d/2022/compiler-contest/mercuri-v2/test/functional/{debug_case}.out']
+    assert len(sys.argv) == 1
+    sys.argv = ['debugasm', '/mnt/c/Users/warren/d/2022/compiler-contest/mercuri-v2/script/functional_checker.py', f'/mnt/c/Users/warren/d/2022/compiler-contest/mercuri-v2/target/test/functional/{debug_case}.sy.elf', f'/mnt/c/Users/warren/d/2022/compiler-contest/mercuri-v2/test/functional/{debug_case}.out']
 print(sys.argv)
 
 if len(sys.argv) < 4:
     print("Usage: {} <mode> target_elf out_file [in_file]")
     exit(-1)
 
-mode = sys.argv[0]
+mode = sys.argv[1]
 if not mode.startswith("debug"):
     assert debug_case == None # 防止那边自动测试脚本使用到正在debug的该脚本
 else:
@@ -67,3 +68,5 @@ if mode == 'ir':
     test(target_elf, out_file, in_file, is_asm=False)
 elif mode == 'asm':
     test(target_elf, out_file, in_file, is_asm=True)
+else:
+    assert False

@@ -29,11 +29,11 @@ for file in $BASEDIR/test/functional/*.sy; do
     fi
     printf "${RED}--- Compile ASM ${file} ---${NC}\n"
     runone $file $BASEDIR/target/test/functional/${name}.S
-    arm-linux-gnueabihf-gcc -march=armv7 -static $BASEDIR/test/lib/libsysy.a $BASEDIR/target/test/functional/${name}.S -o $BASEDIR/target/test/functional/${name}.arm.elf
+    arm-linux-gnueabihf-gcc-10 -march=armv7-a -static $BASEDIR/target/test/functional/${name}.S $BASEDIR/test/lib/libsysy.a -o $BASEDIR/target/test/functional/${name}.arm.elf
+    printf "${RED}--- Testing ASM ${file} ---${NC}\n"
     if [ ! -f $BASEDIR/test/functional/${name%.*}.in ]; then
         python3 $BASEDIR/script/functional_checker.py asm $BASEDIR/target/test/functional/${name}.arm.elf $BASEDIR/test/functional/${name%.*}.out
     else
         python3 $BASEDIR/script/functional_checker.py asm $BASEDIR/target/test/functional/${name}.arm.elf $BASEDIR/test/functional/${name%.*}.out $BASEDIR/test/functional/${name%.*}.in
     fi
-    printf "${RED}--- Testing ASM ${file} ---${NC}\n"
 done
