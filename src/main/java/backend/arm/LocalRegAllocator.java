@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -17,6 +18,7 @@ import backend.AsmModule;
 import backend.AsmOperand;
 import backend.StackOperand;
 import backend.VirtReg;
+import backend.arm.inst.CallInst;
 import backend.arm.inst.ConstrainRegInst;
 import backend.arm.inst.LoadInst;
 import backend.arm.inst.MovInst;
@@ -68,7 +70,7 @@ public class LocalRegAllocator {
         VirtReg[] current;
         int[] next;
         // free优先使用index靠前的
-        LinkedHashSet<Integer> free = new LinkedHashSet<>();
+        LinkedList<Integer> free = new LinkedList<>();
         public RegClass(int count) {
             this.count = count;
             current = new VirtReg[count];
@@ -110,7 +112,7 @@ public class LocalRegAllocator {
                     ret = hint;
                 } else {
                     // get first element
-                    ret = rc.free.iterator().next();
+                    ret = rc.free.getFirst();
                 }
             } else {
                 ret = findMaxInd(rc.next);
@@ -197,7 +199,7 @@ public class LocalRegAllocator {
 
         public void free(int ind, boolean isFloat) {
             RegClass rc = rcs[b2i(isFloat)];
-            rc.free.add(ind);
+            rc.free.addFirst(ind);
             rc.current[ind] = null;
             rc.next[ind] = Integer.MAX_VALUE;
         }
@@ -218,6 +220,33 @@ public class LocalRegAllocator {
                     if (vreg != null && globs.contains(vreg)) {
                         spillInd(i, isFloat, blk, toInsertBefore);
                     }
+                }
+            }
+        }
+
+        public void spillCallerSaved(Map<VirtReg, AsmOperand> constrains, AsmBlock blk, List<AsmInst> toInsertBefore) {
+            var iargs = new HashSet<Integer>();
+            var fargs = new HashSet<Long>();
+            for (var ent: constrains.entrySet()) {
+                var reg = ent.getValue();
+                if (reg instanceof Reg) {
+                    iargs.add(((Reg)reg).ty.toInt());
+                } else if(reg instanceof VfpReg) {
+                    fargs.add(((VfpReg)reg).index);
+                } else {throw new RuntimeException();}
+            }
+            for (int i=0;i<11;i++) {
+                Reg.Type r = Reg.Type.values[i];
+                if (!r.isCalleeSaved() && !rcs[0].free.contains(i) && !iargs.contains(i)) {
+                    // spill ind
+                    spillInd(i, false, blk, toInsertBefore);
+                    free(i, false);
+                }
+            }
+            for (int i=0;i<VfpReg.count;i++) {
+                if (!VfpReg.isCalleeSaved(i) && !rcs[1].free.contains(i) && !fargs.contains(i)) {
+                    spillInd(i, true, blk, toInsertBefore);
+                    free(i, true);
                 }
             }
         }
@@ -340,12 +369,17 @@ public class LocalRegAllocator {
                     }
                 }
                 assert uses.size() == newUses.size();
+                // 如果是call指令，则caller saved reg要spill掉。TODO 实现对跨越call的寄存器的hint，不要分配到这些寄存器？
+                if (inst instanceof CallInst) {
+                    state.spillCallerSaved(((CallInst)inst).inConstraints, blk, toInsertBefore);
+                }
+
                 // 如果use不需要了当前的值，则free寄存器。
                 // 缓存结果
                 ArrayList<Boolean> notNeeded = new ArrayList<>();
                 for(var vreg: uses) {
                     int lastUse = bd.useLists.get(vreg).get(0); // global value may have size 0.
-                    boolean notNeed = (i+addedInstCount) >= lastUse; // 是最后一个用该VirtReg的指令
+                    boolean notNeed = (i-addedInstCount) >= lastUse; // 是最后一个用该VirtReg的指令
                     notNeeded.add(notNeed);
                     if (notNeed) { // TODO check notNeed 是否判断正确
                         int currentInd = state.checkInPhyReg(vreg);

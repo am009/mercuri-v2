@@ -500,11 +500,11 @@ public class FakeSSAGenerator {
             // 担心常量数组可能传函数参数，所以就当普通数组处理了。
             // 此时val应该是指针。
             var gep = new GetElementPtr(ctx.current, val);
-            ctx.addToCurrent(gep);
             expr.indices.forEach(exp -> {
                 var val_ = visitDstExpr(ctx, curFunc, exp);
                 gep.addIndex(val_);
             });
+            ctx.addToCurrent(gep);
             if (gep.type.isArray()) { // index没有取到底
                 assert toAssign == false;
                 // 一般是函数调用出现，因此要再省略一维下标

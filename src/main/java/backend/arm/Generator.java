@@ -41,6 +41,7 @@ import ssa.ds.RetInst;
 import ssa.ds.StoreInst;
 import ssa.ds.TerminatorInst;
 import ssa.ds.Type;
+import ssa.ds.Use;
 import ssa.ds.Value;
 
 public class Generator {
@@ -360,9 +361,9 @@ public class Generator {
                 call.defs.add(ret);
                 assert ret instanceof VirtReg;
                 if (retReg instanceof Reg) {
-                    call.setConstraint((VirtReg)ret, (Reg)retReg);
+                    call.setConstraint((VirtReg)ret, (Reg)retReg, false);
                 } else if (retReg instanceof VfpReg) {
-                    call.setConstraint((VirtReg)ret, (VfpReg)retReg);
+                    call.setConstraint((VirtReg)ret, (VfpReg)retReg, false);
                 } else {throw new UnsupportedOperationException();}
                 
             }
@@ -384,15 +385,17 @@ public class Generator {
         if (inst_ instanceof GetElementPtr) { // getelementptr [4 x [2 x i32]], [4 x [2 x i32]]* %b_1, i32 0, i32 0
             var inst = (GetElementPtr) inst_;
             var addr = convertValue(inst.oprands.get(0).value, func, abb);
-            var nums = inst.oprands.subList(1, inst.oprands.size()).stream().map(u -> ((Integer)((ConstantValue)u.value).val)).collect(Collectors.toList());
-            long offset = calcGep(getSize(inst.base), new ArrayList<>(inst.base.dims), nums);
-            if (offset != 0) {
-                var bin = new BinOpInst(abb, BinaryOp.ADD, convertValue(inst, func, abb), addr, new NumImm(Math.toIntExact(offset)));
-                bin.comment = inst.toString();
-                abb.insts.addAll(expandBinOp(bin));
-            } else {
-                vregMap.put(inst, addr);
-            }
+            var nums = inst.oprands.subList(1, inst.oprands.size());
+            // var nums = inst.oprands.subList(1, inst.oprands.size()).stream().map(u -> ((Integer)((ConstantValue)u.value).val)).collect(Collectors.toList());
+            // long offset = calcGep(getSize(inst.base), new ArrayList<>(inst.base.dims), nums);
+            calcGep(func, abb, inst, addr, nums);
+            // if (offset != 0) {
+            //     var bin = new BinOpInst(abb, BinaryOp.ADD, convertValue(inst, func, abb), addr, new NumImm(Math.toIntExact(offset)));
+            //     bin.comment = inst.toString();
+            //     abb.insts.addAll(expandBinOp(bin));
+            // } else {
+            //     vregMap.put(inst, addr);
+            // }
             return;
         }
 
@@ -417,6 +420,65 @@ public class Generator {
         throw new RuntimeException("Unknown Terminator Inst.");
     }
 
+    private void calcGep(AsmFunc func, AsmBlock abb, GetElementPtr inst, AsmOperand addr, List<Use> ops) {
+        var baseSize = getSize(inst.base);
+        ArrayList<Integer> dims;
+        if (inst.base.dims != null) {
+            dims = new ArrayList<>(inst.base.dims);
+        } else {
+            dims = new ArrayList<>();
+        }
+        
+        AsmOperand current = addr;
+        long offset = 0;
+        for (var use: ops) {
+            if (use.value instanceof ConstantValue) {
+                int num = (Integer)((ConstantValue)use.value).val;
+                assert baseSize != Long.MIN_VALUE;
+                offset += baseSize * num;
+                if (dims.size() > 0) {
+                    baseSize = baseSize / dims.remove(0);
+                } else {
+                    // Set as invalid
+                    baseSize = Long.MIN_VALUE;
+                }
+            } else {
+                if (offset != 0) {
+                    current = GepMakeAdd(current, new NumImm(Math.toIntExact(offset)), abb, inst.toString());
+                    offset = 0;
+                }
+                String comment = inst.toString()+" ("+use.value.name+")";
+
+                var target = getVReg();
+                var mul = new BinOpInst(abb, BinaryOp.MUL, target, convertValue(use.value, func, abb), new NumImm(Math.toIntExact(baseSize)));
+                mul.comment = comment;
+                abb.insts.addAll(expandBinOp(mul));
+                if (dims.size() > 0) {
+                    baseSize = baseSize / dims.remove(0);
+                } else {
+                    // Set as invalid
+                    baseSize = Long.MIN_VALUE;
+                }
+
+                current = GepMakeAdd(current, target, abb, comment);
+            }
+        }
+        if (offset != 0) {
+            current = GepMakeAdd(current, new NumImm(Math.toIntExact(offset)), abb, inst.toString());
+            offset = 0;
+        }
+        // var target = convertValue(inst, func, abb);
+        vregMap.put(inst, current);
+    }
+
+    private AsmOperand GepMakeAdd(AsmOperand prev, AsmOperand offset, AsmBlock abb, String comment) {
+        var target = getVReg();
+        var bin = new BinOpInst(abb, BinaryOp.ADD, target, prev, offset);
+        bin.comment = comment;
+        abb.insts.addAll(expandBinOp(bin));
+        return target;
+    }
+
     private void processCallArg(backend.arm.inst.CallInst call, AsmOperand op, AsmOperand loc, AsmBlock abb) {
         // 如果是常量，转换一下
         if (op instanceof Imm) {
@@ -427,10 +489,10 @@ public class Generator {
         assert op instanceof VirtReg;
         var vreg = (VirtReg) op;
         if (loc instanceof Reg) { // 维护寄存器分配约束
-            call.setConstraint(vreg, (Reg)loc);
+            call.setConstraint(vreg, (Reg)loc, true);
             call.uses.add(vreg);
         } else if (loc instanceof VfpReg) { // 维护寄存器分配约束
-            call.setConstraint(vreg, (VfpReg)loc);
+            call.setConstraint(vreg, (VfpReg)loc, true);
             // 维护use
             call.uses.add(vreg);
         } else if (loc instanceof StackOperand) { // 对内存中的参数生成store
@@ -451,21 +513,6 @@ public class Generator {
             default:
                 throw new UnsupportedOperationException();
         }
-    }
-
-    // 为了防止相关list被修改，传入计算前先拷贝
-    private long calcGep(long baseSize, List<Integer> dims, List<Integer> nums) {
-        long offset = 0;
-        for (int num: nums) {
-            offset += baseSize * num;
-            if (dims.size() > 0) {
-                baseSize = baseSize / dims.remove(0);
-            } else {
-                // assert last iteration
-                return offset;
-            }
-        }
-        return offset;
     }
 
     // 检查第二个参数StackOperand是否满足要求，不满足则展开为多个指令
@@ -589,9 +636,8 @@ public class Generator {
             ret.addAll(MovInst.loadImm(bin.parent, tmp, ((Imm)op1)));
             op1 = tmp;
         }
-        if (op2 instanceof NumImm) {
-            var immop2 = (NumImm) op2;
-            if ((bin.op == BinaryOp.ADD || bin.op == BinaryOp.SUB) && immop2.highestOneBit() < 4095) {
+        if (op2 instanceof Imm) {
+            if (op2 instanceof NumImm && (bin.op == BinaryOp.ADD || bin.op == BinaryOp.SUB) && ((NumImm) op2).highestOneBit() < 4095) {
                 // OK to use imm
             } else {
                 var tmp = new Reg(Reg.Type.ip); // 需要单个临时寄存器直接用ip

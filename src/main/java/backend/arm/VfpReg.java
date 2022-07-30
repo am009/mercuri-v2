@@ -8,9 +8,10 @@ public class VfpReg extends AsmOperand {
     long index;
     // useAsDouble暂时不支持
     boolean useAsDouble = false; // d0-d15
+    static final long count = 32; // 寄存器数量
 
     public VfpReg(long index) {
-        assert index > 0;
+        assert index > 0 && index < count;
         this.index = index;
     }
 
