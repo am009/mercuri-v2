@@ -521,8 +521,15 @@ public class Generator {
     private List<AsmInst> expandStackOperandLoadStore(AsmInst inst) {
         List<AsmInst> ret = new ArrayList<>();
         List<AsmOperand> newuse = new ArrayList<>();
-        expandImm(inst.uses.get(0), newuse, ret, inst.parent);
-        expandStackOperand(inst.uses.get(1), newuse, ret, inst.parent);
+        // expandImm(inst.uses.get(0), newuse, ret, inst.parent);
+        // expandStackOperand(inst.uses.get(1), newuse, ret, inst.parent);
+        assert inst instanceof backend.arm.inst.LoadInst || inst instanceof backend.arm.inst.StoreInst;
+        if (inst instanceof backend.arm.inst.StoreInst) {
+            newuse.add(inst.uses.get(0));
+            expandStackOperand(inst.uses.get(1), newuse, ret, inst.parent);
+        } else if (inst instanceof backend.arm.inst.LoadInst) {
+            expandStackOperand(inst.uses.get(0), newuse, ret, inst.parent);
+        }
         inst.uses = newuse;
         ret.add(inst);
         return ret;
@@ -637,7 +644,8 @@ public class Generator {
             op1 = tmp;
         }
         if (op2 instanceof Imm) {
-            if (op2 instanceof NumImm && (bin.op == BinaryOp.ADD || bin.op == BinaryOp.SUB) && ((NumImm) op2).highestOneBit() < 4095) {
+            // 0-4095的#imm12仅在Thumb模式下有。
+            if (op2 instanceof NumImm && (bin.op == BinaryOp.ADD || bin.op == BinaryOp.SUB) && ((NumImm) op2).highestOneBit() < 255) {
                 // OK to use imm
             } else {
                 var tmp = new Reg(Reg.Type.ip); // 需要单个临时寄存器直接用ip

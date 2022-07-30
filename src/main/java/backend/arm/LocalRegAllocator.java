@@ -314,6 +314,7 @@ public class LocalRegAllocator {
                 List<VirtReg> uses = filterVirtReg(inst.uses);
                 List<AsmOperand> newUses = new ArrayList<>();
                 List<AsmInst> toInsertBefore = new ArrayList<>();
+                List<AsmInst> toInsertAfter = new ArrayList<>();
                 Map<VirtReg, AsmOperand> constraints = null;
                 if (inst instanceof ConstrainRegInst) {
                     constraints = ((ConstrainRegInst)inst).getConstraints();
@@ -384,7 +385,7 @@ public class LocalRegAllocator {
                     if (notNeed) { // TODO check notNeed 是否判断正确
                         int currentInd = state.checkInPhyReg(vreg);
                         assert currentInd != -1;
-                        if (globs.contains(vreg)) {
+                        if (globs.contains(vreg)) { // use不会改变vreg的值，如果spill过就不用spill
                             state.spillInd(currentInd, vreg.isFloat, blk, toInsertBefore);
                         }
                         state.free(currentInd, vreg.isFloat);
@@ -456,6 +457,10 @@ public class LocalRegAllocator {
                     state.setNext(ind, isFloat, next);
                 }
                 // 插入需要增加的指令
+                blk.insts.addAll(i+1, toInsertAfter);
+                i += toInsertAfter.size();
+                addedInstCount += toInsertAfter.size();
+
                 blk.insts.addAll(i, toInsertBefore);
                 i += toInsertBefore.size();
                 addedInstCount += toInsertBefore.size();
@@ -465,7 +470,8 @@ public class LocalRegAllocator {
             // 结束的时候将还在寄存器里的，用到的global值放到栈上
             List<AsmInst> toInsert = new ArrayList<>();
             state.onBlockEnd(blk, toInsert);
-            blk.insts.addAll(toInsert);
+            // 插入到跳转指令之前
+            blk.insts.addAll(blk.insts.size()-1, toInsert);
         }
         // 最后更新一下用到的callee saved register到函数内
         List<Entry<AsmOperand, StackOperand>> used = new ArrayList<>();
