@@ -10,6 +10,7 @@ public class LabelImm extends Imm {
     public String label;
 
     public LabelImm(String label) {
+        isFloat = false;
         this.label = label;
     }
 

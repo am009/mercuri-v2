@@ -37,7 +37,7 @@ public class VfpCallingConvention implements CallingConvention {
         for (var param: params) {
             assert param.baseType != PrimitiveTypeTag.DOUBLE;
             long size = 4;
-            if ((!param.isPointer) && param.baseType.equals(PrimitiveTypeTag.FLOAT)) { // if is VFP CPRC (Co-processor Register Candidate)
+            if (param.isBaseFloat()) { // if is VFP CPRC (Co-processor Register Candidate)
                 if (nextVfp < 16) {
                     var result = new VfpReg(nextVfp);
                     callParam.add(result);

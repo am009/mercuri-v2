@@ -11,6 +11,7 @@ public class VfpReg extends AsmOperand {
     static final long count = 32; // 寄存器数量
 
     public VfpReg(long index) {
+        isFloat = true;
         assert index >= 0 && index < count;
         this.index = index;
     }
@@ -20,5 +21,10 @@ public class VfpReg extends AsmOperand {
             return true;
         }
         return false;
+    }
+
+    @Override
+    public String toString() {
+        return "s"+String.valueOf(index);
     }
 }

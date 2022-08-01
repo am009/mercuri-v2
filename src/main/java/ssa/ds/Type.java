@@ -31,6 +31,15 @@ public class Type implements Cloneable {
         return false;
     }
 
+    public boolean isBaseType() {
+        return !this.isArray() && !this.isPointer;
+    }
+
+    // 是否放到浮点寄存器里
+    public boolean isBaseFloat() {
+        return this.baseType.isFloat() && !this.isArray() && !this.isPointer;
+    }
+
     @Override
     public Type clone() {
         var dims_ = dims;

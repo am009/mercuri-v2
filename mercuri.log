@@ -1,4 +1,4 @@
-[TRACE] Args: { inFile='test/functional/01_var_defn2.sy', outFile='null', outType='ASM'}
+[TRACE] Args: { inFile='test/functional/95_float.sy', outFile='null', outType='ASM'}
 [TRACE] enter scope
 [TRACE] leave scope
 [TRACE] enter scope
@@ -22,9 +22,49 @@
 [TRACE] enter scope
 [TRACE] leave scope
 [TRACE] enter scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] leave scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] enter scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] leave scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] enter scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] leave scope
+[TRACE] enter scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] leave scope
+[TRACE] enter scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] enter scope
+[TRACE] leave scope
+[TRACE] --- flatten arr ---
+[TRACE] {1.0,2,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0}
+[TRACE] enter scope
+[TRACE] leave scope
 [TRACE] leave scope
 [TRACE] --- ssa ---
-[TRACE] source_filename = "test/functional/01_var_defn2.sy"
+[TRACE] source_filename = "test/functional/95_float.sy"
 
 declare i32 @getint()
 declare i32 @getch()
@@ -38,17 +78,562 @@ declare void @putarray(i32, i32*)
 declare void @putfarray(i32, float*)
 declare void @putf(i8*, ...)
 
-@a = global i32 3
-@b = global i32 5
+
+define float @float_abs(float %x){
+entry:
+  %x_0 = alloca float 
+  store float %x, float* %x_0
+  %0 = load float, float* %x_0
+  %1 = sitofp i32 0 to float     ; expr promote
+  %2 = fcmp olt float %0, %1
+  br i1 %2, label %if_true_0, label %if_end_0
+
+if_true_0:
+  %3 = load float, float* %x_0
+  %4 = fsub float 0x0, %3
+  ret float %4
+
+tmp_1:
+  br label %if_end_0
+
+if_end_0:
+  %5 = load float, float* %x_0
+  ret float %5
+
+}
+
+define float @circle_area(i32 %radius){
+entry:
+  %radius_1 = alloca i32 
+  store i32 %radius, i32* %radius_1
+  %0 = load i32, i32* %radius_1
+  %1 = sitofp i32 %0 to float     ; expr promote
+  %2 = fmul float 0x400921FB60000000, %1
+  %3 = load i32, i32* %radius_1
+  %4 = sitofp i32 %3 to float     ; expr promote
+  %5 = fmul float %2, %4
+  %6 = load i32, i32* %radius_1
+  %7 = load i32, i32* %radius_1
+  %8 = mul i32 %6, %7
+  %9 = sitofp i32 %8 to float     ; expr promote
+  %10 = fmul float %9, 0x400921FB60000000
+  %11 = fadd float %5, %10
+  %12 = sitofp i32 2 to float     ; expr promote
+  %13 = fdiv float %11, %12
+  ret float %13
+
+}
+
+define i32 @float_eq(float %a, float %b){
+entry:
+  %a_2 = alloca float 
+  store float %a, float* %a_2
+  %b_3 = alloca float 
+  store float %b, float* %b_3
+  %0 = load float, float* %a_2
+  %1 = load float, float* %b_3
+  %2 = fsub float %0, %1
+  %3 = call float @float_abs(float %2)
+  %4 = fcmp olt float %3, 0x3EB0C6F7A0000000
+  br i1 %4, label %if_true_2, label %if_false_2
+
+if_true_2:
+  %5 = sitofp i32 1 to float     ; expr promote
+  %6 = fmul float %5, 0x4000000000000000
+  %7 = sitofp i32 2 to float     ; expr promote
+  %8 = fdiv float %6, %7
+  %9 = fptosi float %8 to i32     ; func ret
+  ret i32 %9
+
+tmp_3:
+  br label %if_end_2
+
+if_false_2:
+  ret i32 0
+
+tmp_4:
+  br label %if_end_2
+
+if_end_2:
+  ret i32 0
+
+}
+
+define void @error(){
+entry:
+  call void @putch(i32 101)
+  call void @putch(i32 114)
+  call void @putch(i32 114)
+  call void @putch(i32 111)
+  call void @putch(i32 114)
+  call void @putch(i32 10)
+  ret void
+
+}
+
+define void @ok(){
+entry:
+  call void @putch(i32 111)
+  call void @putch(i32 107)
+  call void @putch(i32 10)
+  ret void
+
+}
+
+define void @assert(i32 %cond){
+entry:
+  %cond_4 = alloca i32 
+  store i32 %cond, i32* %cond_4
+  %0 = load i32, i32* %cond_4
+  %1 = icmp eq i32 0, %0
+  br i1 %1, label %if_true_5, label %if_false_5
+
+if_true_5:
+  call void @error()
+  br label %if_end_5
+
+if_false_5:
+  call void @ok()
+  br label %if_end_5
+
+if_end_5:
+  ret void
+
+}
+
+define void @assert_not(i32 %cond){
+entry:
+  %cond_5 = alloca i32 
+  store i32 %cond, i32* %cond_5
+  %0 = load i32, i32* %cond_5
+  %1 = icmp ne i32 0, %0
+  br i1 %1, label %if_true_6, label %if_false_6
+
+if_true_6:
+  call void @error()
+  br label %if_end_6
+
+if_false_6:
+  call void @ok()
+  br label %if_end_6
+
+if_end_6:
+  ret void
+
+}
 
 define i32 @main(){
 entry:
-  %a_0 = alloca i32 
-  store i32 5, i32* %a_0
-  %0 = load i32, i32* %a_0
-  %1 = load i32, i32* @b
-  %2 = add i32 %0, %1
-  ret i32 %2
+  %0 = call i32 @float_eq(float 0x3FB4000000000000, float 0xC0E01D0000000000)
+  call void @assert_not(i32 %0)
+  %1 = call i32 @float_eq(float 0x4057C21FC0000000, float 0x4041475CE0000000)
+  call void @assert_not(i32 %1)
+  %2 = call i32 @float_eq(float 0x4041475CE0000000, float 0x4041475CE0000000)
+  call void @assert(i32 %2)
+  %3 = fptosi float 0x4016000000000000 to i32     ; func param
+  %4 = call float @circle_area(i32 %3)
+  %5 = call float @circle_area(i32 5)
+  %6 = call i32 @float_eq(float %4, float %5)
+  call void @assert(i32 %6)
+  %7 = call i32 @float_eq(float 0x406D200000000000, float 0x40AFFE0000000000)
+  call void @assert_not(i32 %7)
+  %8 = fcmp une float 0x0, 0x3FF8000000000000
+  br i1 %8, label %if_true_7, label %if_end_7
+
+if_true_7:
+  call void @ok()
+  br label %if_end_7
+
+if_end_7:
+  %9 = fcmp oeq float 0x0, 0x400A666660000000
+  %10 = icmp eq i1 0, %9
+  br i1 %10, label %if_true_8, label %if_end_8
+
+if_true_8:
+  call void @ok()
+  br label %if_end_8
+
+if_end_8:
+  %11 = fcmp une float 0x0, 0x0
+  br i1 %11, label %and_right_10, label %if_end_9
+
+and_right_10:
+  %12 = icmp ne i32 0, 3
+  br i1 %12, label %if_true_9, label %if_end_9
+
+if_true_9:
+  call void @error()
+  br label %if_end_9
+
+if_end_9:
+  %13 = icmp ne i32 0, 0
+  br i1 %13, label %if_true_11, label %or_right_12
+
+or_right_12:
+  %14 = fcmp une float 0x0, 0x3FD3333340000000
+  br i1 %14, label %if_true_11, label %if_end_11
+
+if_true_11:
+  call void @ok()
+  br label %if_end_11
+
+if_end_11:
+  %i_6 = alloca i32 
+  store i32 1, i32* %i_6
+  %p_7 = alloca i32 
+  store i32 0, i32* %p_7
+  %arr_8 = alloca [10 x float] 
+  %15 = getelementptr [10 x float], [10 x float]* %arr_8, i32 0, i32 0
+  store float 0x3FF0000000000000, float* %15
+  %16 = getelementptr [10 x float], [10 x float]* %arr_8, i32 0, i32 1
+  %17 = sitofp i32 2 to float     ; array init
+  store float %17, float* %16
+  %len_9 = alloca i32 
+  %18 = getelementptr [10 x float], [10 x float]* %arr_8, i32 0, i32 0     ; forget first dim
+  %19 = call i32 @getfarray(float* %18)
+  store i32 %19, i32* %len_9
+  br label %while_entry_13
+
+while_entry_13:
+  %20 = load i32, i32* %i_6
+  %21 = icmp slt i32 %20, 1000000000
+  br i1 %21, label %while_body_13, label %while_end_13
+
+while_body_13:
+  %input_10 = alloca float 
+  %22 = call float @getfloat()
+  store float %22, float* %input_10
+  %area_11 = alloca float 
+  %23 = load float, float* %input_10
+  %24 = fmul float 0x400921FB60000000, %23
+  %25 = load float, float* %input_10
+  %26 = fmul float %24, %25
+  store float %26, float* %area_11
+  %area_trunc_12 = alloca float 
+  %27 = load float, float* %input_10
+  %28 = fptosi float %27 to i32     ; func param
+  %29 = call float @circle_area(i32 %28)
+  store float %29, float* %area_trunc_12
+  %30 = load i32, i32* %p_7
+  %31 = getelementptr [10 x float], [10 x float]* %arr_8, i32 0, i32 %30
+  %32 = load i32, i32* %p_7
+  %33 = getelementptr [10 x float], [10 x float]* %arr_8, i32 0, i32 %32
+  %34 = load float, float* %33
+  %35 = load float, float* %input_10
+  %36 = fadd float %34, %35
+  store float %36, float* %31
+  %37 = load float, float* %area_11
+  call void @putfloat(float %37)
+  call void @putch(i32 32)
+  %38 = load float, float* %area_trunc_12
+  %39 = fptosi float %38 to i32     ; func param
+  call void @putint(i32 %39)
+  call void @putch(i32 10)
+  %40 = load i32, i32* %i_6
+  %41 = sitofp i32 %40 to float     ; expr promote
+  %42 = fsub float 0x0, 0x4024000000000000
+  %43 = fsub float 0x0, %42
+  %44 = fmul float %41, %43
+  %45 = fptosi float %44 to i32     ; assign
+  store i32 %45, i32* %i_6
+  %46 = load i32, i32* %p_7
+  %47 = add i32 %46, 1
+  store i32 %47, i32* %p_7
+  br label %while_entry_13
+
+while_end_13:
+  %48 = load i32, i32* %len_9
+  %49 = getelementptr [10 x float], [10 x float]* %arr_8, i32 0, i32 0     ; forget first dim
+  call void @putfarray(i32 %48, float* %49)
+  ret i32 0
+
+}
+
+
+[TRACE] --- EABIArithmeicLowing ---
+[TRACE] source_filename = "test/functional/95_float.sy"
+
+declare i32 @getint()
+declare i32 @getch()
+declare float @getfloat()
+declare i32 @getarray(i32*)
+declare i32 @getfarray(float*)
+declare void @putint(i32)
+declare void @putch(i32)
+declare void @putfloat(float)
+declare void @putarray(i32, i32*)
+declare void @putfarray(i32, float*)
+declare void @putf(i8*, ...)
+declare i32 @__aeabi_mymod(i32, i32)
+
+
+define float @float_abs(float %x){
+entry:
+  %x_0 = alloca float 
+  store float %x, float* %x_0
+  %0 = load float, float* %x_0
+  %1 = sitofp i32 0 to float     ; expr promote
+  %2 = fcmp olt float %0, %1
+  br i1 %2, label %if_true_0, label %if_end_0
+
+if_true_0:
+  %3 = load float, float* %x_0
+  %4 = fsub float 0x0, %3
+  ret float %4
+
+tmp_1:
+  br label %if_end_0
+
+if_end_0:
+  %5 = load float, float* %x_0
+  ret float %5
+
+}
+
+define float @circle_area(i32 %radius){
+entry:
+  %radius_1 = alloca i32 
+  store i32 %radius, i32* %radius_1
+  %0 = load i32, i32* %radius_1
+  %1 = sitofp i32 %0 to float     ; expr promote
+  %2 = fmul float 0x400921FB60000000, %1
+  %3 = load i32, i32* %radius_1
+  %4 = sitofp i32 %3 to float     ; expr promote
+  %5 = fmul float %2, %4
+  %6 = load i32, i32* %radius_1
+  %7 = load i32, i32* %radius_1
+  %8 = mul i32 %6, %7
+  %9 = sitofp i32 %8 to float     ; expr promote
+  %10 = fmul float %9, 0x400921FB60000000
+  %11 = fadd float %5, %10
+  %12 = sitofp i32 2 to float     ; expr promote
+  %13 = fdiv float %11, %12
+  ret float %13
+
+}
+
+define i32 @float_eq(float %a, float %b){
+entry:
+  %a_2 = alloca float 
+  store float %a, float* %a_2
+  %b_3 = alloca float 
+  store float %b, float* %b_3
+  %0 = load float, float* %a_2
+  %1 = load float, float* %b_3
+  %2 = fsub float %0, %1
+  %3 = call float @float_abs(float %2)
+  %4 = fcmp olt float %3, 0x3EB0C6F7A0000000
+  br i1 %4, label %if_true_2, label %if_false_2
+
+if_true_2:
+  %5 = sitofp i32 1 to float     ; expr promote
+  %6 = fmul float %5, 0x4000000000000000
+  %7 = sitofp i32 2 to float     ; expr promote
+  %8 = fdiv float %6, %7
+  %9 = fptosi float %8 to i32     ; func ret
+  ret i32 %9
+
+tmp_3:
+  br label %if_end_2
+
+if_false_2:
+  ret i32 0
+
+tmp_4:
+  br label %if_end_2
+
+if_end_2:
+  ret i32 0
+
+}
+
+define void @error(){
+entry:
+  call void @putch(i32 101)
+  call void @putch(i32 114)
+  call void @putch(i32 114)
+  call void @putch(i32 111)
+  call void @putch(i32 114)
+  call void @putch(i32 10)
+  ret void
+
+}
+
+define void @ok(){
+entry:
+  call void @putch(i32 111)
+  call void @putch(i32 107)
+  call void @putch(i32 10)
+  ret void
+
+}
+
+define void @assert(i32 %cond){
+entry:
+  %cond_4 = alloca i32 
+  store i32 %cond, i32* %cond_4
+  %0 = load i32, i32* %cond_4
+  %1 = icmp eq i32 0, %0
+  br i1 %1, label %if_true_5, label %if_false_5
+
+if_true_5:
+  call void @error()
+  br label %if_end_5
+
+if_false_5:
+  call void @ok()
+  br label %if_end_5
+
+if_end_5:
+  ret void
+
+}
+
+define void @assert_not(i32 %cond){
+entry:
+  %cond_5 = alloca i32 
+  store i32 %cond, i32* %cond_5
+  %0 = load i32, i32* %cond_5
+  %1 = icmp ne i32 0, %0
+  br i1 %1, label %if_true_6, label %if_false_6
+
+if_true_6:
+  call void @error()
+  br label %if_end_6
+
+if_false_6:
+  call void @ok()
+  br label %if_end_6
+
+if_end_6:
+  ret void
+
+}
+
+define i32 @main(){
+entry:
+  %0 = call i32 @float_eq(float 0x3FB4000000000000, float 0xC0E01D0000000000)
+  call void @assert_not(i32 %0)
+  %1 = call i32 @float_eq(float 0x4057C21FC0000000, float 0x4041475CE0000000)
+  call void @assert_not(i32 %1)
+  %2 = call i32 @float_eq(float 0x4041475CE0000000, float 0x4041475CE0000000)
+  call void @assert(i32 %2)
+  %3 = fptosi float 0x4016000000000000 to i32     ; func param
+  %4 = call float @circle_area(i32 %3)
+  %5 = call float @circle_area(i32 5)
+  %6 = call i32 @float_eq(float %4, float %5)
+  call void @assert(i32 %6)
+  %7 = call i32 @float_eq(float 0x406D200000000000, float 0x40AFFE0000000000)
+  call void @assert_not(i32 %7)
+  %8 = fcmp une float 0x0, 0x3FF8000000000000
+  br i1 %8, label %if_true_7, label %if_end_7
+
+if_true_7:
+  call void @ok()
+  br label %if_end_7
+
+if_end_7:
+  %9 = fcmp oeq float 0x0, 0x400A666660000000
+  %10 = icmp eq i1 0, %9
+  br i1 %10, label %if_true_8, label %if_end_8
+
+if_true_8:
+  call void @ok()
+  br label %if_end_8
+
+if_end_8:
+  %11 = fcmp une float 0x0, 0x0
+  br i1 %11, label %and_right_10, label %if_end_9
+
+and_right_10:
+  %12 = icmp ne i32 0, 3
+  br i1 %12, label %if_true_9, label %if_end_9
+
+if_true_9:
+  call void @error()
+  br label %if_end_9
+
+if_end_9:
+  %13 = icmp ne i32 0, 0
+  br i1 %13, label %if_true_11, label %or_right_12
+
+or_right_12:
+  %14 = fcmp une float 0x0, 0x3FD3333340000000
+  br i1 %14, label %if_true_11, label %if_end_11
+
+if_true_11:
+  call void @ok()
+  br label %if_end_11
+
+if_end_11:
+  %i_6 = alloca i32 
+  store i32 1, i32* %i_6
+  %p_7 = alloca i32 
+  store i32 0, i32* %p_7
+  %arr_8 = alloca [10 x float] 
+  %15 = getelementptr [10 x float], [10 x float]* %arr_8, i32 0, i32 0
+  store float 0x3FF0000000000000, float* %15
+  %16 = getelementptr [10 x float], [10 x float]* %arr_8, i32 0, i32 1
+  %17 = sitofp i32 2 to float     ; array init
+  store float %17, float* %16
+  %len_9 = alloca i32 
+  %18 = getelementptr [10 x float], [10 x float]* %arr_8, i32 0, i32 0     ; forget first dim
+  %19 = call i32 @getfarray(float* %18)
+  store i32 %19, i32* %len_9
+  br label %while_entry_13
+
+while_entry_13:
+  %20 = load i32, i32* %i_6
+  %21 = icmp slt i32 %20, 1000000000
+  br i1 %21, label %while_body_13, label %while_end_13
+
+while_body_13:
+  %input_10 = alloca float 
+  %22 = call float @getfloat()
+  store float %22, float* %input_10
+  %area_11 = alloca float 
+  %23 = load float, float* %input_10
+  %24 = fmul float 0x400921FB60000000, %23
+  %25 = load float, float* %input_10
+  %26 = fmul float %24, %25
+  store float %26, float* %area_11
+  %area_trunc_12 = alloca float 
+  %27 = load float, float* %input_10
+  %28 = fptosi float %27 to i32     ; func param
+  %29 = call float @circle_area(i32 %28)
+  store float %29, float* %area_trunc_12
+  %30 = load i32, i32* %p_7
+  %31 = getelementptr [10 x float], [10 x float]* %arr_8, i32 0, i32 %30
+  %32 = load i32, i32* %p_7
+  %33 = getelementptr [10 x float], [10 x float]* %arr_8, i32 0, i32 %32
+  %34 = load float, float* %33
+  %35 = load float, float* %input_10
+  %36 = fadd float %34, %35
+  store float %36, float* %31
+  %37 = load float, float* %area_11
+  call void @putfloat(float %37)
+  call void @putch(i32 32)
+  %38 = load float, float* %area_trunc_12
+  %39 = fptosi float %38 to i32     ; func param
+  call void @putint(i32 %39)
+  call void @putch(i32 10)
+  %40 = load i32, i32* %i_6
+  %41 = sitofp i32 %40 to float     ; expr promote
+  %42 = fsub float 0x0, 0x4024000000000000
+  %43 = fsub float 0x0, %42
+  %44 = fmul float %41, %43
+  %45 = fptosi float %44 to i32     ; assign
+  store i32 %45, i32* %i_6
+  %46 = load i32, i32* %p_7
+  %47 = add i32 %46, 1
+  store i32 %47, i32* %p_7
+  br label %while_entry_13
+
+while_end_13:
+  %48 = load i32, i32* %len_9
+  %49 = getelementptr [10 x float], [10 x float]* %arr_8, i32 0, i32 0     ; forget first dim
+  call void @putfarray(i32 %48, float* %49)
+  ret i32 0
 
 }
 
@@ -57,89 +642,999 @@ entry:
 [TRACE] .text
 .syntax unified
 .arch armv7-a
-.file 1 "test/functional/01_var_defn2.sy"
+.arch_extension idiv
+.fpu vfpv3
+.file 1 "test/functional/95_float.sy"
 
+__aeabi_mymod:
+	push	{r11, lr}
+	bl	__aeabi_idivmod
+	mov	r0, r1
+	pop	{r11, lr}
+	bx	lr
+
+	.global	float_abs
+	.type	float_abs, %function
+	.p2align	2
+	.code	32
+float_abs:
+.LBB_float_abs_entry:
+	push	{fp, lr}
+	mov	fp, sp
+	SUB	sp, sp, #0x8
+
+	SUB	vreg1, fp, #0x4		@ %x_0 = alloca float 
+	VSTR	vreg0, [vreg1]		@ store float %x, float* %x_0
+	VLDR	vreg2, [vreg1]		@ %0 = load float, float* %x_0
+	MOVW	vreg5, #0x0
+	VMOV	vreg3, vreg5
+	VCVT.F32.S32	vreg4, vreg3
+	VCMP.F32	vreg2, vreg4		@ %2 = fcmp olt float %0, %1
+	vmrs	APSR_nzcv, FPSCR
+	MOVW	vreg6, #0x0
+	MOVWLT	vreg6, #0x1		@ %2 = fcmp olt float %0, %1
+	CMP	vreg6, #0x0
+	BEQ	.LBB_float_abs_if_end_0		@ br i1 %2, label %if_true_0, label %if_end_0
+.LBB_float_abs_if_true_0:
+	VLDR	vreg7, [vreg1]		@ %3 = load float, float* %x_0
+	MOVW	ip, #0x0
+	VMOV	vreg9, ip
+	VSUB.F32	vreg8, vreg9, vreg7		@ %4 = fsub float 0x0, %3
+	mov	sp, fp	@ ret vreg8
+	pop	{fp, lr}
+	bx	lr		@ ret float %4
+.LBB_float_abs_tmp_1:
+	B	.LBB_float_abs_if_end_0		@ br label %if_end_0
+.LBB_float_abs_if_end_0:
+	VLDR	vreg10, [vreg1]		@ %5 = load float, float* %x_0
+	mov	sp, fp	@ ret vreg10
+	pop	{fp, lr}
+	bx	lr		@ ret float %5
+	.global	circle_area
+	.type	circle_area, %function
+	.p2align	2
+	.code	32
+circle_area:
+.LBB_circle_area_entry:
+	push	{fp, lr}
+	mov	fp, sp
+	SUB	sp, sp, #0x8
+
+	SUB	vreg12, fp, #0x4		@ %radius_1 = alloca i32 
+	STR	vreg11, [vreg12]		@ store i32 %radius, i32* %radius_1
+	LDR	vreg13, [vreg12]		@ %0 = load i32, i32* %radius_1
+	VMOV	vreg14, vreg13
+	VCVT.F32.S32	vreg15, vreg14
+	MOVW	ip, #0xfdb
+	MOVT	ip, #0x4049
+	VMOV	vreg17, ip
+	VMUL.F32	vreg16, vreg17, vreg15		@ %2 = fmul float 0x400921FB60000000, %1
+	LDR	vreg18, [vreg12]		@ %3 = load i32, i32* %radius_1
+	VMOV	vreg19, vreg18
+	VCVT.F32.S32	vreg20, vreg19
+	VMUL.F32	vreg21, vreg16, vreg20		@ %5 = fmul float %2, %4
+	LDR	vreg22, [vreg12]		@ %6 = load i32, i32* %radius_1
+	LDR	vreg23, [vreg12]		@ %7 = load i32, i32* %radius_1
+	MUL	vreg24, vreg22, vreg23		@ %8 = mul i32 %6, %7
+	VMOV	vreg25, vreg24
+	VCVT.F32.S32	vreg26, vreg25
+	MOVW	ip, #0xfdb
+	MOVT	ip, #0x4049
+	VMOV	vreg28, ip
+	VMUL.F32	vreg27, vreg26, vreg28		@ %10 = fmul float %9, 0x400921FB60000000
+	VADD.F32	vreg29, vreg21, vreg27		@ %11 = fadd float %5, %10
+	MOVW	vreg32, #0x2
+	VMOV	vreg30, vreg32
+	VCVT.F32.S32	vreg31, vreg30
+	VDIV.F32	vreg33, vreg29, vreg31		@ %13 = fdiv float %11, %12
+	mov	sp, fp	@ ret vreg33
+	pop	{fp, lr}
+	bx	lr		@ ret float %13
+	.global	float_eq
+	.type	float_eq, %function
+	.p2align	2
+	.code	32
+float_eq:
+.LBB_float_eq_entry:
+	push	{fp, lr}
+	mov	fp, sp
+	SUB	sp, sp, #0x8
+
+	SUB	vreg36, fp, #0x4		@ %a_2 = alloca float 
+	VSTR	vreg34, [vreg36]		@ store float %a, float* %a_2
+	SUB	vreg37, fp, #0x8		@ %b_3 = alloca float 
+	VSTR	vreg35, [vreg37]		@ store float %b, float* %b_3
+	VLDR	vreg38, [vreg36]		@ %0 = load float, float* %a_2
+	VLDR	vreg39, [vreg37]		@ %1 = load float, float* %b_3
+	VSUB.F32	vreg40, vreg38, vreg39		@ %2 = fsub float %0, %1
+	BL	float_abs		@ %3 = call float @float_abs(float %2)
+	MOVW	ip, #0x37bd
+	MOVT	ip, #0x3586
+	VMOV	vreg43, ip
+	VCMP.F32	vreg41, vreg43		@ %4 = fcmp olt float %3, 0x3EB0C6F7A0000000
+	vmrs	APSR_nzcv, FPSCR
+	MOVW	vreg42, #0x0
+	MOVWLT	vreg42, #0x1		@ %4 = fcmp olt float %3, 0x3EB0C6F7A0000000
+	CMP	vreg42, #0x0
+	BEQ	.LBB_float_eq_if_false_2		@ br i1 %4, label %if_true_2, label %if_false_2
+.LBB_float_eq_if_true_2:
+	MOVW	vreg46, #0x1
+	VMOV	vreg44, vreg46
+	VCVT.F32.S32	vreg45, vreg44
+	MOVW	ip, #0x0
+	MOVT	ip, #0x4000
+	VMOV	vreg48, ip
+	VMUL.F32	vreg47, vreg45, vreg48		@ %6 = fmul float %5, 0x4000000000000000
+	MOVW	vreg51, #0x2
+	VMOV	vreg49, vreg51
+	VCVT.F32.S32	vreg50, vreg49
+	VDIV.F32	vreg52, vreg47, vreg50		@ %8 = fdiv float %6, %7
+	VCVT.S32.F32	vreg53, vreg52
+	VMOV	vreg54, vreg53
+	mov	sp, fp	@ ret vreg54
+	pop	{fp, lr}
+	bx	lr		@ ret i32 %9
+.LBB_float_eq_tmp_3:
+	B	.LBB_float_eq_if_end_2		@ br label %if_end_2
+.LBB_float_eq_if_false_2:
+	MOVW	vreg55, #0x0
+	mov	sp, fp	@ ret vreg55
+	pop	{fp, lr}
+	bx	lr		@ ret i32 0
+.LBB_float_eq_tmp_4:
+	B	.LBB_float_eq_if_end_2		@ br label %if_end_2
+.LBB_float_eq_if_end_2:
+	MOVW	vreg56, #0x0
+	mov	sp, fp	@ ret vreg56
+	pop	{fp, lr}
+	bx	lr		@ ret i32 0
+	.global	error
+	.type	error, %function
+	.p2align	2
+	.code	32
+error:
+.LBB_error_entry:
+	push	{fp, lr}
+	mov	fp, sp
+	SUB	sp, sp, #0x0
+
+	MOVW	vreg57, #0x65
+	BL	putch		@ call void @putch(i32 101)
+	MOVW	vreg58, #0x72
+	BL	putch		@ call void @putch(i32 114)
+	MOVW	vreg59, #0x72
+	BL	putch		@ call void @putch(i32 114)
+	MOVW	vreg60, #0x6f
+	BL	putch		@ call void @putch(i32 111)
+	MOVW	vreg61, #0x72
+	BL	putch		@ call void @putch(i32 114)
+	MOVW	vreg62, #0xa
+	BL	putch		@ call void @putch(i32 10)
+	mov	sp, fp	@ ret void
+	pop	{fp, lr}
+	bx	lr		@ ret void
+	.global	ok
+	.type	ok, %function
+	.p2align	2
+	.code	32
+ok:
+.LBB_ok_entry:
+	push	{fp, lr}
+	mov	fp, sp
+	SUB	sp, sp, #0x0
+
+	MOVW	vreg63, #0x6f
+	BL	putch		@ call void @putch(i32 111)
+	MOVW	vreg64, #0x6b
+	BL	putch		@ call void @putch(i32 107)
+	MOVW	vreg65, #0xa
+	BL	putch		@ call void @putch(i32 10)
+	mov	sp, fp	@ ret void
+	pop	{fp, lr}
+	bx	lr		@ ret void
+	.global	assert
+	.type	assert, %function
+	.p2align	2
+	.code	32
+assert:
+.LBB_assert_entry:
+	push	{fp, lr}
+	mov	fp, sp
+	SUB	sp, sp, #0x8
+
+	SUB	vreg67, fp, #0x4		@ %cond_4 = alloca i32 
+	STR	vreg66, [vreg67]		@ store i32 %cond, i32* %cond_4
+	LDR	vreg68, [vreg67]		@ %0 = load i32, i32* %cond_4
+	MOVW	vreg70, #0x0
+	CMP	vreg70, vreg68		@ %1 = icmp eq i32 0, %0
+	MOVW	vreg69, #0x0
+	MOVWEQ	vreg69, #0x1		@ %1 = icmp eq i32 0, %0
+	CMP	vreg69, #0x0
+	BEQ	.LBB_assert_if_false_5		@ br i1 %1, label %if_true_5, label %if_false_5
+.LBB_assert_if_true_5:
+	BL	error		@ call void @error()
+	B	.LBB_assert_if_end_5		@ br label %if_end_5
+.LBB_assert_if_false_5:
+	BL	ok		@ call void @ok()
+	B	.LBB_assert_if_end_5		@ br label %if_end_5
+.LBB_assert_if_end_5:
+	mov	sp, fp	@ ret void
+	pop	{fp, lr}
+	bx	lr		@ ret void
+	.global	assert_not
+	.type	assert_not, %function
+	.p2align	2
+	.code	32
+assert_not:
+.LBB_assert_not_entry:
+	push	{fp, lr}
+	mov	fp, sp
+	SUB	sp, sp, #0x8
+
+	SUB	vreg72, fp, #0x4		@ %cond_5 = alloca i32 
+	STR	vreg71, [vreg72]		@ store i32 %cond, i32* %cond_5
+	LDR	vreg73, [vreg72]		@ %0 = load i32, i32* %cond_5
+	MOVW	vreg75, #0x0
+	CMP	vreg75, vreg73		@ %1 = icmp ne i32 0, %0
+	MOVW	vreg74, #0x0
+	MOVWNE	vreg74, #0x1		@ %1 = icmp ne i32 0, %0
+	CMP	vreg74, #0x0
+	BEQ	.LBB_assert_not_if_false_6		@ br i1 %1, label %if_true_6, label %if_false_6
+.LBB_assert_not_if_true_6:
+	BL	error		@ call void @error()
+	B	.LBB_assert_not_if_end_6		@ br label %if_end_6
+.LBB_assert_not_if_false_6:
+	BL	ok		@ call void @ok()
+	B	.LBB_assert_not_if_end_6		@ br label %if_end_6
+.LBB_assert_not_if_end_6:
+	mov	sp, fp	@ ret void
+	pop	{fp, lr}
+	bx	lr		@ ret void
 	.global	main
 	.type	main, %function
 	.p2align	2
 	.code	32
 main:
-main_entry:
+.LBB_main_entry:
 	push	{fp, lr}
 	mov	fp, sp
-	SUB	sp, sp, #0x8
+	SUB	sp, sp, #0x40
 
-	SUB	vreg0, fp, #0x4		@ %a_0 = alloca i32 
-	MOVW	vreg1, #0x5
-	STR	vreg1, [vreg0]		@ store i32 5, i32* %a_0
-	LDR	vreg2, [vreg0]		@ %0 = load i32, i32* %a_0
-	MOVW	vreg4, #:lower16:b
-	MOVT	vreg4, #:upper16:b
-	LDR	vreg3, [vreg4]		@ %1 = load i32, i32* @b
-	ADD	vreg5, vreg2, vreg3		@ %2 = add i32 %0, %1
-	mov	sp, fp	@ ret vreg5
+	MOVW	ip, #0x0
+	MOVT	ip, #0x3da0
+	VMOV	vreg76, ip
+	MOVW	ip, #0xe800
+	MOVT	ip, #0xc700
+	VMOV	vreg77, ip
+	BL	float_eq		@ %0 = call i32 @float_eq(float 0x3FB4000000000000, float 0xC0E01D0000000000)
+	BL	assert_not		@ call void @assert_not(i32 %0)
+	MOVW	ip, #0x10fe
+	MOVT	ip, #0x42be
+	VMOV	vreg79, ip
+	MOVW	ip, #0x3ae7
+	MOVT	ip, #0x420a
+	VMOV	vreg80, ip
+	BL	float_eq		@ %1 = call i32 @float_eq(float 0x4057C21FC0000000, float 0x4041475CE0000000)
+	BL	assert_not		@ call void @assert_not(i32 %1)
+	MOVW	ip, #0x3ae7
+	MOVT	ip, #0x420a
+	VMOV	vreg82, ip
+	MOVW	ip, #0x3ae7
+	MOVT	ip, #0x420a
+	VMOV	vreg83, ip
+	BL	float_eq		@ %2 = call i32 @float_eq(float 0x4041475CE0000000, float 0x4041475CE0000000)
+	BL	assert		@ call void @assert(i32 %2)
+	MOVW	ip, #0x0
+	MOVT	ip, #0x40b0
+	VMOV	vreg87, ip
+	VCVT.S32.F32	vreg85, vreg87
+	VMOV	vreg86, vreg85
+	BL	circle_area		@ %4 = call float @circle_area(i32 %3)
+	MOVW	vreg89, #0x5
+	BL	circle_area		@ %5 = call float @circle_area(i32 5)
+	BL	float_eq		@ %6 = call i32 @float_eq(float %4, float %5)
+	BL	assert		@ call void @assert(i32 %6)
+	MOVW	ip, #0x0
+	MOVT	ip, #0x4369
+	VMOV	vreg92, ip
+	MOVW	ip, #0xf000
+	MOVT	ip, #0x457f
+	VMOV	vreg93, ip
+	BL	float_eq		@ %7 = call i32 @float_eq(float 0x406D200000000000, float 0x40AFFE0000000000)
+	BL	assert_not		@ call void @assert_not(i32 %7)
+	MOVW	ip, #0x0
+	VMOV	vreg96, ip
+	MOVW	ip, #0x0
+	MOVT	ip, #0x3fc0
+	VMOV	vreg97, ip
+	VCMP.F32	vreg96, vreg97		@ %8 = fcmp une float 0x0, 0x3FF8000000000000
+	vmrs	APSR_nzcv, FPSCR
+	MOVW	vreg95, #0x0
+	MOVWNE	vreg95, #0x1		@ %8 = fcmp une float 0x0, 0x3FF8000000000000
+	CMP	vreg95, #0x0
+	BEQ	.LBB_main_if_end_7		@ br i1 %8, label %if_true_7, label %if_end_7
+.LBB_main_if_true_7:
+	BL	ok		@ call void @ok()
+	B	.LBB_main_if_end_7		@ br label %if_end_7
+.LBB_main_if_end_7:
+	MOVW	ip, #0x0
+	VMOV	vreg99, ip
+	MOVW	ip, #0x3333
+	MOVT	ip, #0x4053
+	VMOV	vreg100, ip
+	VCMP.F32	vreg99, vreg100		@ %9 = fcmp oeq float 0x0, 0x400A666660000000
+	vmrs	APSR_nzcv, FPSCR
+	MOVW	vreg98, #0x0
+	MOVWEQ	vreg98, #0x1		@ %9 = fcmp oeq float 0x0, 0x400A666660000000
+	MOVW	vreg102, #0x0
+	CMP	vreg102, vreg98		@ %10 = icmp eq i1 0, %9
+	MOVW	vreg101, #0x0
+	MOVWEQ	vreg101, #0x1		@ %10 = icmp eq i1 0, %9
+	CMP	vreg101, #0x0
+	BEQ	.LBB_main_if_end_8		@ br i1 %10, label %if_true_8, label %if_end_8
+.LBB_main_if_true_8:
+	BL	ok		@ call void @ok()
+	B	.LBB_main_if_end_8		@ br label %if_end_8
+.LBB_main_if_end_8:
+	MOVW	ip, #0x0
+	VMOV	vreg104, ip
+	MOVW	ip, #0x0
+	VMOV	vreg105, ip
+	VCMP.F32	vreg104, vreg105		@ %11 = fcmp une float 0x0, 0x0
+	vmrs	APSR_nzcv, FPSCR
+	MOVW	vreg103, #0x0
+	MOVWNE	vreg103, #0x1		@ %11 = fcmp une float 0x0, 0x0
+	CMP	vreg103, #0x0
+	BEQ	.LBB_main_if_end_9		@ br i1 %11, label %and_right_10, label %if_end_9
+.LBB_main_and_right_10:
+	MOVW	vreg107, #0x0
+	CMP	vreg107, #0x3		@ %12 = icmp ne i32 0, 3
+	MOVW	vreg106, #0x0
+	MOVWNE	vreg106, #0x1		@ %12 = icmp ne i32 0, 3
+	CMP	vreg106, #0x0
+	BEQ	.LBB_main_if_end_9		@ br i1 %12, label %if_true_9, label %if_end_9
+.LBB_main_if_true_9:
+	BL	error		@ call void @error()
+	B	.LBB_main_if_end_9		@ br label %if_end_9
+.LBB_main_if_end_9:
+	MOVW	vreg109, #0x0
+	CMP	vreg109, #0x0		@ %13 = icmp ne i32 0, 0
+	MOVW	vreg108, #0x0
+	MOVWNE	vreg108, #0x1		@ %13 = icmp ne i32 0, 0
+	CMP	vreg108, #0x0
+	BNE	.LBB_main_if_true_11		@ br i1 %13, label %if_true_11, label %or_right_12
+.LBB_main_or_right_12:
+	MOVW	ip, #0x0
+	VMOV	vreg111, ip
+	MOVW	ip, #0x999a
+	MOVT	ip, #0x3e99
+	VMOV	vreg112, ip
+	VCMP.F32	vreg111, vreg112		@ %14 = fcmp une float 0x0, 0x3FD3333340000000
+	vmrs	APSR_nzcv, FPSCR
+	MOVW	vreg110, #0x0
+	MOVWNE	vreg110, #0x1		@ %14 = fcmp une float 0x0, 0x3FD3333340000000
+	CMP	vreg110, #0x0
+	BEQ	.LBB_main_if_end_11		@ br i1 %14, label %if_true_11, label %if_end_11
+.LBB_main_if_true_11:
+	BL	ok		@ call void @ok()
+	B	.LBB_main_if_end_11		@ br label %if_end_11
+.LBB_main_if_end_11:
+	SUB	vreg113, fp, #0x4		@ %i_6 = alloca i32 
+	MOVW	vreg114, #0x1
+	STR	vreg114, [vreg113]		@ store i32 1, i32* %i_6
+	SUB	vreg115, fp, #0x8		@ %p_7 = alloca i32 
+	MOVW	vreg116, #0x0
+	STR	vreg116, [vreg115]		@ store i32 0, i32* %p_7
+	SUB	vreg117, fp, #0x30		@ %arr_8 = alloca [10 x float] 
+	MOVW	ip, #0x0
+	MOVT	ip, #0x3f80
+	VMOV	vreg118, ip
+	VSTR	vreg118, [vreg117]		@ store float 0x3FF0000000000000, float* %15
+	ADD	vreg119, vreg117, #0x4		@ %16 = getelementptr [10 x float], [10 x float]* %arr_8, i32 0, i32 1
+	MOVW	vreg122, #0x2
+	VMOV	vreg120, vreg122
+	VCVT.F32.S32	vreg121, vreg120
+	VSTR	vreg121, [vreg119]		@ store float %17, float* %16
+	SUB	vreg123, fp, #0x34		@ %len_9 = alloca i32 
+	BL	getfarray		@ %19 = call i32 @getfarray(float* %18)
+	STR	vreg124, [vreg123]		@ store i32 %19, i32* %len_9
+	B	.LBB_main_while_entry_13		@ br label %while_entry_13
+.LBB_main_while_entry_13:
+	LDR	vreg125, [vreg113]		@ %20 = load i32, i32* %i_6
+	MOVW	vreg127, #0xca00
+	MOVT	vreg127, #0x3b9a
+	CMP	vreg125, vreg127		@ %21 = icmp slt i32 %20, 1000000000
+	MOVW	vreg126, #0x0
+	MOVWLT	vreg126, #0x1		@ %21 = icmp slt i32 %20, 1000000000
+	CMP	vreg126, #0x0
+	BEQ	.LBB_main_while_end_13		@ br i1 %21, label %while_body_13, label %while_end_13
+.LBB_main_while_body_13:
+	SUB	vreg128, fp, #0x38		@ %input_10 = alloca float 
+	BL	getfloat		@ %22 = call float @getfloat()
+	VSTR	vreg129, [vreg128]		@ store float %22, float* %input_10
+	SUB	vreg130, fp, #0x3c		@ %area_11 = alloca float 
+	VLDR	vreg131, [vreg128]		@ %23 = load float, float* %input_10
+	MOVW	ip, #0xfdb
+	MOVT	ip, #0x4049
+	VMOV	vreg133, ip
+	VMUL.F32	vreg132, vreg133, vreg131		@ %24 = fmul float 0x400921FB60000000, %23
+	VLDR	vreg134, [vreg128]		@ %25 = load float, float* %input_10
+	VMUL.F32	vreg135, vreg132, vreg134		@ %26 = fmul float %24, %25
+	VSTR	vreg135, [vreg130]		@ store float %26, float* %area_11
+	SUB	vreg136, fp, #0x40		@ %area_trunc_12 = alloca float 
+	VLDR	vreg137, [vreg128]		@ %27 = load float, float* %input_10
+	VCVT.S32.F32	vreg138, vreg137
+	VMOV	vreg139, vreg138
+	BL	circle_area		@ %29 = call float @circle_area(i32 %28)
+	VSTR	vreg140, [vreg136]		@ store float %29, float* %area_trunc_12
+	LDR	vreg141, [vreg115]		@ %30 = load i32, i32* %p_7
+	MOVW	ip, #0x4
+	MUL	vreg142, vreg141, ip		@ %31 = getelementptr [10 x float], [10 x float]* %arr_8, i32 0, i32 %30 (30)
+	ADD	vreg143, vreg117, vreg142		@ %31 = getelementptr [10 x float], [10 x float]* %arr_8, i32 0, i32 %30 (30)
+	LDR	vreg144, [vreg115]		@ %32 = load i32, i32* %p_7
+	MOVW	ip, #0x4
+	MUL	vreg145, vreg144, ip		@ %33 = getelementptr [10 x float], [10 x float]* %arr_8, i32 0, i32 %32 (32)
+	ADD	vreg146, vreg117, vreg145		@ %33 = getelementptr [10 x float], [10 x float]* %arr_8, i32 0, i32 %32 (32)
+	VLDR	vreg147, [vreg146]		@ %34 = load float, float* %33
+	VLDR	vreg148, [vreg128]		@ %35 = load float, float* %input_10
+	VADD.F32	vreg149, vreg147, vreg148		@ %36 = fadd float %34, %35
+	VSTR	vreg149, [vreg143]		@ store float %36, float* %31
+	VLDR	vreg150, [vreg130]		@ %37 = load float, float* %area_11
+	BL	putfloat		@ call void @putfloat(float %37)
+	MOVW	vreg151, #0x20
+	BL	putch		@ call void @putch(i32 32)
+	VLDR	vreg152, [vreg136]		@ %38 = load float, float* %area_trunc_12
+	VCVT.S32.F32	vreg153, vreg152
+	VMOV	vreg154, vreg153
+	BL	putint		@ call void @putint(i32 %39)
+	MOVW	vreg155, #0xa
+	BL	putch		@ call void @putch(i32 10)
+	LDR	vreg156, [vreg113]		@ %40 = load i32, i32* %i_6
+	VMOV	vreg157, vreg156
+	VCVT.F32.S32	vreg158, vreg157
+	MOVW	ip, #0x0
+	VMOV	vreg160, ip
+	MOVW	ip, #0x0
+	MOVT	ip, #0x4120
+	VMOV	vreg161, ip
+	VSUB.F32	vreg159, vreg160, vreg161		@ %42 = fsub float 0x0, 0x4024000000000000
+	MOVW	ip, #0x0
+	VMOV	vreg163, ip
+	VSUB.F32	vreg162, vreg163, vreg159		@ %43 = fsub float 0x0, %42
+	VMUL.F32	vreg164, vreg158, vreg162		@ %44 = fmul float %41, %43
+	VCVT.S32.F32	vreg165, vreg164
+	VMOV	vreg166, vreg165
+	STR	vreg166, [vreg113]		@ store i32 %45, i32* %i_6
+	LDR	vreg167, [vreg115]		@ %46 = load i32, i32* %p_7
+	ADD	vreg168, vreg167, #0x1		@ %47 = add i32 %46, 1
+	STR	vreg168, [vreg115]		@ store i32 %47, i32* %p_7
+	B	.LBB_main_while_entry_13		@ br label %while_entry_13
+.LBB_main_while_end_13:
+	LDR	vreg169, [vreg123]		@ %48 = load i32, i32* %len_9
+	BL	putfarray		@ call void @putfarray(i32 %48, float* %49)
+	MOVW	vreg170, #0x0
+	mov	sp, fp	@ ret vreg170
 	pop	{fp, lr}
-	bx	lr		@ ret i32 %2
-
-.data
-.align 4
-.global	a
-	.type	a, %object
-	.size	a, 4
-a:
-	@ i32
-	.long	3		@ java.lang.Integer 3 
-.global	b
-	.type	b, %object
-	.size	b, 4
-b:
-	@ i32
-	.long	5		@ java.lang.Integer 5 
+	bx	lr		@ ret i32 0
 
 [TRACE] --- asm reg alloc ---
 [TRACE] .text
 .syntax unified
 .arch armv7-a
-.file 1 "test/functional/01_var_defn2.sy"
+.arch_extension idiv
+.fpu vfpv3
+.file 1 "test/functional/95_float.sy"
 
+__aeabi_mymod:
+	push	{r11, lr}
+	bl	__aeabi_idivmod
+	mov	r0, r1
+	pop	{r11, lr}
+	bx	lr
+
+	.global	float_abs
+	.type	float_abs, %function
+	.p2align	2
+	.code	32
+float_abs:
+.LBB_float_abs_entry:
+	push	{fp, lr}
+	mov	fp, sp
+	SUB	sp, sp, #0x8
+
+	SUB	r0, fp, #0x4		@ %x_0 = alloca float 
+	VSTR	s0, [r0]		@ store float %x, float* %x_0
+	STR	r0, [fp, #-0x8]		@ Spill x_0
+	VLDR	s0, [r0]		@ %0 = load float, float* %x_0
+	MOVW	r0, #0x0
+	VMOV	s1, r0
+	VCVT.F32.S32	s1, s1
+	VCMP.F32	s0, s1		@ %2 = fcmp olt float %0, %1
+	vmrs	APSR_nzcv, FPSCR
+	MOVW	r0, #0x0
+	MOVWLT	r0, #0x1		@ %2 = fcmp olt float %0, %1
+	CMP	r0, #0x0
+	BEQ	.LBB_float_abs_if_end_0		@ br i1 %2, label %if_true_0, label %if_end_0
+.LBB_float_abs_if_true_0:
+	LDR	r0, [fp, #-0x8]		@ load spilled x_0
+	STR	r0, [fp, #-0x8]		@ Spill x_0
+	VLDR	s0, [r0]		@ %3 = load float, float* %x_0
+	MOVW	ip, #0x0
+	VMOV	s1, ip
+	VSUB.F32	s0, s1, s0		@ %4 = fsub float 0x0, %3
+	mov	sp, fp	@ ret s0
+	pop	{fp, lr}
+	bx	lr		@ ret float %4
+.LBB_float_abs_tmp_1:
+	B	.LBB_float_abs_if_end_0		@ br label %if_end_0
+.LBB_float_abs_if_end_0:
+	LDR	r0, [fp, #-0x8]		@ load spilled x_0
+	STR	r0, [fp, #-0x8]		@ Spill x_0
+	VLDR	s0, [r0]		@ %5 = load float, float* %x_0
+	mov	sp, fp	@ ret s0
+	pop	{fp, lr}
+	bx	lr		@ ret float %5
+	.global	circle_area
+	.type	circle_area, %function
+	.p2align	2
+	.code	32
+circle_area:
+.LBB_circle_area_entry:
+	push	{fp, lr}
+	mov	fp, sp
+	SUB	sp, sp, #0x8
+
+	SUB	r1, fp, #0x4		@ %radius_1 = alloca i32 
+	STR	r0, [r1]		@ store i32 %radius, i32* %radius_1
+	LDR	r0, [r1]		@ %0 = load i32, i32* %radius_1
+	VMOV	s0, r0
+	VCVT.F32.S32	s0, s0
+	MOVW	ip, #0xfdb
+	MOVT	ip, #0x4049
+	VMOV	s1, ip
+	VMUL.F32	s0, s1, s0		@ %2 = fmul float 0x400921FB60000000, %1
+	LDR	r0, [r1]		@ %3 = load i32, i32* %radius_1
+	VMOV	s1, r0
+	VCVT.F32.S32	s1, s1
+	VMUL.F32	s1, s0, s1		@ %5 = fmul float %2, %4
+	LDR	r0, [r1]		@ %6 = load i32, i32* %radius_1
+	LDR	r1, [r1]		@ %7 = load i32, i32* %radius_1
+	MUL	r1, r0, r1		@ %8 = mul i32 %6, %7
+	VMOV	s0, r1
+	VCVT.F32.S32	s0, s0
+	MOVW	ip, #0xfdb
+	MOVT	ip, #0x4049
+	VMOV	s2, ip
+	VMUL.F32	s2, s0, s2		@ %10 = fmul float %9, 0x400921FB60000000
+	VADD.F32	s2, s1, s2		@ %11 = fadd float %5, %10
+	MOVW	r1, #0x2
+	VMOV	s1, r1
+	VCVT.F32.S32	s1, s1
+	VDIV.F32	s0, s2, s1		@ %13 = fdiv float %11, %12
+	mov	sp, fp	@ ret s0
+	pop	{fp, lr}
+	bx	lr		@ ret float %13
+	.global	float_eq
+	.type	float_eq, %function
+	.p2align	2
+	.code	32
+float_eq:
+.LBB_float_eq_entry:
+	push	{fp, lr}
+	mov	fp, sp
+	SUB	sp, sp, #0x8
+
+	SUB	r0, fp, #0x4		@ %a_2 = alloca float 
+	VSTR	s0, [r0]		@ store float %a, float* %a_2
+	SUB	r1, fp, #0x8		@ %b_3 = alloca float 
+	VSTR	s1, [r1]		@ store float %b, float* %b_3
+	VLDR	s1, [r0]		@ %0 = load float, float* %a_2
+	VLDR	s0, [r1]		@ %1 = load float, float* %b_3
+	VSUB.F32	s0, s1, s0		@ %2 = fsub float %0, %1
+	BL	float_abs		@ %3 = call float @float_abs(float %2)
+	MOVW	ip, #0x37bd
+	MOVT	ip, #0x3586
+	VMOV	s1, ip
+	VCMP.F32	s0, s1		@ %4 = fcmp olt float %3, 0x3EB0C6F7A0000000
+	vmrs	APSR_nzcv, FPSCR
+	MOVW	r1, #0x0
+	MOVWLT	r1, #0x1		@ %4 = fcmp olt float %3, 0x3EB0C6F7A0000000
+	CMP	r1, #0x0
+	BEQ	.LBB_float_eq_if_false_2		@ br i1 %4, label %if_true_2, label %if_false_2
+.LBB_float_eq_if_true_2:
+	MOVW	r0, #0x1
+	VMOV	s0, r0
+	VCVT.F32.S32	s0, s0
+	MOVW	ip, #0x0
+	MOVT	ip, #0x4000
+	VMOV	s1, ip
+	VMUL.F32	s1, s0, s1		@ %6 = fmul float %5, 0x4000000000000000
+	MOVW	r0, #0x2
+	VMOV	s0, r0
+	VCVT.F32.S32	s0, s0
+	VDIV.F32	s0, s1, s0		@ %8 = fdiv float %6, %7
+	VCVT.S32.F32	s0, s0
+	VMOV	r0, s0
+	mov	sp, fp	@ ret r0
+	pop	{fp, lr}
+	bx	lr		@ ret i32 %9
+.LBB_float_eq_tmp_3:
+	B	.LBB_float_eq_if_end_2		@ br label %if_end_2
+.LBB_float_eq_if_false_2:
+	MOVW	r0, #0x0
+	mov	sp, fp	@ ret r0
+	pop	{fp, lr}
+	bx	lr		@ ret i32 0
+.LBB_float_eq_tmp_4:
+	B	.LBB_float_eq_if_end_2		@ br label %if_end_2
+.LBB_float_eq_if_end_2:
+	MOVW	r0, #0x0
+	mov	sp, fp	@ ret r0
+	pop	{fp, lr}
+	bx	lr		@ ret i32 0
+	.global	error
+	.type	error, %function
+	.p2align	2
+	.code	32
+error:
+.LBB_error_entry:
+	push	{fp, lr}
+	mov	fp, sp
+	SUB	sp, sp, #0x0
+
+	MOVW	r0, #0x65
+	BL	putch		@ call void @putch(i32 101)
+	MOVW	r0, #0x72
+	BL	putch		@ call void @putch(i32 114)
+	MOVW	r0, #0x72
+	BL	putch		@ call void @putch(i32 114)
+	MOVW	r0, #0x6f
+	BL	putch		@ call void @putch(i32 111)
+	MOVW	r0, #0x72
+	BL	putch		@ call void @putch(i32 114)
+	MOVW	r0, #0xa
+	BL	putch		@ call void @putch(i32 10)
+	mov	sp, fp	@ ret void
+	pop	{fp, lr}
+	bx	lr		@ ret void
+	.global	ok
+	.type	ok, %function
+	.p2align	2
+	.code	32
+ok:
+.LBB_ok_entry:
+	push	{fp, lr}
+	mov	fp, sp
+	SUB	sp, sp, #0x0
+
+	MOVW	r0, #0x6f
+	BL	putch		@ call void @putch(i32 111)
+	MOVW	r0, #0x6b
+	BL	putch		@ call void @putch(i32 107)
+	MOVW	r0, #0xa
+	BL	putch		@ call void @putch(i32 10)
+	mov	sp, fp	@ ret void
+	pop	{fp, lr}
+	bx	lr		@ ret void
+	.global	assert
+	.type	assert, %function
+	.p2align	2
+	.code	32
+assert:
+.LBB_assert_entry:
+	push	{fp, lr}
+	mov	fp, sp
+	SUB	sp, sp, #0x8
+
+	SUB	r1, fp, #0x4		@ %cond_4 = alloca i32 
+	STR	r0, [r1]		@ store i32 %cond, i32* %cond_4
+	LDR	r1, [r1]		@ %0 = load i32, i32* %cond_4
+	MOVW	r0, #0x0
+	CMP	r0, r1		@ %1 = icmp eq i32 0, %0
+	MOVW	r1, #0x0
+	MOVWEQ	r1, #0x1		@ %1 = icmp eq i32 0, %0
+	CMP	r1, #0x0
+	BEQ	.LBB_assert_if_false_5		@ br i1 %1, label %if_true_5, label %if_false_5
+.LBB_assert_if_true_5:
+	BL	error		@ call void @error()
+	B	.LBB_assert_if_end_5		@ br label %if_end_5
+.LBB_assert_if_false_5:
+	BL	ok		@ call void @ok()
+	B	.LBB_assert_if_end_5		@ br label %if_end_5
+.LBB_assert_if_end_5:
+	mov	sp, fp	@ ret void
+	pop	{fp, lr}
+	bx	lr		@ ret void
+	.global	assert_not
+	.type	assert_not, %function
+	.p2align	2
+	.code	32
+assert_not:
+.LBB_assert_not_entry:
+	push	{fp, lr}
+	mov	fp, sp
+	SUB	sp, sp, #0x8
+
+	SUB	r1, fp, #0x4		@ %cond_5 = alloca i32 
+	STR	r0, [r1]		@ store i32 %cond, i32* %cond_5
+	LDR	r1, [r1]		@ %0 = load i32, i32* %cond_5
+	MOVW	r0, #0x0
+	CMP	r0, r1		@ %1 = icmp ne i32 0, %0
+	MOVW	r1, #0x0
+	MOVWNE	r1, #0x1		@ %1 = icmp ne i32 0, %0
+	CMP	r1, #0x0
+	BEQ	.LBB_assert_not_if_false_6		@ br i1 %1, label %if_true_6, label %if_false_6
+.LBB_assert_not_if_true_6:
+	BL	error		@ call void @error()
+	B	.LBB_assert_not_if_end_6		@ br label %if_end_6
+.LBB_assert_not_if_false_6:
+	BL	ok		@ call void @ok()
+	B	.LBB_assert_not_if_end_6		@ br label %if_end_6
+.LBB_assert_not_if_end_6:
+	mov	sp, fp	@ ret void
+	pop	{fp, lr}
+	bx	lr		@ ret void
 	.global	main
 	.type	main, %function
 	.p2align	2
 	.code	32
 main:
-main_entry:
+.LBB_main_entry:
 	push	{fp, lr}
 	mov	fp, sp
-	SUB	sp, sp, #0x10
+	SUB	sp, sp, #0x68
 
-	STR	r4, [fp, #-0x8]		@ Store callee saved reg r4
-	STR	r5, [fp, #-0xc]		@ Store callee saved reg r5
-	SUB	r0, fp, #0x4		@ %a_0 = alloca i32 
-	MOVW	r1, #0x5
-	STR	r1, [r0]		@ store i32 5, i32* %a_0
-	LDR	r2, [r0]		@ %0 = load i32, i32* %a_0
-	MOVW	r3, #:lower16:b
-	MOVT	r4, #:upper16:b
-	LDR	r5, [r3]		@ %1 = load i32, i32* @b
-	ADD	r0, r2, r5		@ %2 = add i32 %0, %1
-	LDR	r4, [fp, #-0x8]		@ Load callee saved reg r4
-	LDR	r5, [fp, #-0xc]		@ Load callee saved reg r5
+	STR	r4, [fp, #-0x68]		@ Store callee saved reg r4
+	MOVW	ip, #0x0
+	MOVT	ip, #0x3da0
+	VMOV	s0, ip
+	MOVW	ip, #0xe800
+	MOVT	ip, #0xc700
+	VMOV	s1, ip
+	BL	float_eq		@ %0 = call i32 @float_eq(float 0x3FB4000000000000, float 0xC0E01D0000000000)
+	BL	assert_not		@ call void @assert_not(i32 %0)
+	MOVW	ip, #0x10fe
+	MOVT	ip, #0x42be
+	VMOV	s0, ip
+	MOVW	ip, #0x3ae7
+	MOVT	ip, #0x420a
+	VMOV	s1, ip
+	BL	float_eq		@ %1 = call i32 @float_eq(float 0x4057C21FC0000000, float 0x4041475CE0000000)
+	BL	assert_not		@ call void @assert_not(i32 %1)
+	MOVW	ip, #0x3ae7
+	MOVT	ip, #0x420a
+	VMOV	s0, ip
+	MOVW	ip, #0x3ae7
+	MOVT	ip, #0x420a
+	VMOV	s1, ip
+	BL	float_eq		@ %2 = call i32 @float_eq(float 0x4041475CE0000000, float 0x4041475CE0000000)
+	BL	assert		@ call void @assert(i32 %2)
+	MOVW	ip, #0x0
+	MOVT	ip, #0x40b0
+	VMOV	s1, ip
+	VCVT.S32.F32	s1, s1
+	VMOV	r0, s1
+	BL	circle_area		@ %4 = call float @circle_area(i32 %3)
+	MOVW	r0, #0x5
+	VSTR	s0, [fp, #-0x44]		@ Spill 4
+	BL	circle_area		@ %5 = call float @circle_area(i32 5)
+	VSTR	s0, [fp, #-0x48]		@ Spill 5
+	VLDR	s0, [fp, #-0x44]		@ load spilled 4
+	VLDR	s1, [fp, #-0x48]		@ load spilled 5
+	BL	float_eq		@ %6 = call i32 @float_eq(float %4, float %5)
+	BL	assert		@ call void @assert(i32 %6)
+	MOVW	ip, #0x0
+	MOVT	ip, #0x4369
+	VMOV	s0, ip
+	MOVW	ip, #0xf000
+	MOVT	ip, #0x457f
+	VMOV	s1, ip
+	BL	float_eq		@ %7 = call i32 @float_eq(float 0x406D200000000000, float 0x40AFFE0000000000)
+	BL	assert_not		@ call void @assert_not(i32 %7)
+	MOVW	ip, #0x0
+	VMOV	s1, ip
+	MOVW	ip, #0x0
+	MOVT	ip, #0x3fc0
+	VMOV	s0, ip
+	VCMP.F32	s1, s0		@ %8 = fcmp une float 0x0, 0x3FF8000000000000
+	vmrs	APSR_nzcv, FPSCR
+	MOVW	r0, #0x0
+	MOVWNE	r0, #0x1		@ %8 = fcmp une float 0x0, 0x3FF8000000000000
+	CMP	r0, #0x0
+	BEQ	.LBB_main_if_end_7		@ br i1 %8, label %if_true_7, label %if_end_7
+.LBB_main_if_true_7:
+	BL	ok		@ call void @ok()
+	B	.LBB_main_if_end_7		@ br label %if_end_7
+.LBB_main_if_end_7:
+	MOVW	ip, #0x0
+	VMOV	s0, ip
+	MOVW	ip, #0x3333
+	MOVT	ip, #0x4053
+	VMOV	s1, ip
+	VCMP.F32	s0, s1		@ %9 = fcmp oeq float 0x0, 0x400A666660000000
+	vmrs	APSR_nzcv, FPSCR
+	MOVW	r0, #0x0
+	MOVWEQ	r0, #0x1		@ %9 = fcmp oeq float 0x0, 0x400A666660000000
+	MOVW	r1, #0x0
+	CMP	r1, r0		@ %10 = icmp eq i1 0, %9
+	MOVW	r0, #0x0
+	MOVWEQ	r0, #0x1		@ %10 = icmp eq i1 0, %9
+	CMP	r0, #0x0
+	BEQ	.LBB_main_if_end_8		@ br i1 %10, label %if_true_8, label %if_end_8
+.LBB_main_if_true_8:
+	BL	ok		@ call void @ok()
+	B	.LBB_main_if_end_8		@ br label %if_end_8
+.LBB_main_if_end_8:
+	MOVW	ip, #0x0
+	VMOV	s0, ip
+	MOVW	ip, #0x0
+	VMOV	s1, ip
+	VCMP.F32	s0, s1		@ %11 = fcmp une float 0x0, 0x0
+	vmrs	APSR_nzcv, FPSCR
+	MOVW	r0, #0x0
+	MOVWNE	r0, #0x1		@ %11 = fcmp une float 0x0, 0x0
+	CMP	r0, #0x0
+	BEQ	.LBB_main_if_end_9		@ br i1 %11, label %and_right_10, label %if_end_9
+.LBB_main_and_right_10:
+	MOVW	r0, #0x0
+	CMP	r0, #0x3		@ %12 = icmp ne i32 0, 3
+	MOVW	r0, #0x0
+	MOVWNE	r0, #0x1		@ %12 = icmp ne i32 0, 3
+	CMP	r0, #0x0
+	BEQ	.LBB_main_if_end_9		@ br i1 %12, label %if_true_9, label %if_end_9
+.LBB_main_if_true_9:
+	BL	error		@ call void @error()
+	B	.LBB_main_if_end_9		@ br label %if_end_9
+.LBB_main_if_end_9:
+	MOVW	r0, #0x0
+	CMP	r0, #0x0		@ %13 = icmp ne i32 0, 0
+	MOVW	r0, #0x0
+	MOVWNE	r0, #0x1		@ %13 = icmp ne i32 0, 0
+	CMP	r0, #0x0
+	BNE	.LBB_main_if_true_11		@ br i1 %13, label %if_true_11, label %or_right_12
+.LBB_main_or_right_12:
+	MOVW	ip, #0x0
+	VMOV	s0, ip
+	MOVW	ip, #0x999a
+	MOVT	ip, #0x3e99
+	VMOV	s1, ip
+	VCMP.F32	s0, s1		@ %14 = fcmp une float 0x0, 0x3FD3333340000000
+	vmrs	APSR_nzcv, FPSCR
+	MOVW	r0, #0x0
+	MOVWNE	r0, #0x1		@ %14 = fcmp une float 0x0, 0x3FD3333340000000
+	CMP	r0, #0x0
+	BEQ	.LBB_main_if_end_11		@ br i1 %14, label %if_true_11, label %if_end_11
+.LBB_main_if_true_11:
+	BL	ok		@ call void @ok()
+	B	.LBB_main_if_end_11		@ br label %if_end_11
+.LBB_main_if_end_11:
+	SUB	r0, fp, #0x4		@ %i_6 = alloca i32 
+	MOVW	r1, #0x1
+	STR	r0, [fp, #-0x4c]		@ Spill i_6
+	STR	r1, [r0]		@ store i32 1, i32* %i_6
+	SUB	r0, fp, #0x8		@ %p_7 = alloca i32 
+	MOVW	r1, #0x0
+	STR	r0, [fp, #-0x50]		@ Spill p_7
+	STR	r1, [r0]		@ store i32 0, i32* %p_7
+	SUB	r0, fp, #0x30		@ %arr_8 = alloca [10 x float] 
+	MOVW	ip, #0x0
+	MOVT	ip, #0x3f80
+	VMOV	s0, ip
+	VSTR	s0, [r0]		@ store float 0x3FF0000000000000, float* %15
+	ADD	r1, r0, #0x4		@ %16 = getelementptr [10 x float], [10 x float]* %arr_8, i32 0, i32 1
+	MOVW	r2, #0x2
+	VMOV	s0, r2
+	VCVT.F32.S32	s0, s0
+	VSTR	s0, [r1]		@ store float %17, float* %16
+	SUB	r1, fp, #0x34		@ %len_9 = alloca i32 
+	STR	r1, [fp, #-0x54]		@ Spill len_9
+	STR	r0, [fp, #-0x58]		@ Spill arr_8
+	BL	getfarray		@ %19 = call i32 @getfarray(float* %18)
+	LDR	r1, [fp, #-0x54]		@ load spilled len_9
+	STR	r1, [fp, #-0x54]		@ Spill len_9
+	STR	r0, [r1]		@ store i32 %19, i32* %len_9
+	B	.LBB_main_while_entry_13		@ br label %while_entry_13
+.LBB_main_while_entry_13:
+	LDR	r0, [fp, #-0x4c]		@ load spilled i_6
+	STR	r0, [fp, #-0x4c]		@ Spill i_6
+	LDR	r0, [r0]		@ %20 = load i32, i32* %i_6
+	MOVW	r1, #0xca00
+	MOVT	r1, #0x3b9a
+	CMP	r0, r1		@ %21 = icmp slt i32 %20, 1000000000
+	MOVW	r1, #0x0
+	MOVWLT	r1, #0x1		@ %21 = icmp slt i32 %20, 1000000000
+	CMP	r1, #0x0
+	BEQ	.LBB_main_while_end_13		@ br i1 %21, label %while_body_13, label %while_end_13
+.LBB_main_while_body_13:
+	SUB	r0, fp, #0x38		@ %input_10 = alloca float 
+	STR	r0, [fp, #-0x5c]		@ Spill input_10
+	BL	getfloat		@ %22 = call float @getfloat()
+	LDR	r0, [fp, #-0x5c]		@ load spilled input_10
+	VSTR	s0, [r0]		@ store float %22, float* %input_10
+	SUB	r1, fp, #0x3c		@ %area_11 = alloca float 
+	VLDR	s0, [r0]		@ %23 = load float, float* %input_10
+	MOVW	ip, #0xfdb
+	MOVT	ip, #0x4049
+	VMOV	s1, ip
+	VMUL.F32	s0, s1, s0		@ %24 = fmul float 0x400921FB60000000, %23
+	VLDR	s1, [r0]		@ %25 = load float, float* %input_10
+	VMUL.F32	s1, s0, s1		@ %26 = fmul float %24, %25
+	VSTR	s1, [r1]		@ store float %26, float* %area_11
+	SUB	r2, fp, #0x40		@ %area_trunc_12 = alloca float 
+	VLDR	s1, [r0]		@ %27 = load float, float* %input_10
+	VCVT.S32.F32	s1, s1
+	VMOV	r3, s1
+	STR	r0, [fp, #-0x5c]		@ Spill input_10
+	MOV	r0, r3		@ LocalRegAllocator.moveTo
+	STR	r1, [fp, #-0x60]		@ Spill area_11
+	STR	r2, [fp, #-0x64]		@ Spill area_trunc_12
+	BL	circle_area		@ %29 = call float @circle_area(i32 %28)
+	LDR	r0, [fp, #-0x64]		@ load spilled area_trunc_12
+	VSTR	s0, [r0]		@ store float %29, float* %area_trunc_12
+	LDR	r2, [fp, #-0x50]		@ load spilled p_7
+	LDR	r1, [r2]		@ %30 = load i32, i32* %p_7
+	MOVW	ip, #0x4
+	MUL	r1, r1, ip		@ %31 = getelementptr [10 x float], [10 x float]* %arr_8, i32 0, i32 %30 (30)
+	LDR	r3, [fp, #-0x58]		@ load spilled arr_8
+	ADD	r1, r3, r1		@ %31 = getelementptr [10 x float], [10 x float]* %arr_8, i32 0, i32 %30 (30)
+	LDR	r4, [r2]		@ %32 = load i32, i32* %p_7
+	MOVW	ip, #0x4
+	MUL	r4, r4, ip		@ %33 = getelementptr [10 x float], [10 x float]* %arr_8, i32 0, i32 %32 (32)
+	STR	r3, [fp, #-0x58]		@ Spill arr_8
+	ADD	r4, r3, r4		@ %33 = getelementptr [10 x float], [10 x float]* %arr_8, i32 0, i32 %32 (32)
+	VLDR	s0, [r4]		@ %34 = load float, float* %33
+	LDR	r4, [fp, #-0x5c]		@ load spilled input_10
+	VLDR	s1, [r4]		@ %35 = load float, float* %input_10
+	VADD.F32	s1, s0, s1		@ %36 = fadd float %34, %35
+	VSTR	s1, [r1]		@ store float %36, float* %31
+	LDR	r1, [fp, #-0x60]		@ load spilled area_11
+	VLDR	s0, [r1]		@ %37 = load float, float* %area_11
+	STR	r0, [fp, #-0x64]		@ Spill area_trunc_12
+	STR	r2, [fp, #-0x50]		@ Spill p_7
+	BL	putfloat		@ call void @putfloat(float %37)
+	MOVW	r0, #0x20
+	BL	putch		@ call void @putch(i32 32)
+	LDR	r0, [fp, #-0x64]		@ load spilled area_trunc_12
+	VLDR	s0, [r0]		@ %38 = load float, float* %area_trunc_12
+	VCVT.S32.F32	s0, s0
+	VMOV	r0, s0
+	BL	putint		@ call void @putint(i32 %39)
+	MOVW	r0, #0xa
+	BL	putch		@ call void @putch(i32 10)
+	LDR	r0, [fp, #-0x4c]		@ load spilled i_6
+	LDR	r2, [r0]		@ %40 = load i32, i32* %i_6
+	VMOV	s0, r2
+	VCVT.F32.S32	s0, s0
+	MOVW	ip, #0x0
+	VMOV	s1, ip
+	MOVW	ip, #0x0
+	MOVT	ip, #0x4120
+	VMOV	s2, ip
+	VSUB.F32	s2, s1, s2		@ %42 = fsub float 0x0, 0x4024000000000000
+	MOVW	ip, #0x0
+	VMOV	s1, ip
+	VSUB.F32	s2, s1, s2		@ %43 = fsub float 0x0, %42
+	VMUL.F32	s2, s0, s2		@ %44 = fmul float %41, %43
+	VCVT.S32.F32	s2, s2
+	VMOV	r2, s2
+	STR	r0, [fp, #-0x4c]		@ Spill i_6
+	STR	r2, [r0]		@ store i32 %45, i32* %i_6
+	LDR	r0, [fp, #-0x50]		@ load spilled p_7
+	LDR	r2, [r0]		@ %46 = load i32, i32* %p_7
+	ADD	r2, r2, #0x1		@ %47 = add i32 %46, 1
+	STR	r0, [fp, #-0x50]		@ Spill p_7
+	STR	r2, [r0]		@ store i32 %47, i32* %p_7
+	B	.LBB_main_while_entry_13		@ br label %while_entry_13
+.LBB_main_while_end_13:
+	LDR	r0, [fp, #-0x54]		@ load spilled len_9
+	STR	r0, [fp, #-0x54]		@ Spill len_9
+	LDR	r0, [r0]		@ %48 = load i32, i32* %len_9
+	LDR	r1, [fp, #-0x58]		@ load spilled arr_8
+	STR	r1, [fp, #-0x58]		@ Spill arr_8
+	BL	putfarray		@ call void @putfarray(i32 %48, float* %49)
+	MOVW	r0, #0x0
+	LDR	r4, [fp, #-0x68]		@ Load callee saved reg r4
 	mov	sp, fp	@ ret r0
 	pop	{fp, lr}
-	bx	lr		@ ret i32 %2
-
-.data
-.align 4
-.global	a
-	.type	a, %object
-	.size	a, 4
-a:
-	@ i32
-	.long	3		@ java.lang.Integer 3 
-.global	b
-	.type	b, %object
-	.size	b, 4
-b:
-	@ i32
-	.long	5		@ java.lang.Integer 5 
+	bx	lr		@ ret i32 0
 

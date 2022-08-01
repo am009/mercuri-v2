@@ -33,6 +33,7 @@ public class StackOperand extends AsmOperand {
     public long offset;
 
     public StackOperand(Type ty, long offset) {
+        isFloat = false;
         type = ty;
         this.offset = offset;
     }

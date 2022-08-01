@@ -1,11 +1,12 @@
 # Backend
 
-并不是直接转换为汇编指令，还是有一些抽象层次，比如Prologue指令和Ret指令。
+为了之后的窥孔优化，指令的类尽量接近底层指令。除了个别指令如Prologue和Ret指令还是抽象指令。
 
 TODO:
 1. 完善窥孔优化逻辑，使用更多指令。 
 1. 写一个线性优化pass，分析代码之间距离，对跳转超出32MB范围的改为绝对地址跳转。
 1. 未来加入新的后端架构的时候考虑架构相关的和架构无关的逻辑的解耦，和设计相关的接口。
+1. 将可以带立即数，带offset，和相关range这种更通用地编码到指令里面。不求做到能直接根据什么规则生成相关的类和匹配代码，先追求每个指令类里的信息接近于指令特点的声明，降低generator里的重复代码。
 
 ### 基本块结构
 
@@ -284,4 +285,23 @@ SDIV和UDIV指令居然仅支持Thumb状态。。所以整数除法需要转换�
 
 取模运算和除法运算居然是在一起的，返回的是一个结构体typedef struct { int quot; int rem; } idiv_return;。因为现在语法只允许函数返回int或者float，如果要直接支持比较麻烦。所以自己搞一个汇编函数吧，调用__aeabi_idivmod然后把r1(rem)放到r0返回。[比如这样](https://godbolt.org/#g:!((g:!((g:!((h:codeEditor,i:(filename:'1',fontScale:14,fontUsePx:'0',j:1,lang:___c,selection:(endColumn:19,endLineNumber:10,positionColumn:19,positionLineNumber:10,selectionStartColumn:19,selectionStartLineNumber:10,startColumn:19,startLineNumber:10),source:'//+%23include+%3Caeabi.h%3E%0A%0Atypedef+struct+%7B+int+quot%3B+int+rem%3B+%7D+idiv_return%3B%0Atypedef+struct+%7B+unsigned+quot%3B+unsigned+rem%3B+%7D+uidiv_return%3B%0Aextern+idiv_return+__aeabi_idivmod(int+numerator,+int+denominator)%3B%0Aextern+uidiv_return+__aeabi_uidivmod(unsigned+numerator,+unsigned+denominator)%3B%0A%0Aint+__aeabi_mymod(int+a,+int+b)+%7B%0A++++return+a%25b%3B%0A++++//+return+__aeabi_idivmod(a,+b).rem%3B%0A%7D%0A'),l:'5',n:'0',o:'C+source+%231',t:'0')),k:50.000000000470834,l:'4',n:'0',o:'',s:0,t:'0'),(g:!((h:compiler,i:(compiler:armv7-cclang1100,filters:(b:'1',binary:'1',commentOnly:'1',demangle:'1',directives:'0',execute:'0',intel:'0',libraryCode:'1',trim:'1'),flagsViewOpen:'1',fontScale:14,fontUsePx:'0',j:2,lang:___c,libs:!(),options:'-Os',selection:(endColumn:19,endLineNumber:18,positionColumn:19,positionLineNumber:18,selectionStartColumn:9,selectionStartLineNumber:18,startColumn:9,startLineNumber:18),source:1,tree:'1'),l:'5',n:'0',o:'armv7-a+clang+11.0.0+(C,+Editor+%231,+Compiler+%232)',t:'0')),k:49.99999999952918,l:'4',n:'0',o:'',s:0,t:'0')),l:'2',n:'0',o:'',t:'0')),version:4)
 
+### 浮点运算
 
+VLDR加载常量的伪指令，还支持64位浮点数 https://developer.arm.com/documentation/dui0801/g/Floating-point-Instructions--32-bit-/VLDR-pseudo-instruction--floating-point- 
+
+各种浮点运算指令仅支持寄存器，不支持带常量。首先对于直接带常量的运算，目前整数那边是MOVW、MOVT，那对浮点数需要额外加一个VMOV。看来之后真的需要加常量池了，这个指令数量有点多。在指令生成里，也需要把所在的寄存器类型保存起来，然后在转换IR的值的时候根据IR那边Type的isBaseFloat()函数。目前先在AsmOperand里面增加isFloat吧，之后要拓展再考虑改为enum。
+
+### 变参函数浮点传参
+
+ssa-ir那边是有个fext，但是后端这边遇到了fext的cast就先什么都不做，然后由那边处理参数的时候处理。Call指令判断是不是double类型，是就一定是传float然后提升上来的。然后直接利用额外的d16-d31寄存器将原来的浮点数拓展到d16然后再根据是在栈上还是寄存器里生成对应的VMOV或者VSTR。
+
+### 支持Imm的指令
+
+目前有以下支持Imm的指令。
+- ~~ADD/SUB Rd, Rn, #<imm12> 范围0-4095~~ 仅在Thumb-2支持
+- `ADD/SUB Rd, Rn, <Operand2>`
+- `CMP Rn, <Operand2>`
+- `LDR/STR Rd, [Rn {, #<offset>}]` -4095 to +4095
+- `VSTR/VLDR Fd, [Rn{, #<immed>}]`  Immediate range 0-1020, multiple of 4.
+
+想了想，直接在指令中都增加一个isImmFit函数，因为有Operand2这种灵活性很强的常量，所以还是定义成函数接口的形式。

@@ -6,8 +6,8 @@ import backend.AsmOperand;
 import backend.StackOperand;
 import backend.arm.StackOpInst;
 
-public class StoreInst extends AsmInst implements StackOpInst {
-    public StoreInst(AsmBlock p, AsmOperand val, AsmOperand addr) {
+public class VSTRInst extends AsmInst implements StackOpInst {
+    public VSTRInst(AsmBlock p, AsmOperand val, AsmOperand addr) {
         parent = p;
         uses.add(val);
         uses.add(addr);
@@ -15,11 +15,12 @@ public class StoreInst extends AsmInst implements StackOpInst {
 
     @Override
     public String toString() {
-        return String.format("STR\t%s, [%s]",
+        return String.format("VSTR\t%s, [%s]",
             uses.get(0).toString(), uses.get(1).toString());
     }
 
+    @Override
     public boolean isImmFit(StackOperand so) {
-        return LoadInst.isImmFitStatic(so);
+        return VLDRInst.isImmFitStatic(so);
     }
 }

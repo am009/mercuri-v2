@@ -64,6 +64,7 @@ public class Reg extends AsmOperand {
     public Type ty;
 
     public Reg(Type t) {
+        isFloat = false;
         ty = t;
     }
 

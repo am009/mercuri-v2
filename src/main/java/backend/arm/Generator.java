@@ -17,8 +17,15 @@ import backend.VirtReg;
 import backend.arm.inst.BinOpInst;
 import backend.arm.inst.BrInst;
 import backend.arm.inst.CMPInst;
+import backend.arm.inst.FBinOpInst;
+import backend.arm.inst.FCMPInst;
 import backend.arm.inst.MovInst;
 import backend.arm.inst.Prologue;
+import backend.arm.inst.VCVTInst;
+import backend.arm.inst.VLDRInst;
+import backend.arm.inst.VMRS;
+import backend.arm.inst.VMovInst;
+import backend.arm.inst.VSTRInst;
 import dst.ds.BinaryOp;
 import ssa.ds.AllocaInst;
 import ssa.ds.BasicBlock;
@@ -27,6 +34,7 @@ import ssa.ds.BinopInst;
 import ssa.ds.BranchInst;
 import ssa.ds.CallInst;
 import ssa.ds.CastInst;
+import ssa.ds.CastOp;
 import ssa.ds.ConstantValue;
 import ssa.ds.Func;
 import ssa.ds.FuncValue;
@@ -37,6 +45,7 @@ import ssa.ds.JumpInst;
 import ssa.ds.LoadInst;
 import ssa.ds.Module;
 import ssa.ds.ParamValue;
+import ssa.ds.PrimitiveTypeTag;
 import ssa.ds.RetInst;
 import ssa.ds.StoreInst;
 import ssa.ds.TerminatorInst;
@@ -101,13 +110,10 @@ public class Generator {
             var cv = (ConstantValue) v;
             assert !cv.isArray();
             if (cv.val instanceof Float) {
-                // 怎么加载到浮点寄存器里 TODO
-                return new NumImm(Float.floatToRawIntBits((Float)(cv.val)));
+                return new FloatImm((Float)(cv.val));
             } else if (cv.val instanceof Integer) {
-                return new NumImm((Integer) cv.val);
-            } else {
-                throw new UnsupportedOperationException();
-            }
+                return new IntImm((Integer) cv.val);
+            } else {throw new UnsupportedOperationException();}
         }
 
         // IR那边GlobalVariable直接引用也代表地址，所以不用Load
@@ -115,8 +121,8 @@ public class Generator {
             return gvMap.get(v).imm;
         }
 
-        var ret = new VirtReg(vregInd++);
-        if (v.type.baseType.isFloat() && !v.type.isArray() && !v.type.isPointer) {
+        var ret = new VirtReg(vregInd++, v.type.isBaseFloat());
+        if (v.type.isBaseFloat()) {
             ret.isFloat = true;
         }
         vregMap.put(v, ret);
@@ -132,8 +138,14 @@ public class Generator {
             assert loc instanceof StackOperand; // 其他的应该在前面就取到了vreg。
             if (loc instanceof StackOperand) {
                 // 生成Load指令加载内存里的值到虚拟寄存器里。
-                var load = new backend.arm.inst.LoadInst(abb, ret, loc);
-                abb.insts.addAll(expandStackOperandLoadStore(load));
+                if (pv.type.isBaseFloat()) {
+                    var load = new VLDRInst(abb, ret, loc);
+                    abb.insts.addAll(expandStackOperandLoadStore(load));
+                } else {
+                    var load = new backend.arm.inst.LoadInst(abb, ret, loc);
+                    abb.insts.addAll(expandStackOperandLoadStore(load));
+                }
+                
             }
         }
 
@@ -143,8 +155,8 @@ public class Generator {
     }
 
     // 使用临时寄存器的场景
-    VirtReg getVReg() {
-        return new VirtReg(vregInd++);
+    VirtReg getVReg(boolean isFloat) {
+        return new VirtReg(vregInd++, isFloat);
     }
 
     public static AsmModule process(Module m) {
@@ -202,12 +214,12 @@ public class Generator {
             var loc = cc.selfArg.get(i);
             VirtReg vreg;
             if (loc instanceof Reg) {
-                vreg = getVReg();
+                vreg = getVReg(false);
                 prologue.setConstraint(vreg, (Reg)loc);
                 vregMap.put(pv, vreg);
                 prologue.defs.add(vreg);
             } else if (loc instanceof VfpReg) {
-                vreg = getVReg(); vreg.isFloat = true;
+                vreg = getVReg(true);
                 prologue.setConstraint(vreg, (VfpReg)loc);
                 vregMap.put(pv, vreg);
                 prologue.defs.add(vreg);
@@ -280,7 +292,7 @@ public class Generator {
             var tb = bbMap.get(((BasicBlockValue)inst.getOperand1()).b);
             var fb = bbMap.get(((BasicBlockValue)inst.getOperand2()).b);
             // generate cmp and bnz.
-            abb.insts.addAll(expandCmpImm(new CMPInst(abb, cond, new NumImm(0))));
+            abb.insts.addAll(expandCmpImm(new CMPInst(abb, cond, new IntImm(0))));
             if (tb == abb.next) { //  ==0 跳转到false
                 abb.insts.add(new BrInst.Builder(abb, fb).addCond(Cond.EQ).addComment(inst.toString()).build());
             } else if (fb == abb.next) { // != 0跳转到true
@@ -299,7 +311,7 @@ public class Generator {
         if (inst_ instanceof AllocaInst) {
             var inst = (AllocaInst) inst_;
             long offset = func.sm.allocLocal(getSize(inst.ty));
-            var bin = new BinOpInst(abb, BinaryOp.SUB, convertValue(inst, func, abb), new Reg(Reg.Type.fp), new NumImm(Math.toIntExact(offset)));
+            var bin = new BinOpInst(abb, BinaryOp.SUB, convertValue(inst, func, abb), new Reg(Reg.Type.fp), new IntImm(Math.toIntExact(offset)));
             bin.comment = inst.toString();
             abb.insts.addAll(expandBinOp(bin));
             return;
@@ -309,17 +321,36 @@ public class Generator {
             var inst = (BinopInst) inst_;
             var op1 = convertValue(inst.oprands.get(0).value, func, abb);
             var op2 = convertValue(inst.oprands.get(1).value, func, abb);
+            var to = convertValue(inst, func, abb);
+            assert op1.isFloat == op2.isFloat;
+            boolean isFloat = op1.isFloat;
             if (!inst.op.isBoolean()) {
-                var bin = new BinOpInst(abb, inst.op, convertValue(inst, func, abb), op1, op2);
+                assert op1.isFloat == to.isFloat;
+                AsmInst bin;
+                if (isFloat) {
+                    bin = new FBinOpInst(abb, inst.op, to, op1, op2);
+                    abb.insts.addAll(expandInstImm(bin)); // 浮点运算指令不支持带着imm。
+                } else {
+                    bin = new BinOpInst(abb, inst.op, to, op1, op2);
+                    abb.insts.addAll(expandBinOp((BinOpInst)bin));
+                }
                 bin.comment = inst.toString();
-                abb.insts.addAll(expandBinOp(bin));
-            } else { // LOG_GE 生成CMP; MOVW dst, #0; MOV<cond> dst #1;
-                var cmp = new CMPInst(abb, op1, op2);
+            } else { // LOG 逻辑二元运算：生成CMP+MOV Rd, 0+条件MOV Rd, 1
+                AsmInst cmp;
+                if (isFloat) {
+                    cmp = new FCMPInst(abb, op1, op2);
+                    abb.insts.addAll(expandInstImm(cmp)); // 如果某个操作数完全是0可以优化TODO
+                    abb.insts.add(new VMRS(abb));
+                } else {
+                    cmp = new CMPInst(abb, op1, op2);
+                    abb.insts.addAll(expandCmpImm((CMPInst)cmp));
+                }
                 cmp.comment = inst.toString();
-                abb.insts.addAll(expandCmpImm(cmp));
                 var dest = convertValue(inst, func, abb);
-                abb.insts.addAll(MovInst.loadImm(abb, dest, new NumImm(0)));
-                var mov = new MovInst(abb, MovInst.Ty.MOVW, dest, new NumImm(1));
+                assert !dest.isFloat;
+                // MOVW dst, #0; MOV<cond> dst #1;
+                abb.insts.addAll(MovInst.loadImm(abb, dest, new IntImm(0)));
+                var mov = new MovInst(abb, MovInst.Ty.MOVW, dest, new IntImm(1));
                 mov.cond = convertLogicOp(inst.op);
                 mov.comment = inst.toString();
                 abb.insts.add(mov);
@@ -341,7 +372,7 @@ public class Generator {
                 for (int i=0;i<ssaFunc.argType.size();i++) {
                     var loc = cc.callParam.get(i);
                     var op = convertValue(inst.oprands.get(i+1).value, func, abb);
-                    processCallArg(call, op, loc, abb);
+                    processCallArg(call, op, loc, abb, false);
                 }
             } else { // isVariadic
                 List<ssa.ds.Type> params = ssaFunc.argType.stream().map(pv -> pv.type).collect(Collectors.toList());
@@ -349,12 +380,16 @@ public class Generator {
                 call = new backend.arm.inst.CallInst(abb, new LabelImm(ssaFunc.name), cc);
                 for (int i=0;i<inst.oprands.size()-1;i++) {
                     var val = inst.oprands.get(i+1).value;
+                    boolean isLiftDouble = false;
                     if (i >= ssaFunc.argType.size()) { // 是额外的参数
                         cc.addParam(val.type);
+                        if (val.type.isBaseType() && val.type.baseType == PrimitiveTypeTag.DOUBLE) {
+                            isLiftDouble = true;
+                        }
                     }
                     var loc = cc.callParam.get(i);
                     var op = convertValue(val, func, abb);
-                    processCallArg(call, op, loc, abb);
+                    processCallArg(call, op, loc, abb, isLiftDouble);
                 }
             }
             // 更新def
@@ -379,9 +414,32 @@ public class Generator {
 
         if (inst_ instanceof CastInst) {
             var inst = (CastInst) inst_;
-            // __aeabi_i2f
-            // __aeabi_i2d
-            
+            if (inst.op == CastOp.TYPE) {
+                // 字符串到i8*等转换，好像不需要做什么
+                vregMap.put(inst, convertValue(inst.oprands.get(0).value, func, abb));
+            } else if (inst.op == CastOp.F2I) { // 生成vcvt.f32.s32 + VMOV
+                var op = convertValue(inst.oprands.get(0).value, func, abb);
+                assert op.isFloat;
+                var mid = getVReg(true);
+                var to = convertValue(inst, func, abb);
+                assert !to.isFloat;
+                var vcvt = new VCVTInst(abb, VCVTInst.Ty.F2I, mid, op);
+                abb.insts.addAll(expandInstImm(vcvt));
+                var vmov = new VMovInst(abb, VMovInst.Ty.S2A, to, mid);
+                abb.insts.add(vmov);
+            } else if (inst.op == CastOp.I2F) { // 生成VMOV + vcvt.s32.f32
+                var op = convertValue(inst.oprands.get(0).value, func, abb);
+                assert !op.isFloat;
+                var mid = getVReg(true);
+                var to = convertValue(inst, func, abb);
+                assert to.isFloat;
+                var vmov = new VMovInst(abb, VMovInst.Ty.A2S, mid, op);
+                abb.insts.addAll(expandInstImm(vmov));
+                var vcvt = new VCVTInst(abb, VCVTInst.Ty.I2F, to, mid);
+                abb.insts.add(vcvt);
+            } else if (inst.op == CastOp.FPEXT) { // 目前只需要处理vararg的float传参提升到double的情况。
+                vregMap.put(inst, convertValue(inst.oprands.get(0).value, func, abb));
+            } else {throw new UnsupportedOperationException(inst.op.toString());}
             return;
         }
 
@@ -405,9 +463,16 @@ public class Generator {
         if (inst_ instanceof LoadInst) { // load i32, i32* %a_0
             var inst = (LoadInst) inst_;
             var addr = convertValue(inst.oprands.get(0).value, func, abb);
-            var asm = new backend.arm.inst.LoadInst(abb, convertValue(inst, func, abb), addr);
+            var to = convertValue(inst, func, abb);
+            AsmInst asm;
+            if(to.isFloat) {
+                asm = new VLDRInst(abb, to, addr);
+            } else {
+                asm = new backend.arm.inst.LoadInst(abb, to, addr);
+            }
+            abb.insts.addAll(expandInstImm(asm)); // load +alloca属于跨指令的优化，交由之后窥孔优化处理。
             asm.comment = inst.toString();
-            abb.insts.addAll(expandInstImm(asm));
+            
             return;
         }
 
@@ -415,7 +480,12 @@ public class Generator {
             var inst = (StoreInst) inst_;
             var val = convertValue(inst.oprands.get(0).value, func, abb);
             var addr = convertValue(inst.oprands.get(1).value, func, abb);
-            var sto = new backend.arm.inst.StoreInst(abb, val, addr);
+            AsmInst sto;
+            if (val.isFloat) {
+                sto = new VSTRInst(abb, val, addr);
+            } else {
+                sto = new backend.arm.inst.StoreInst(abb, val, addr);
+            }
             sto.comment = inst.toString();
             abb.insts.addAll(expandInstImm(sto));
             return;
@@ -447,13 +517,13 @@ public class Generator {
                 }
             } else {
                 if (offset != 0) {
-                    current = GepMakeAdd(current, new NumImm(Math.toIntExact(offset)), abb, inst.toString());
+                    current = GepMakeAdd(current, new IntImm(Math.toIntExact(offset)), abb, inst.toString());
                     offset = 0;
                 }
                 String comment = inst.toString()+" ("+use.value.name+")";
 
-                var target = getVReg();
-                var mul = new BinOpInst(abb, BinaryOp.MUL, target, convertValue(use.value, func, abb), new NumImm(Math.toIntExact(baseSize)));
+                var target = getVReg(false);
+                var mul = new BinOpInst(abb, BinaryOp.MUL, target, convertValue(use.value, func, abb), new IntImm(Math.toIntExact(baseSize)));
                 mul.comment = comment;
                 abb.insts.addAll(expandBinOp(mul));
                 if (dims.size() > 0) {
@@ -467,7 +537,7 @@ public class Generator {
             }
         }
         if (offset != 0) {
-            current = GepMakeAdd(current, new NumImm(Math.toIntExact(offset)), abb, inst.toString());
+            current = GepMakeAdd(current, new IntImm(Math.toIntExact(offset)), abb, inst.toString());
             offset = 0;
         }
         // var target = convertValue(inst, func, abb);
@@ -475,22 +545,50 @@ public class Generator {
     }
 
     private AsmOperand GepMakeAdd(AsmOperand prev, AsmOperand offset, AsmBlock abb, String comment) {
-        var target = getVReg();
+        var target = getVReg(false);
         var bin = new BinOpInst(abb, BinaryOp.ADD, target, prev, offset);
         bin.comment = comment;
         abb.insts.addAll(expandBinOp(bin));
         return target;
     }
 
-    private void processCallArg(backend.arm.inst.CallInst call, AsmOperand op, AsmOperand loc, AsmBlock abb) {
-        // 如果是常量，转换一下
+    /**
+     * 维护寄存器分配约束
+     * @param call 指令
+     * @param op 转换后的参数，即常量或VirtReg.
+     * @param loc CC给出的目标物理寄存器，也可能要放到栈上，此时需要增加相关Store指令
+     * @param abb 基本块
+     */
+    private void processCallArg(backend.arm.inst.CallInst call, AsmOperand op, AsmOperand loc, AsmBlock abb, boolean isLiftDouble) {
+        // 如果是常量，转换一下。确保参数都在寄存器内。
         if (op instanceof Imm) {
-            var tmp = getVReg();
+            var tmp = getVReg(op.isFloat);
             abb.insts.addAll(MovInst.loadImm(abb, tmp, (Imm)op));
             op = tmp;
         }
         assert op instanceof VirtReg;
         var vreg = (VirtReg) op;
+        // 处理vararg提升到double的情况
+        if (isLiftDouble) {
+            // vararg 仅使用BaseCallingConvention
+            assert !(loc instanceof VfpReg);
+            // vcvt.f64.f32 d16 // 借助不在分配范围内的d16。
+            var vcvt = new VCVTInst(abb, VCVTInst.Ty.F2D, new VfpDoubleReg(), vreg);
+            vcvt.comment = "lift to double: " + vreg.comment;
+            abb.insts.add(vcvt);
+            if (loc instanceof Reg) { // vcvt.f64.f32 d16, Sn +  vmov r2, r3, d16
+                assert ((Reg)loc).ty == Reg.Type.r0 || ((Reg)loc).ty == Reg.Type.r2;
+                var vmov = new VMovInst(abb, VMovInst.Ty.S2A, loc, new VfpDoubleReg());
+                var next = new Reg(Reg.Type.values[((Reg)loc).ty.toInt()+1]);
+                vmov.defs.add(next);
+                abb.insts.add(vmov);
+            } else if (loc instanceof StackOperand) { // vcvt.f64.f32 d16, Sn +  vstr.64 d16, [sp]
+                var vstr = new VSTRInst(abb, new VfpDoubleReg(), loc);
+                abb.insts.addAll(expandStackOperandLoadStore(vstr));
+            } else {throw new UnsupportedOperationException();}
+            return;
+        }
+        // 回到正常情况。
         if (loc instanceof Reg) { // 维护寄存器分配约束
             call.setConstraint(vreg, (Reg)loc, true);
             call.uses.add(vreg);
@@ -499,7 +597,12 @@ public class Generator {
             // 维护use
             call.uses.add(vreg);
         } else if (loc instanceof StackOperand) { // 对内存中的参数生成store
-            var store = new backend.arm.inst.StoreInst(abb, vreg, loc);
+            AsmInst store;
+            if(vreg.isFloat) {
+                store = new VSTRInst(abb, vreg, loc);
+            } else {
+                store = new backend.arm.inst.StoreInst(abb, vreg, loc);
+            }
             store.comment = "store argument to stack: "+vreg.comment;
             abb.insts.addAll(expandStackOperandLoadStore(store));
         }
@@ -526,12 +629,13 @@ public class Generator {
         List<AsmOperand> newuse = new ArrayList<>();
         // expandImm(inst.uses.get(0), newuse, ret, inst.parent);
         // expandStackOperand(inst.uses.get(1), newuse, ret, inst.parent);
-        assert inst instanceof backend.arm.inst.LoadInst || inst instanceof backend.arm.inst.StoreInst;
-        if (inst instanceof backend.arm.inst.StoreInst) {
+        assert inst instanceof backend.arm.inst.LoadInst || inst instanceof backend.arm.inst.StoreInst
+                || inst instanceof VSTRInst || inst instanceof VLDRInst;
+        if (inst instanceof backend.arm.inst.StoreInst || inst instanceof VSTRInst) {
             newuse.add(inst.uses.get(0));
-            expandStackOperand(inst.uses.get(1), newuse, ret, inst.parent);
-        } else if (inst instanceof backend.arm.inst.LoadInst) {
-            expandStackOperand(inst.uses.get(0), newuse, ret, inst.parent);
+            expandStackOperand((StackOpInst)inst, inst.uses.get(1), newuse, ret, inst.parent);
+        } else if (inst instanceof backend.arm.inst.LoadInst || inst instanceof VSTRInst) {
+            expandStackOperand((StackOpInst)inst, inst.uses.get(0), newuse, ret, inst.parent);
         }
         inst.uses = newuse;
         ret.add(inst);
@@ -562,7 +666,7 @@ public class Generator {
     private void expandImm(AsmOperand op, List<AsmOperand> newOps, List<AsmInst> insts, AsmBlock p) {
         if (op instanceof Imm) {
             AsmOperand tmp;
-            tmp = getVReg();
+            tmp = getVReg(op.isFloat);
             insts.addAll(MovInst.loadImm(p, tmp, (Imm)op));
             newOps.add(tmp);
         } else {
@@ -571,30 +675,28 @@ public class Generator {
         }
     }
 
-    private void expandStackOperand(AsmOperand op, List<AsmOperand> newOps, List<AsmInst> insts,
+    private void expandStackOperand(StackOpInst inst, AsmOperand op, List<AsmOperand> newOps, List<AsmInst> insts,
                                         AsmBlock p) {
         if (op instanceof StackOperand) {
             var so = (StackOperand) op;
-            // – 4095 to +4095 then OK。范围暂时放窄一些，等测例都过了再改回来
-            if (so.offset <= 4070 && so.offset >= -4070) {
+            if (inst.isImmFit(so)) {
                 newOps.add(so);
                 return;
             }
-            // 超出了4095，则add sub的imm字段也放不下
-            AsmOperand tmp= getVReg();
-            var tmp2 = getVReg();
+            // 超出了范围一般add sub的imm字段也放不下？TODO
+            AsmOperand tmp= getVReg(false);
+            var tmp2 = getVReg(false);
             assert so.type != StackOperand.Type.SPILL; // 指令选择阶段不能分配spill空间。
             if (so.type == StackOperand.Type.SELF_ARG) {
-                insts.addAll(MovInst.loadImm(p, tmp, new NumImm(Math.toIntExact(so.offset))));
+                insts.addAll(MovInst.loadImm(p, tmp, new IntImm(Math.toIntExact(so.offset))));
                 insts.add(new BinOpInst(p, BinaryOp.ADD, tmp2, new Reg(Reg.Type.fp), tmp));
             } else if (so.type == StackOperand.Type.LOCAL) {
-                insts.addAll(MovInst.loadImm(p, tmp, new NumImm(Math.toIntExact(so.offset))));
+                insts.addAll(MovInst.loadImm(p, tmp, new IntImm(Math.toIntExact(so.offset))));
                 insts.add(new BinOpInst(p, BinaryOp.SUB, tmp2, new Reg(Reg.Type.fp), tmp));
             } else if (so.type == StackOperand.Type.CALL_PARAM) {
-                insts.addAll(MovInst.loadImm(p, tmp, new NumImm(Math.toIntExact(so.offset))));
+                insts.addAll(MovInst.loadImm(p, tmp, new IntImm(Math.toIntExact(so.offset))));
                 insts.add(new BinOpInst(p, BinaryOp.ADD, tmp2, new Reg(Reg.Type.sp), tmp));
             } else {throw new UnsupportedOperationException();}
-
             newOps.add(tmp2);
         } else {
             // 不变
@@ -604,15 +706,15 @@ public class Generator {
 
     // Flexible Operand 2 can be Imm8m
     private void expandOperand2(AsmOperand op, List<AsmOperand> newOps, List<AsmInst> insts, AsmBlock p) {
-        if (op instanceof NumImm) {
-            var immop = (NumImm) op;
+        if (op instanceof IntImm) {
+            var immop = (IntImm) op;
             // within 8bit then OK
             if (immop.highestOneBit() < 255) {
                 newOps.add(immop);
                 return;
             }
             AsmOperand tmp;
-            tmp = getVReg();
+            tmp = getVReg(false);
             insts.addAll(MovInst.loadImm(p, tmp, immop));
             newOps.add(tmp);
         } else {
@@ -636,7 +738,7 @@ public class Generator {
         }
     }
 
-    // 如果立即数字段无法放下，则借助IP寄存器额外生成MOV指令。详见BinOpInst注释
+    // 如果立即数字段无法放下则需要额外生成MOV32
     public static List<AsmInst> expandBinOp(BinOpInst bin) {
         List<AsmInst> ret = new ArrayList<>();
         var op1 = bin.uses.get(0);
@@ -648,11 +750,11 @@ public class Generator {
         }
         if (op2 instanceof Imm) {
             // 0-4095的#imm12仅在Thumb模式下有。
-            if (op2 instanceof NumImm && (bin.op == BinaryOp.ADD || bin.op == BinaryOp.SUB) && ((NumImm) op2).highestOneBit() < 255) {
+            if (op2 instanceof IntImm && (bin.op == BinaryOp.ADD || bin.op == BinaryOp.SUB) && ((IntImm) op2).highestOneBit() < 255) {
                 // OK to use imm
             } else {
                 var tmp = new Reg(Reg.Type.ip); // 需要单个临时寄存器直接用ip
-                ret.addAll(MovInst.loadImm(bin.parent, tmp, ((NumImm)op2)));
+                ret.addAll(MovInst.loadImm(bin.parent, tmp, ((IntImm)op2)));
                 op2 = tmp;
             }
         }
@@ -666,14 +768,13 @@ public class Generator {
     public static List<AsmInst> expandStackOperandLoadStoreIP(AsmInst inst) {
         List<AsmInst> ret = new ArrayList<>();
         List<AsmOperand> newuse = new ArrayList<>();
-        assert inst instanceof backend.arm.inst.LoadInst || inst instanceof backend.arm.inst.StoreInst;
-        if (inst instanceof backend.arm.inst.StoreInst) {
-            assert inst.uses.get(0) instanceof Reg || inst.uses.get(0) instanceof VfpReg;
+        assert inst instanceof backend.arm.inst.LoadInst || inst instanceof backend.arm.inst.StoreInst
+                || inst instanceof VSTRInst || inst instanceof VLDRInst;
+        if (inst instanceof backend.arm.inst.StoreInst || inst instanceof VSTRInst) {
             newuse.add(inst.uses.get(0));
-            expandStackOperandIP(inst.uses.get(1)/*可能的StackOperand*/, inst.uses.get(0), newuse, ret, inst.parent);
-        } else if (inst instanceof backend.arm.inst.LoadInst) {
-            assert inst.defs.get(0) instanceof Reg || inst.defs.get(0) instanceof VfpReg;
-            expandStackOperandIP(inst.uses.get(0), inst.defs.get(0), newuse, ret, inst.parent);
+            expandStackOperandIP((StackOpInst)inst, inst.uses.get(1)/*可能的StackOperand*/, inst.uses.get(0), newuse, ret, inst.parent);
+        } else if (inst instanceof backend.arm.inst.LoadInst || inst instanceof VLDRInst) {
+            expandStackOperandIP((StackOpInst)inst, inst.uses.get(0), inst.defs.get(0), newuse, ret, inst.parent);
         }
         inst.uses = newuse;
         ret.add(inst);
@@ -681,26 +782,27 @@ public class Generator {
     }
 
     // 使用IP作为临时寄存器
-    public static void expandStackOperandIP(AsmOperand op, AsmOperand target, List<AsmOperand> newOps, List<AsmInst> insts,
+    public static void expandStackOperandIP(StackOpInst inst, AsmOperand op, AsmOperand target, List<AsmOperand> newOps, List<AsmInst> insts,
                                         AsmBlock p) {
         if (op instanceof StackOperand) {
             var so = (StackOperand) op;
             // – 4095 to +4095 then OK。但由于后面要加减一些？，所以范围放窄一些？TODO
-            if (so.offset <= 4070 && so.offset >= -4070) {
+            if (inst.isImmFit(so)) {
                 newOps.add(so);
                 return;
             }
-            // 超出了4095，则add sub的imm字段也放不下
+            assert target instanceof Reg || target instanceof VfpReg;
+            // 超出了4095，则add sub的imm字段也放不下? TODO
             AsmOperand tmp= new Reg(Reg.Type.ip);
             var tmp2 = target;
             if (so.type == StackOperand.Type.SELF_ARG) {
-                insts.addAll(MovInst.loadImm(p, tmp, new NumImm(Math.toIntExact(so.offset))));
+                insts.addAll(MovInst.loadImm(p, tmp, new IntImm(Math.toIntExact(so.offset))));
                 insts.add(new BinOpInst(p, BinaryOp.ADD, tmp2, new Reg(Reg.Type.fp), tmp));
             } else if (so.type == StackOperand.Type.LOCAL || so.type == StackOperand.Type.SPILL) {
-                insts.addAll(MovInst.loadImm(p, tmp, new NumImm(Math.toIntExact(so.offset))));
+                insts.addAll(MovInst.loadImm(p, tmp, new IntImm(Math.toIntExact(so.offset))));
                 insts.add(new BinOpInst(p, BinaryOp.SUB, tmp2, new Reg(Reg.Type.fp), tmp));
             } else if (so.type == StackOperand.Type.CALL_PARAM) {
-                insts.addAll(MovInst.loadImm(p, tmp, new NumImm(Math.toIntExact(so.offset))));
+                insts.addAll(MovInst.loadImm(p, tmp, new IntImm(Math.toIntExact(so.offset))));
                 insts.add(new BinOpInst(p, BinaryOp.ADD, tmp2, new Reg(Reg.Type.sp), tmp));
             } else {throw new UnsupportedOperationException();}
 
