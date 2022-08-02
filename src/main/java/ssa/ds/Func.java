@@ -10,7 +10,7 @@ public class Func {
     public String name;
     public List<BasicBlock> bbs;
     public FuncValue val; // used by CallInst
-    public boolean isVariadic = false;
+    public boolean isVariadic = false; // 是否有可变参数
     public FuncType retType;
     public List<ParamValue> argType;
 

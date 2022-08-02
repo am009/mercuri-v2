@@ -1,3 +1,10 @@
+#
+# 此脚本从 g4 文件利用 antlr 生成 lexer 和 parser
+#
+# 用法：
+# ./script/gen.sh
+#
+
 BASEDIR=$(realpath $(dirname "$0")/..)
 echo "BASEDIR: $BASEDIR"
 RED='\033[0;34m'

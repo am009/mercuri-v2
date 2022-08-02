@@ -1,5 +1,8 @@
 package ssa.ds;
 
+/**
+ * 函数参数
+ */
 public class ParamValue extends Value {
 
     public ParamValue(String name, Type t) {

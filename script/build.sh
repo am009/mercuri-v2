@@ -1,3 +1,9 @@
+#
+# 此脚本用于构建和打包 compiler.jar
+#
+# 用法：
+# ./script/build.sh 
+#
 BASEDIR=$(realpath $(dirname "$0")/..)
 echo "BASEDIR: $BASEDIR"
 ANTLR_LIB=$BASEDIR/lib/antlr4-4.8-1-complete.jar

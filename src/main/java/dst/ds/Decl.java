@@ -21,7 +21,13 @@ public class Decl extends BlockStatement {
     public List<Expr> dims; // 语义分析后转为List<Integer>存放到Type.dims中
     // public List<Integer> evaledDims;
 
-    // 函数参数为数组省略签名，因为语义分析的时候才填入Type，所以这里也需要一个成员
+    /**
+     * isDimensionOmitted 说明此 Decl，作为一个函数的**参数**，是一个数组，但是没有给出维度信息。
+     * 比如这样的参数：`int arr[]`。那么此处就会 true
+     * 
+     * 默认情况下这里是 false, 也即给了维度表达式，那么一定不是一个函数参数
+     * 函数参数为数组省略签名，因为语义分析的时候才填入Type，所以这里也需要一个成员
+     */
     public boolean isDimensionOmitted = false;
 
     // Right hand side

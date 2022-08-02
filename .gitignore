@@ -4,3 +4,5 @@
 target
 *.log
 test/lib/sylib.ll
+.VSCodeCounter
+*.pri.*

@@ -72,8 +72,13 @@ public class FakeSSAGenerator {
     }
 
     private void visitBuiltinDstFunc(FakeSSAGeneratorContext ctx, dst.ds.Func dstFunc) {
+        // params
         var pvs = new ArrayList<ParamValue>();
-        dstFunc.params.forEach(decl -> {pvs.add(new ParamValue(decl.id, convertDstType(decl.type)));});
+        dstFunc.params.forEach(decl -> {
+            pvs.add(new ParamValue(decl.id, convertDstType(decl.type)));
+        });
+
+        // create ssa func
         Func func = new Func(dstFunc.id, dstFunc.retType, pvs);
         if (dstFunc.isVariadic != null) {
             func.setIsVariadic(dstFunc.isVariadic);
@@ -83,6 +88,12 @@ public class FakeSSAGenerator {
         ctx.funcMap.put(dstFunc, val);
     }
 
+    /**
+     * 用于将 dst Type 转换为 SSA Type
+     * 
+     * @param type
+     * @return
+     */
     private Type convertDstType(dst.ds.Type type) {
         if (type.basicType == BasicType.STRING_LITERAL) {
             // string literal应该不可能是array
@@ -138,7 +149,7 @@ public class FakeSSAGenerator {
             int currentSize = type.dims.get(0);
             // 语义检查后应该initVal的层次结构和type的dims匹配
             assert initVal.values.size() == currentSize;
-            for (int i=0;i<currentSize;i++) {
+            for (int i = 0; i < currentSize; i++) {
                 var v = convertArrayEvaledValue(type.subArrType(), initVal.values.get(i));
                 result.add(v);
             }
@@ -146,10 +157,13 @@ public class FakeSSAGenerator {
         }
     }
 
+    /**
+     * Dst EvaluatedValue 转化为 SSA 常数（组）
+     */
     private static ConstantValue convertEvaledValue(EvaluatedValue evaledVal) {
         if (evaledVal.basicType == BasicType.STRING_LITERAL) { // String转i8数组
             List<ConstantValue> chars = new ArrayList<>();
-            for (byte c: evaledVal.stringValue.getBytes()) {
+            for (byte c : evaledVal.stringValue.getBytes()) {
                 chars.add(ConstantValue.ofChar(c));
             }
             chars.add(ConstantValue.ofChar(0));
@@ -161,13 +175,18 @@ public class FakeSSAGenerator {
             case INT:
                 return ConstantValue.ofInt(evaledVal.intValue);
             default:
-                throw new RuntimeException("Unknown basicType "+evaledVal.basicType.toString());
+                throw new RuntimeException("Unknown basicType " + evaledVal.basicType.toString());
         }
     }
 
     private void visitDstFunc(FakeSSAGeneratorContext ctx, dst.ds.Func dstFunc) {
+        // params
         var pvs = new ArrayList<ParamValue>();
-        dstFunc.params.forEach(decl -> {pvs.add(new ParamValue(decl.id, convertDstType(decl.type)));});
+        dstFunc.params.forEach(decl -> {
+            pvs.add(new ParamValue(decl.id, convertDstType(decl.type)));
+        });
+
+        // create func object
         Func func = new Func(dstFunc.id, dstFunc.retType, pvs);
         if (dstFunc.isVariadic != null) {
             func.setIsVariadic(dstFunc.isVariadic);
@@ -177,18 +196,16 @@ public class FakeSSAGenerator {
         ctx.funcMap.put(dstFunc, val);
         ctx.currentFunc = func;
 
-        // 入口基本块
+        // entry basic block for func
         func.bbs = new LinkedList<>();
         BasicBlock ent = new BasicBlock("entry");
         func.bbs.add(ent);
         ctx.current = ent;
 
-        // 函数参数
-        // dstFunc.params.forEach(param -> visitFuncParamDecl(ctx, ));
-        // dstFunc.params.forEach(param -> {
-        for (int i=0;i<dstFunc.params.size();i++) {
+        // create insts for params and add to current bb
+        for (int i = 0; i < dstFunc.params.size(); i++) {
             var param = dstFunc.params.get(i);
-            var ref = pvs.get(i);
+            ParamValue ref = pvs.get(i);
             ref.name = param.id;
             if (param.isArray()) {
                 // array参数不需要创建alloca指令
@@ -196,22 +213,25 @@ public class FakeSSAGenerator {
             } else {
                 var alloc = new AllocaInst.Builder(ent).addType(convertDstType(param.type)).build();
                 alloc.name = ctx.nameLocal(param.id);
-                ctx.addToCurrent(alloc);
+                ctx.addToCurrentBB(alloc);
                 ctx.varMap.put(param, alloc);
                 var inst = new StoreInst.Builder(ent).addOperand(ref, alloc).build();
-                ctx.addToCurrent(inst);
+                ctx.addToCurrentBB(inst);
             }
         }
-        // });
 
-        
-        dstFunc.body.statements.forEach(bs -> {visitDstStmt(ctx, func, bs);});
+        // 生成函数体的 insts
+        dstFunc.body.statements.forEach(bs -> {
+            visitDstStmt(ctx, func, bs);
+        });
         // 指令生成是线性模型，比如int f(){if(){..} else {...}}我也需要在末尾加上一个基本块，保证是和if else同级的，
         // 如果最后一个基本块最后不是返回指令，加上返回指令。
         var current = ctx.current;
-        // 如果基本块没有用TerminatorInst结尾，加入RetInst
-        if (current.insts.size() == 0 || !(current.insts.get(current.insts.size()-1) instanceof TerminatorInst)) {
-            var b  = new RetInst.Builder(current);
+
+        // 如果基本块没有用 TerminatorInst 结尾，加入 RetInst
+        if (current.insts.size() == 0 || !(current.insts.get(current.insts.size() - 1) instanceof TerminatorInst)) {
+            var b = new RetInst.Builder(current);
+            // 自动生成返回值
             if (func.retType == FuncType.VOID) {
                 b.addType(Type.Void);
             } else if (func.retType == FuncType.INT) {
@@ -226,18 +246,19 @@ public class FakeSSAGenerator {
             current.insts.add(b.build());
         }
         // 如果基本块以非RetInst结尾，报错。
-        if (!(current.insts.get(current.insts.size()-1) instanceof RetInst)) {
+        if (!(current.insts.get(current.insts.size() - 1) instanceof RetInst)) {
             throw new RuntimeException("Function " + dstFunc.id + ": generated code not end with return.");
         }
     }
 
+    // 生成表达式的 SSA IR
     private void visitDstStmt(FakeSSAGeneratorContext ctx, Func curFunc, BlockStatement stmt_) {
         if (stmt_ instanceof AssignStatement) {
             var stmt = (AssignStatement) stmt_;
-             // 在assign左边的LVal一般直接是值
+            // 在assign左边的LVal一般直接是值
             var left = visitLValExpr(ctx, curFunc, stmt.left, true); // 获取代表的地址
             var right = visitDstExpr(ctx, curFunc, stmt.expr);
-            ctx.addToCurrent(new StoreInst.Builder(ctx.current).addOperand(right, left).build());
+            ctx.addToCurrentBB(new StoreInst.Builder(ctx.current).addOperand(right, left).build());
             return;
         }
 
@@ -249,14 +270,14 @@ public class FakeSSAGenerator {
 
         if (stmt_ instanceof BreakStatement) {
             var stmt = (BreakStatement) stmt_;
-            var inst = ctx.addToCurrent(new JumpInst(ctx.current, ctx.breakMap.get(stmt.loop)));
+            var inst = ctx.addToCurrentBB(new JumpInst(ctx.current, ctx.breakMap.get(stmt.loop)));
             inst.comments = "break";
             return;
         }
 
         if (stmt_ instanceof ContinueStatement) {
             var stmt = (ContinueStatement) stmt_;
-            var inst = ctx.addToCurrent(new JumpInst(ctx.current, ctx.continueMap.get(stmt.loop)));
+            var inst = ctx.addToCurrentBB(new JumpInst(ctx.current, ctx.continueMap.get(stmt.loop)));
             inst.comments = "continue";
             return;
         }
@@ -275,27 +296,28 @@ public class FakeSSAGenerator {
 
         if (stmt_ instanceof IfElseStatement) {
             var stmt = (IfElseStatement) stmt_;
-            int ind = ctx.getBBInd();
-            var trueBlock = new BasicBlock("if_true_"+ind);
-            var exitBlock = new BasicBlock("if_end_"+ind);
+            int ind = ctx.nextBBIdx();
+            var trueBlock = new BasicBlock("if_true_" + ind);
+            var exitBlock = new BasicBlock("if_end_" + ind);
             var falseBlock = exitBlock;
             if (stmt.elseBlock != null) {
-                falseBlock = new BasicBlock("if_false_"+ind);
+                falseBlock = new BasicBlock("if_false_" + ind);
             }
             // var cond = this.visitDstExpr(ctx, curFunc, stmt.condition);
-            // ctx.addToCurrent(new BranchInst(ctx.current, cond, trueBlock.getValue(), falseBlock.getValue()));
+            // ctx.addToCurrent(new BranchInst(ctx.current, cond, trueBlock.getValue(),
+            // falseBlock.getValue()));
             visitCondExprs(ctx, curFunc, stmt.condition.expr, trueBlock.getValue(), falseBlock.getValue());
 
             // 在true block生成指令
             ctx.current = trueBlock;
             curFunc.bbs.add(trueBlock);
             this.visitDstStmt(ctx, curFunc, stmt.thenBlock);
-            ctx.addToCurrent(new JumpInst(ctx.current, exitBlock.getValue()));
+            ctx.addToCurrentBB(new JumpInst(ctx.current, exitBlock.getValue()));
             if (stmt.elseBlock != null) {
                 ctx.current = falseBlock;
                 curFunc.bbs.add(falseBlock);
                 this.visitDstStmt(ctx, curFunc, stmt.elseBlock);
-                ctx.addToCurrent(new JumpInst(ctx.current, exitBlock.getValue()));
+                ctx.addToCurrentBB(new JumpInst(ctx.current, exitBlock.getValue()));
             }
             ctx.current = exitBlock;
             curFunc.bbs.add(exitBlock);
@@ -303,27 +325,43 @@ public class FakeSSAGenerator {
         }
 
         if (stmt_ instanceof LoopStatement) {
-            var stmt = (LoopStatement) stmt_;
+            /*
+             * <while_entry>  <--\
+             * while (cond) {     |
+             * <while_body>       |
+             *     block---------/
+             * }
+             * <while_end>:
+             */
+            var loopStmt = (LoopStatement) stmt_;
             // 由于要跳转到expr计算的前面，这里要分割一个基本块
-            int ind = ctx.getBBInd();
-            var entBlock = new BasicBlock("while_entry_"+ind);
-            ctx.addToCurrent(new JumpInst(ctx.current, entBlock.getValue()));
-            ctx.current = entBlock;
-            curFunc.bbs.add(entBlock);
-            var bodyBlock = new BasicBlock("while_body_"+ind);
-            var exitBlock = new BasicBlock("while_end_"+ind);
+            int bbid = ctx.nextBBIdx();
+            var entBlock = new BasicBlock("while_entry_" + bbid);
+            {
+                ctx.addToCurrentBB(new JumpInst(ctx.current, entBlock.getValue()));
+                ctx.current = entBlock;
+                curFunc.bbs.add(entBlock);
+            }
+            var bodyBlock = new BasicBlock("while_body_" + bbid);
+            var exitBlock = new BasicBlock("while_end_" + bbid);
             // var cond = this.visitDstExpr(ctx, curFunc, stmt.condition);
-            // ctx.addToCurrent(new BranchInst(ctx.current, cond, bodyBlock.getValue(), exitBlock.getValue()));
-            visitCondExprs(ctx, curFunc, stmt.condition.expr, bodyBlock.getValue(), exitBlock.getValue());
+            // cx.addToCurrent(new BranchInst(ctx.current, cond, bodyBlock.getValue(),
+            // exitBlock.getValue()));
 
-            // set continue and brek map;
-            ctx.breakMap.put(stmt, exitBlock.getValue());
-            ctx.continueMap.put(stmt, entBlock.getValue());
+            // 生成循环条件指令并关联条件跳转目标
+            visitCondExprs(ctx, curFunc, loopStmt.condition.expr, bodyBlock.getValue(), exitBlock.getValue());
+
+            // 设置本循环语句的 continue 和 break 语句的跳转目标
+            ctx.breakMap.put(loopStmt, exitBlock.getValue());
+            ctx.continueMap.put(loopStmt, entBlock.getValue());
 
             ctx.current = bodyBlock;
             curFunc.bbs.add(bodyBlock);
-            this.visitDstStmt(ctx, curFunc, stmt.bodyBlock);
-            ctx.addToCurrent(new JumpInst(ctx.current, entBlock.getValue()));
+
+            // 生成循环体的指令
+            this.visitDstStmt(ctx, curFunc, loopStmt.bodyBlock);
+            // 循环体末尾跳转到 <while_entry>
+            ctx.addToCurrentBB(new JumpInst(ctx.current, entBlock.getValue()));
 
             ctx.current = exitBlock;
             curFunc.bbs.add(exitBlock);
@@ -335,14 +373,23 @@ public class FakeSSAGenerator {
             var val = visitDstExpr(ctx, curFunc, stmt.retval);
             var b = new RetInst.Builder(ctx.current);
             b.addType(curFunc.getRetType());
+            // 若有返回值
             if (curFunc.retType != FuncType.VOID) {
                 b.addOperand(val);
             }
-            ctx.addToCurrent(b.build());
+            ctx.addToCurrentBB(b.build());
             return;
         }
     }
 
+    /**
+     * 处理各种各样类型的表达式 SSA 生成
+     * 
+     * @param ctx
+     * @param curFunc
+     * @param expr_
+     * @return
+     */
     private Value visitDstExpr(FakeSSAGeneratorContext ctx, Func curFunc, Expr expr_) {
         if (expr_ instanceof CastExpr) {
             var expr = (CastExpr) expr_;
@@ -355,7 +402,7 @@ public class FakeSSAGenerator {
             }
             var cast = new CastInst.Builder(ctx.current, val).addOp(op).build();
             cast.comments = expr.reason;
-            ctx.addToCurrent(cast);
+            ctx.addToCurrentBB(cast);
             return cast;
         }
 
@@ -367,13 +414,17 @@ public class FakeSSAGenerator {
             if (expr.op.isBoolean()) {
                 if (!l.type.equals(r.type)) { // 检查两边类型，一边i1一边非i1时，需要cast到i1。
                     if (l.type.equals(Type.Boolean)) {
-                        r = ctx.addToCurrent(new BinopInst(ctx.current, BinaryOp.LOG_NEQ, ConstantValue.getDefault(r.type), r));
+                        r = ctx.addToCurrentBB(
+                                new BinopInst(ctx.current, BinaryOp.LOG_NEQ, ConstantValue.getDefault(r.type), r));
                     } else if (r.type.equals(Type.Boolean)) {
-                        l = ctx.addToCurrent(new BinopInst(ctx.current, BinaryOp.LOG_NEQ, ConstantValue.getDefault(l.type), l));
-                    } else {throw new RuntimeException("Wrong type for BinaryExpr "+expr.op.toString());}
+                        l = ctx.addToCurrentBB(
+                                new BinopInst(ctx.current, BinaryOp.LOG_NEQ, ConstantValue.getDefault(l.type), l));
+                    } else {
+                        throw new RuntimeException("Wrong type for BinaryExpr " + expr.op.toString());
+                    }
                 }
             }
-            var ret = ctx.addToCurrent(new BinopInst(ctx.current, expr.op, l, r));
+            var ret = ctx.addToCurrentBB(new BinopInst(ctx.current, expr.op, l, r));
             return ret;
         }
 
@@ -382,18 +433,18 @@ public class FakeSSAGenerator {
             var fv = (FuncValue) ctx.funcMap.get(expr.funcSymbol.func);
             var cb = new CallInst.Builder(ctx.current, fv);
             if (expr.args != null) {
-                for(int i=0;i<expr.args.length;i++) {
+                for (int i = 0; i < expr.args.length; i++) {
                     // 考虑数组传一部分的情况？
                     var val = visitDstExpr(ctx, curFunc, expr.args[i]);
                     // Float需要提升到Double再传入vararg？
                     if ((i >= expr.funcSymbol.func.params.size()) && val.type.equals(Type.Float)) {
                         assert expr.funcSymbol.func.isVariadic;
-                        val = ctx.addToCurrent(new CastInst.Builder(ctx.current, val).f2d().build());
+                        val = ctx.addToCurrentBB(new CastInst.Builder(ctx.current, val).f2d().build());
                     }
                     cb.addArg(val);
                 }
             }
-            return ctx.addToCurrent(cb.build());
+            return ctx.addToCurrentBB(cb.build());
         }
 
         if (expr_ instanceof LiteralExpr) {
@@ -401,11 +452,11 @@ public class FakeSSAGenerator {
             var constant = convertEvaledValue(expr.value);
             if (expr.value.basicType == BasicType.STRING_LITERAL) {
                 // 字符串放到全局变量里，然后返回i8*
-                var gv = new GlobalVariable(".str."+ctx.getStrInd(), constant.type.clone());
+                var gv = new GlobalVariable(".str." + ctx.nextStrIdx(), constant.type.clone());
                 gv.init = constant;
                 ctx.module.globs.add(gv);
                 // LLVM 是用 get element ptr 获取起始i8* 地址，我这里直接bitcast应该也行
-                return ctx.addToCurrent(new CastInst.Builder(ctx.current, gv).strBitCast(gv.type).build());
+                return ctx.addToCurrentBB(new CastInst.Builder(ctx.current, gv).strBitCast(gv.type).build());
             }
             return constant;
         }
@@ -422,15 +473,17 @@ public class FakeSSAGenerator {
                 return visitDstExpr(ctx, curFunc, expr.expr);
             } else if (expr.op == UnaryOp.NEG) {
                 var val = visitDstExpr(ctx, curFunc, expr.expr);
-                return ctx.addToCurrent(new BinopInst(ctx.current, BinaryOp.SUB, ConstantValue.getDefault(val.type), val));
+                return ctx.addToCurrentBB(
+                        new BinopInst(ctx.current, BinaryOp.SUB, ConstantValue.getDefault(val.type), val));
             } else if (expr.op == UnaryOp.NOT) {
                 var val = visitDstExpr(ctx, curFunc, expr.expr);
-                return ctx.addToCurrent(new BinopInst(ctx.current, BinaryOp.LOG_EQ, ConstantValue.getDefault(val.type), val));
-            }  else {
+                return ctx.addToCurrentBB(
+                        new BinopInst(ctx.current, BinaryOp.LOG_EQ, ConstantValue.getDefault(val.type), val));
+            } else {
                 throw new RuntimeException("Unknown UnaryOp type.");
             }
         }
-        
+
         if (expr_ instanceof NonShortLogicExpr) { // 说明要cast到i1类型了
             var expr = (NonShortLogicExpr) expr_;
             var val = visitDstExpr(ctx, curFunc, expr.expr);
@@ -438,7 +491,8 @@ public class FakeSSAGenerator {
                 return val; // 是逻辑表达式
             }
             // cast val to i1; (x) -> (x ne 0)
-            return ctx.addToCurrent(new BinopInst(ctx.current, BinaryOp.LOG_NEQ, ConstantValue.getDefault(val.type), val));
+            return ctx.addToCurrentBB(
+                    new BinopInst(ctx.current, BinaryOp.LOG_NEQ, ConstantValue.getDefault(val.type), val));
         }
 
         if (expr_ instanceof LogicExpr) {
@@ -454,6 +508,15 @@ public class FakeSSAGenerator {
 
     /**
      * 处理LVal中取数组下标的情况
+     * 
+     * 由于存在语义规则
+     * primaryExpr
+     * : '(' expr ')' #primaryExprQuote
+     * | lVal #primaryExprLVal
+     * | number #primaryExprNumber
+     * ;
+     * 会导致 LVal 不一定真的是左值，有可能只是一个能作为左值但不是左值的表达式。因此 toAssign 参数表明是否真的是左值（真的被赋值）
+     * 
      * @param ctx
      * @param curFunc
      * @param expr
@@ -461,40 +524,44 @@ public class FakeSSAGenerator {
      * @return
      */
     private Value visitLValExpr(FakeSSAGeneratorContext ctx, Func curFunc, LValExpr expr, boolean toAssign) {
+        // 取出 expr 对应的符号
         Value val;
         if (expr.declSymbol.decl.isGlobal) {
             val = ctx.globVarMap.get(expr.declSymbol.decl);
-        } else  {
+        } else {
             val = ctx.varMap.get(expr.declSymbol.decl);
         }
 
-        if (!expr.isArray) { // 不需要处理数组访问
+        // 如果没有数组访问表达式（方括号，下标访问）
+        if (!expr.isArray) {
+            // 进一步判断是否数组类型
             if (expr.declSymbol.decl.isArray()) { // 没有取下标，但是是数组
                 // 数组要么是alloca，要么是全局变量，要么是函数参数，这两种情况都直接是地址
-                assert toAssign == false;
-                // 忘记数组第一维
+                assert toAssign == false;// 也就是说，数组名称不可能直接被赋值
+                // 如果给了维度信息，忘记数组第一维
                 if (!(expr.declSymbol.decl.isDimensionOmitted)) {
                     assert !(val instanceof ParamValue);
                     var gep = new GetElementPtr(ctx.current, val);
                     gep.comments = "forget first dim";
-                    ctx.addToCurrent(gep);
+                    ctx.addToCurrentBB(gep);
                     gep.addIndex(ConstantValue.ofInt(0));
                     return gep;
                 }
                 assert val instanceof ParamValue;
                 return val;
             } else { // 不需要处理数组访问也不是数组
+
                 if (expr.declSymbol.decl.isConst()) { // 最简单情况，直接找到ConstantValue返回
                     assert toAssign == false;
                     return val;
-                } else {
-                    if (toAssign) {
-                        return val;
-                    } else {
-                        // 生成load语句
-                        return ctx.addToCurrent(new LoadInst(ctx.current, val));
-                    }
                 }
+                // 赋值语句，直接返回 decl
+                if (toAssign) {
+                    return val;
+                }
+                // 非 toAssign，则是访问右值，因此生成 load 语句
+                return ctx.addToCurrentBB(new LoadInst(ctx.current, val));
+
             }
         } else { // 是数组，同时也有取下标运算
             // 担心常量数组可能传函数参数，所以就当普通数组处理了。
@@ -504,13 +571,13 @@ public class FakeSSAGenerator {
                 var val_ = visitDstExpr(ctx, curFunc, exp);
                 gep.addIndex(val_);
             });
-            ctx.addToCurrent(gep);
+            ctx.addToCurrentBB(gep);
             if (gep.type.isArray()) { // index没有取到底
                 assert toAssign == false;
                 // 一般是函数调用出现，因此要再省略一维下标
                 var gep2 = new GetElementPtr(ctx.current, gep);
                 gep2.comments = "forget one dim";
-                ctx.addToCurrent(gep2);
+                ctx.addToCurrentBB(gep2);
                 // 非ParamValue自动加一个0
                 gep2.addIndex(ConstantValue.ofInt(0));
                 return gep2;
@@ -519,9 +586,9 @@ public class FakeSSAGenerator {
                 if (toAssign) {
                     return gep;
                 } else {
-                    return ctx.addToCurrent(new LoadInst(ctx.current, gep));
+                    return ctx.addToCurrentBB(new LoadInst(ctx.current, gep));
                 }
-            }            
+            }
         }
     }
 
@@ -534,91 +601,103 @@ public class FakeSSAGenerator {
             return;
         }
         // 生成alloca语句，即使是array也能一个指令解决
-        var alloc = new AllocaInst.Builder(ctx.current).addType(convertDstType(decl.type)).build();
-        ctx.addToCurrent(alloc);
-        alloc.name = ctx.nameLocal(decl.id);
-        ctx.varMap.put(decl, alloc);
+        var alloca = new AllocaInst.Builder(ctx.current).addType(convertDstType(decl.type)).build();
+        ctx.addToCurrentBB(alloca);
+        alloca.name = ctx.nameLocal(decl.id);
+        ctx.varMap.put(decl, alloca);
+
         // 处理非Const普通变量的初始值，可能是复杂表达式。
         // 语义分析没有计算evaledVal
-        if(decl.initVal != null) {
+        if (decl.initVal != null) {
             if (!decl.type.isArray) {
-                var cv = visitDstExpr(ctx, curFunc, decl.initVal.value);
-                var inst = new StoreInst.Builder(ctx.current).addOperand(cv, alloc).build();
-                ctx.addToCurrent(inst);
+                var val = visitDstExpr(ctx, curFunc, decl.initVal.value);
+                var inst = new StoreInst.Builder(ctx.current).addOperand(val, alloca).build();
+                ctx.addToCurrentBB(inst);
             } else {
                 // TODO array memset to 0 and getelementptr and set content.
-                setArrayInitialVal(ctx, curFunc, alloc, decl.initVal, decl.type.dims);
+                setArrayInitialVal(ctx, curFunc, alloca, decl.initVal, decl.type.dims);
             }
         }
     }
 
     /**
+     * 处理条件跳转表达式。
      * 递归处理and和or的短路求值
+     * 
      * @param ctx
      * @param curFunc
      * @param inLogic expr in LogicExpr (normally `stmt.condition.expr`)
-     * @param t
-     * @param f
+     * @param trueBlock 条件为真时跳转到的 bb
+     * @param falseBlock
      */
-    private void visitCondExprs(FakeSSAGeneratorContext ctx, ssa.ds.Func curFunc, Expr inLogic, BasicBlockValue t, BasicBlockValue f) {
-        if (inLogic instanceof BinaryExpr && ((BinaryExpr)inLogic).op.isShortCircuit()) { // logic and/or
+    private void visitCondExprs(FakeSSAGeneratorContext ctx, ssa.ds.Func curFunc, Expr inLogic, BasicBlockValue trueBlock,
+            BasicBlockValue falseBlock) {
+        // 如果是可以短路求值的二元表达式
+        if (inLogic instanceof BinaryExpr && ((BinaryExpr) inLogic).op.isShortCircuit()) { // logic and/or
             BinaryExpr expr = (BinaryExpr) inLogic;
             // 如果是and，true跳转到右边，false跳转到f。
             // 如果是or，true跳转到t，false跳转到右边。
             // 继续在右边递归生成。
-            int ind = ctx.getBBInd();
+            int bbid = ctx.nextBBIdx();
             BasicBlock next;
             if (expr.op == BinaryOp.LOG_AND) {
-                next = new BasicBlock("and_right_"+ind);
-                visitCondExprs(ctx, curFunc, expr.left, next.getValue(), f);
+                next = new BasicBlock("and_right_" + bbid);
+                visitCondExprs(ctx, curFunc, expr.left, next.getValue(), falseBlock);
             } else {
                 assert expr.op == BinaryOp.LOG_OR;
-                next = new BasicBlock("or_right_"+ind);
-                visitCondExprs(ctx, curFunc, expr.left, t, next.getValue());
+                next = new BasicBlock("or_right_" + bbid);
+                visitCondExprs(ctx, curFunc, expr.left, trueBlock, next.getValue());
             }
             ctx.current = next;
             curFunc.bbs.add(next);
-            visitCondExprs(ctx, curFunc, expr.right, t, f);
-        } else { // 正常生成，通过NonShortLogicExpr已经确保是i1类型
+            visitCondExprs(ctx, curFunc, expr.right, trueBlock, falseBlock);
+        } else { // 正常生成，通过 NonShortLogicExpr 已经确保是 i1 类型
             var cond = this.visitDstExpr(ctx, curFunc, inLogic);
-            ctx.addToCurrent(new BranchInst(ctx.current, cond, t, f));
+            ctx.addToCurrentBB(new BranchInst(ctx.current, cond, trueBlock, falseBlock));
         }
     }
 
-    void setArrayInitialVal(FakeSSAGeneratorContext ctx, ssa.ds.Func curFunc, Value ptr, InitValue initValue, List<Integer> dims) {
+    void setArrayInitialVal(FakeSSAGeneratorContext ctx, ssa.ds.Func curFunc, Value ptr, InitValue initValue,
+            List<Integer> dims) {
         if (initValue.isAllZero) { // 为了第一次调用时检查。
             return;
         }
 
         assert initValue.isArray;
+        // 处理多维度
         if (dims.size() > 1) {
             int currentSize = dims.get(0);
             dims = dims.subList(1, dims.size());
-            for (int i=0;i<currentSize;i++) {
+            for (int i = 0; i < currentSize; i++) {
                 var iv = initValue.values.get(i);
                 if (!iv.isAllZero) {
                     // 生成Gep
                     var ptr_ = new GetElementPtr(ctx.current, ptr);
                     ptr_.addIndex(ConstantValue.ofInt(i));
-                    ctx.addToCurrent(ptr_);
+                    ctx.addToCurrentBB(ptr_);
                     // 递归调用
                     setArrayInitialVal(ctx, curFunc, ptr_, iv, dims);
                 }
             }
         } else {
-            int currentSize = dims.get(0);
-            for (int i=0;i<currentSize;i++) {
-                var iv = initValue.values.get(i);
-                assert !iv.isArray;
-                // 如果iv不是默认值则生成gep和store？ TODO
-                if (iv.value instanceof LiteralExpr && ((LiteralExpr)(iv.value)).value.isDefault()) {
+            int dim = dims.get(0);
+            // 逐个维度进行初始化
+            for (int i = 0; i < dim; i++) {
+                var initval = initValue.values.get(i);
+                assert !initval.isArray;
+                // 如果iv不是默认值则生成gep和store？
+                if (initval.value instanceof LiteralExpr && ((LiteralExpr) (initval.value)).value.isDefault()) {
+                    // TODO
                 } else {
+                    // 计算地址
                     var ptr_ = new GetElementPtr(ctx.current, ptr);
                     ptr_.addIndex(ConstantValue.ofInt(i));
-                    ctx.addToCurrent(ptr_);
-                    var val = visitDstExpr(ctx, curFunc, iv.value);
+                    ctx.addToCurrentBB(ptr_);
+                    // 根据初始化值表达式生成初始化指令
+                    var val = visitDstExpr(ctx, curFunc, initval.value);
+                    // 然后把初始化的结果写入到 gep 指令算出的地址那里
                     var inst = new StoreInst.Builder(ctx.current).addOperand(val, ptr_).build();
-                    ctx.addToCurrent(inst);
+                    ctx.addToCurrentBB(inst);
                 }
             }
         }

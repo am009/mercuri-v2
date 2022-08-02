@@ -2,6 +2,16 @@ package ssa.ds;
 
 import ds.Global;
 
+/**
+ * Store 指令向 alloca 申请到的栈内存中写入数据
+ * 
+ * %i = alloca i32
+ * store i32 0, i32* %i
+ * 
+ * store 指令两个参数：
+ * 1. 要 store 的值
+ * 2. 要 store 到的地址
+ */
 public class StoreInst extends Instruction {
 
     public StoreInst() {
@@ -15,7 +25,12 @@ public class StoreInst extends Instruction {
             inst = new StoreInst();
             inst.parent = parent;
         }
-
+        /**
+         * 设置 Store 指令的参数
+         * @param val 要 store 什么值
+         * @param ptr 要 store 到哪儿
+         * @return
+         */
         public Builder addOperand(Value val, Value ptr) {
             inst.oprands.add(new Use(inst, val));
             inst.oprands.add(new Use(inst, ptr));
@@ -31,11 +46,13 @@ public class StoreInst extends Instruction {
     }
 
     public static boolean checkType(Type val, Type ptr) {
+        // 必须 store 到地址
         if (!ptr.isPointer){
             return false;
         }
         Type ty = ptr.clone();
         ty.isPointer = false;
+        // 地址解引用后必须是 val 的同类型
         return ty.equals(val);
     }
 

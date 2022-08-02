@@ -9,7 +9,10 @@ import ir.ds.Scope;
 
 public class LValExpr extends Expr {
     public String id;
-    public boolean isArray; // 是否有方括号表达式
+    /**
+     * 是否有方括号表达式（即是否是访问数组）
+     */
+    public boolean isArray;
     public List<Expr> indices;
 
     public DeclSymbol declSymbol;

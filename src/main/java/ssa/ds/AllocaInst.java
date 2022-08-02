@@ -1,5 +1,7 @@
 package ssa.ds;
-
+/**
+ * Alloca 指令用于在栈中分配内存
+ */
 public class AllocaInst extends Instruction {
     public Type ty;
     public long numElement = 1;

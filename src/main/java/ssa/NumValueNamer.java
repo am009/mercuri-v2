@@ -8,8 +8,12 @@ import ssa.ds.Module;
 import ssa.ds.Type;
 import ssa.ds.Value;
 
-// basicBlock的label还是生成的时候去命名，在ctx里放个index防止重名
-// 全局变量和函数参数也应当在生成时命名。语法里好像函数参数的名字不能省略。
+/**
+ * NumValueNamer 包含一个计数器状态变量，用于给所有的 Value 提供一个唯一的临时名称 
+ * 
+ * basicBlock的label还是生成的时候去命名，在ctx里放个index防止重名
+ * 全局变量和函数参数也应当在生成时命名。语法里好像函数参数的名字不能省略。
+ */
 public class NumValueNamer {
     long count = 0;
 

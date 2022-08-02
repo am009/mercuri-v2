@@ -5,9 +5,9 @@ import java.util.List;
 
 // 根据dims区分是否是array类型。
 public class Type implements Cloneable {
-    public PrimitiveTypeTag baseType;
-    public List<Integer> dims;
-    public boolean isPointer;
+    public PrimitiveTypeTag baseType; // 最基础类型
+    public List<Integer> dims; // 数组维度
+    public boolean isPointer; // if true, first dim is omited
 
     // 常用类型
     public static Type Void = new Type(PrimitiveTypeTag.VOID, null, false);

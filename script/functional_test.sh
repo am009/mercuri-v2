@@ -1,3 +1,11 @@
+#
+# 此脚本执行所有测试
+#
+# 用法：
+# ./script/functional_test.sh
+#
+
+
 BASEDIR=$(realpath $(dirname "$0")/..)
 RED='\033[0;34m'
 NC='\033[0m' # No Color

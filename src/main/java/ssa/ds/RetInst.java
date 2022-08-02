@@ -26,6 +26,7 @@ public class RetInst extends TerminatorInst {
             return this;
         }
 
+        // 设置返回值
         public Builder addOperand(Value v) {
             inst.oprands.add(new Use(inst, v));
             return this;
