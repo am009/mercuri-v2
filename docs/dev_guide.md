@@ -6,6 +6,17 @@ Java
 
 注意配置`src/main/java`为源码目录
 
+```shell
+sudo apt install gcc-arm-linux-gnueabihf libc6-dev-armhf-cross qemu-user-static
+sudo apt install qemu binutils clang binutils-arm-linux-gnueabi
+sudo apt install qemu-utils qemu-system-arm qemu-user
+```
+
+## troubleshooting
+
+```
+cc1: error: ‘-mfloat-abi=hard’: selected architecture lacks an FPU
+```
 
 ### 自动测试
 

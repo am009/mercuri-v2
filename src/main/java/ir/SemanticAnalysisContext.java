@@ -23,12 +23,10 @@ public class SemanticAnalysisContext {
 
     public void enterScope() {
         this.scope = this.scope.enter();
-        Global.logger.trace("enter scope");
     }
 
     public void leaveScope() {
         this.scope = this.scope.leave();
-        Global.logger.trace("leave scope");
     }
 
     public void enterLoop(LoopStatement loop) {

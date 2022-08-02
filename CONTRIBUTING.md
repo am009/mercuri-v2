@@ -9,9 +9,9 @@
 JDK 15 的安装：
 
 ```
-mkdir -p /usr/lib/jvm/
+sudo mkdir -p /usr/lib/jvm/
 wget https://download.java.net/java/GA/jdk15/779bf45e88a44cbd9ea6621d33e33db1/36/GPL/openjdk-15_linux-x64_bin.tar.gz -O /tmp/openjdk-15_linux-x64_bin.tar.gz
-tar -xzf /tmp/openjdk-15_linux-x64_bin.tar.gz -C /usr/lib/jvm/
+sudo tar -xzf /tmp/openjdk-15_linux-x64_bin.tar.gz -C /usr/lib/jvm/
 
 sudo update-alternatives --install "/usr/bin/java" "java" "/usr/lib/jvm/jdk-15/bin/java" 0 
 sudo update-alternatives --install "/usr/bin/javac" "javac" "/usr/lib/jvm/jdk-15/bin/javac" 0 
@@ -19,6 +19,8 @@ sudo update-alternatives --install "/usr/bin/javap" "javap" "/usr/lib/jvm/jdk-15
 sudo update-alternatives --set java /usr/lib/jvm/jdk-15/bin/java 
 sudo update-alternatives --set javac /usr/lib/jvm/jdk-15/bin/javac 
 sudo update-alternatives --set javap /usr/lib/jvm/jdk-15/bin/javap 
+
+sudo ln -s /usr/lib/jvm/jdk-15/bin/jar /usr/bin/jar
 ```
 
 检查：
