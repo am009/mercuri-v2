@@ -39,17 +39,18 @@ def test(target_elf, out_file, in_file=None, is_asm=False):
     else:
         print(RED+"Result Mismatch"+NC)
         return False
+import os
 
-
+proj_dir = os.path.dirname(os.path.dirname(__file__))
 debug_case = None
 # debug_case = '54_hidden_var' # uncomment to debug
 if debug_case:
     assert len(sys.argv) == 1
-    sys.argv = ['debugasm', '/mnt/c/Users/warren/d/2022/compiler-contest/mercuri-v2/script/functional_checker.py', f'/mnt/c/Users/warren/d/2022/compiler-contest/mercuri-v2/target/test/functional/{debug_case}.sy.elf', f'/mnt/c/Users/warren/d/2022/compiler-contest/mercuri-v2/test/functional/{debug_case}.out']
+    sys.argv = ['debugasm', f'{proj_dir}/script/functional_checker.py', f'{proj_dir}/target/test/functional/{debug_case}.sy.elf', f'{proj_dir}/test/functional/{debug_case}.out']
 print(sys.argv)
 
 if len(sys.argv) < 4:
-    print("Usage: {} <mode> target_elf out_file [in_file]")
+    print("Usage: {} [ir|debugir|asm|debugasm] target_elf out_file [in_file]")
     exit(-1)
 
 mode = sys.argv[1]
@@ -65,8 +66,10 @@ in_file = None
 if len(sys.argv) >= 5:
     in_file = sys.argv[4]
 if mode == 'ir':
-    test(target_elf, out_file, in_file, is_asm=False)
+    ret = test(target_elf, out_file, in_file, is_asm=False)
+    exit(ret!=True)
 elif mode == 'asm':
-    test(target_elf, out_file, in_file, is_asm=True)
+    ret = test(target_elf, out_file, in_file, is_asm=True)
+    exit(ret!=True)
 else:
     assert False
