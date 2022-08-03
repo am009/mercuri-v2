@@ -659,9 +659,10 @@ public class FakeSSAGenerator {
 
     void setArrayInitialVal(FakeSSAGeneratorContext ctx, ssa.ds.Func curFunc, Value ptr, InitValue initValue,
             List<Integer> dims) {
-        if (initValue.isAllZero) { // 为了第一次调用时检查。
-            return;
-        }
+        // TODO 先把整个内存区域memset为0，再仅赋值非零元素
+        // if (initValue.isAllZero) { // 为了第一次调用时检查。
+        //     return;
+        // }
 
         assert initValue.isArray;
         // 处理多维度
@@ -670,14 +671,15 @@ public class FakeSSAGenerator {
             dims = dims.subList(1, dims.size());
             for (int i = 0; i < currentSize; i++) {
                 var iv = initValue.values.get(i);
-                if (!iv.isAllZero) {
+                // TODO 先把整个内存区域memset为0，再仅赋值非零元素
+                // if (!iv.isAllZero) {
                     // 生成Gep
                     var ptr_ = new GetElementPtr(ctx.current, ptr);
                     ptr_.addIndex(ConstantValue.ofInt(i));
                     ctx.addToCurrentBB(ptr_);
                     // 递归调用
                     setArrayInitialVal(ctx, curFunc, ptr_, iv, dims);
-                }
+                // }
             }
         } else {
             int dim = dims.get(0);
@@ -685,10 +687,11 @@ public class FakeSSAGenerator {
             for (int i = 0; i < dim; i++) {
                 var initval = initValue.values.get(i);
                 assert !initval.isArray;
-                // 如果iv不是默认值则生成gep和store？
-                if (initval.value instanceof LiteralExpr && ((LiteralExpr) (initval.value)).value.isDefault()) {
-                    // TODO
-                } else {
+                
+                // TODO 先把整个内存区域memset为0，再仅赋值非零元素
+                // if (initval.value instanceof LiteralExpr && ((LiteralExpr) (initval.value)).value.isDefault()) {
+                //     // TODO
+                // } else {// 如果iv不是默认值则生成gep和store
                     // 计算地址
                     var ptr_ = new GetElementPtr(ctx.current, ptr);
                     ptr_.addIndex(ConstantValue.ofInt(i));
@@ -698,7 +701,7 @@ public class FakeSSAGenerator {
                     // 然后把初始化的结果写入到 gep 指令算出的地址那里
                     var inst = new StoreInst.Builder(ctx.current).addOperand(val, ptr_).build();
                     ctx.addToCurrentBB(inst);
-                }
+                // }
             }
         }
     }

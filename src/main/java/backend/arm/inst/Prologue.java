@@ -24,7 +24,7 @@ public class Prologue extends ConstrainRegInst {
     public String toString() {
         var sb = new StringBuilder(format);
         var stackSize = Math.toIntExact(func.sm.totalStackSize());
-        var subs = Generator.expandBinOp(new BinOpInst(null, BinaryOp.SUB, new Reg(Reg.Type.sp), new Reg(Reg.Type.sp), new IntImm(stackSize)));
+        var subs = Generator.expandBinOpIP(new BinOpInst(null, BinaryOp.SUB, new Reg(Reg.Type.sp), new Reg(Reg.Type.sp), new IntImm(stackSize)));
         subs.forEach(inst -> {sb.append("\t").append(inst.toString()).append("\n");});
         return sb.toString();
     }

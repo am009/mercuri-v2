@@ -738,12 +738,39 @@ public class Generator {
         }
     }
 
-    // 如果立即数字段无法放下则需要额外生成MOV32
-    public static List<AsmInst> expandBinOp(BinOpInst bin) {
+    public List<AsmInst> expandBinOp(BinOpInst bin) {
         List<AsmInst> ret = new ArrayList<>();
         var op1 = bin.uses.get(0);
         var op2 = bin.uses.get(1);
         if (op1 instanceof Imm) { // 如果是label也要展开
+            var tmp = getVReg(op1.isFloat); // 需要单个临时寄存器直接用ip
+            ret.addAll(MovInst.loadImm(bin.parent, tmp, ((Imm)op1)));
+            op1 = tmp;
+        }
+        if (op2 instanceof Imm) {
+            // 0-4095的#imm12仅在Thumb模式下有。
+            if (op2 instanceof IntImm && (bin.op == BinaryOp.ADD || bin.op == BinaryOp.SUB) && ((IntImm) op2).highestOneBit() < 255) {
+                // OK to use imm
+            } else {
+                var tmp = getVReg(op2.isFloat); // 需要单个临时寄存器直接用ip
+                ret.addAll(MovInst.loadImm(bin.parent, tmp, ((IntImm)op2)));
+                op2 = tmp;
+            }
+        }
+        bin.uses = new ArrayList<>(List.of(op1, op2));
+        ret.add(bin);
+        return ret;
+    }
+
+    // 使用IP寄存器作为临时寄存器的版本。不支持两个操作数都是需要MOV的常量
+    public static List<AsmInst> expandBinOpIP(BinOpInst bin) {
+        List<AsmInst> ret = new ArrayList<>();
+        var op1 = bin.uses.get(0);
+        var op2 = bin.uses.get(1);
+        boolean ipUsed = false;
+        if (op1 instanceof Imm) { // 如果是label也要展开
+            assert ipUsed == false;
+            ipUsed = true;
             var tmp = new Reg(Reg.Type.ip); // 需要单个临时寄存器直接用ip
             ret.addAll(MovInst.loadImm(bin.parent, tmp, ((Imm)op1)));
             op1 = tmp;
@@ -753,6 +780,8 @@ public class Generator {
             if (op2 instanceof IntImm && (bin.op == BinaryOp.ADD || bin.op == BinaryOp.SUB) && ((IntImm) op2).highestOneBit() < 255) {
                 // OK to use imm
             } else {
+                assert ipUsed == false;
+                ipUsed = true;
                 var tmp = new Reg(Reg.Type.ip); // 需要单个临时寄存器直接用ip
                 ret.addAll(MovInst.loadImm(bin.parent, tmp, ((IntImm)op2)));
                 op2 = tmp;
