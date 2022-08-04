@@ -177,6 +177,13 @@ public class AstExprVisitor extends SysyBaseVisitor<Expr> {
     }
 
     public FuncCall visitUnaryFunc(UnaryFuncContext ast0, DstGeneratorContext ctx) {
+        String name = ast0.ID().getText();
+        if (name.equals("starttime") || name.equals("stoptime")) {
+            Expr[] arg = new Expr[1];
+            int lineno = ast0.getStart().getLine();
+            arg[0] = new LiteralExpr(EvaluatedValue.ofInt(lineno));
+            return new FuncCall("_sysy_"+name, arg);
+        }
         return new FuncCall(ast0.ID().getText(), this.visitFuncArgs(ast0.funcArgs(), ctx));
     }
 

@@ -81,6 +81,18 @@ public class Module {
                 add(Decl.fromSimpleParam("fmt", BasicType.STRING_LITERAL));
             }
         }, Block.Empty).setIsVariadic(true));
+        // int _sysy_starttime(int line);
+        list.add(new Func(FuncType.INT, "_sysy_starttime", new ArrayList<Decl>() {
+            {
+                add(Decl.fromSimpleParam("line", BasicType.INT));
+            }
+        }, Block.Empty));
+        // int _sysy_stoptime(int line);
+        list.add(new Func(FuncType.INT, "_sysy_stoptime", new ArrayList<Decl>() {
+            {
+                add(Decl.fromSimpleParam("line", BasicType.INT));
+            }
+        }, Block.Empty));
         builtinFuncs = list;
     }
 }

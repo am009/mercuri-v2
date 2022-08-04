@@ -34,6 +34,7 @@ def test(target_elf, out_file, in_file=None, is_asm=False):
     NC='\033[0m' # No Color
 
     if out.strip() == s.strip():
+        print(err) # perfomance test打印所花时间
         print(RED+"=========== Pass! ==============" +NC)
         return True
     else:

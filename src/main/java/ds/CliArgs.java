@@ -16,6 +16,11 @@ public class CliArgs {
      * -S
      */
     private OutType outType;
+    /**
+     * Optimize level
+     * -On
+     */
+    private int optLv;
 
     @Override
     public String toString() {
@@ -38,6 +43,10 @@ public class CliArgs {
         return this.outType;
     }
 
+    public boolean isOpt() {
+        return optLv != 0;
+    }
+
     public enum OutType {
         ASM,
     }
@@ -56,6 +65,8 @@ public class CliArgs {
                 }
             } else if (arg.equals("-S")) {
                 cliArgs.outType = OutType.ASM;
+            } else if (arg.startsWith("-O")) {
+                cliArgs.optLv = Integer.valueOf(arg.substring(2));
             } else {
                 cliArgs.inFile = arg;
             }
