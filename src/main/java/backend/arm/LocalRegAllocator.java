@@ -33,6 +33,9 @@ import ds.Global;
 // Bottom-Up Local Register Allocation
 // TODO 维护函数的 usedCalleeSavedReg
 public class LocalRegAllocator {
+    public static final int CORE_REG_COUNT = 11;
+    public static final int VFP_REG_COUNT = 32;
+
     public AsmFunc func;
     public Set<VirtReg> globs = new HashSet<>(); // 跨基本块的全局值
     public Map<VirtReg, StackOperand> globSpill = new HashMap<>();
@@ -89,10 +92,10 @@ public class LocalRegAllocator {
 
         public BlockAllocator() {
             rcs = new RegClass[2];
-            // 11 normal reg
-            rcs[0] = new RegClass(11);
-            // 32 vfp reg
-            rcs[1] = new RegClass(32);
+            // normal reg
+            rcs[0] = new RegClass(CORE_REG_COUNT);
+            // vfp reg
+            rcs[1] = new RegClass(VFP_REG_COUNT);
         }
 
         public int checkInPhyReg(VirtReg vr) {
@@ -221,7 +224,7 @@ public class LocalRegAllocator {
         // 所有寄存器都没有被占用，如果有则一定是global的值，spill到内存里。
         public void onBlockEnd(AsmBlock blk, List<AsmInst> toInsertBefore) {
             for (RegClass rc: rcs) {
-                boolean isFloat = rc.count == 32;
+                boolean isFloat = rc.count == VFP_REG_COUNT;
                 for(int i=0;i<rc.count;i++) {
                     var vreg = rc.current[i];
                     if (vreg != null && globs.contains(vreg)) {
@@ -242,7 +245,7 @@ public class LocalRegAllocator {
                     fargs.add(((VfpReg)reg).index);
                 } else {throw new RuntimeException();}
             }
-            for (int i=0;i<11;i++) {
+            for (int i=0;i<CORE_REG_COUNT;i++) {
                 Reg.Type r = Reg.Type.values[i];
                 if (!r.isCalleeSaved() && !rcs[0].free.contains(i) && !iargs.contains(i)) {
                     // spill ind
@@ -395,19 +398,23 @@ public class LocalRegAllocator {
 
                 // 如果use不需要了当前的值，则free寄存器。
                 // 缓存结果
-                ArrayList<Boolean> notNeeded = new ArrayList<>();
+                ArrayList<Boolean> updateNext = new ArrayList<>();
                 for(var vreg: uses) {
                     int lastUse = bd.useLists.get(vreg).get(0); // global value may have size 0.
                     boolean notNeed = (i-addedInstCount) >= lastUse; // 是最后一个用该VirtReg的指令
-                    notNeeded.add(notNeed);
+                    int currentInd = state.checkInPhyReg(vreg);
+                    assert currentInd != -1;
                     if (notNeed) { // TODO check notNeed 是否判断正确
-                        int currentInd = state.checkInPhyReg(vreg);
-                        assert currentInd != -1;
-                        if (globs.contains(vreg)) { // use不会改变vreg的值，如果spill过就不用spill
+                        if (globs.contains(vreg)) { // use不会改变vreg的值，如果spill过就不用spill？TODO
                             state.spillInd(currentInd, vreg.isFloat, blk, toInsertBefore);
                         }
                         state.free(currentInd, vreg.isFloat);
+                    } else if (inst instanceof CallInst) { // 特殊情况，Call指令的参数（caller saved reg）即使你需要，也得spill&free掉。而且不用updateNext
+                        notNeed = true; // 不计算Next。
+                        state.spillInd(currentInd, vreg.isFloat, blk, toInsertBefore);
+                        state.free(currentInd, vreg.isFloat);
                     }
+                    updateNext.add(!notNeed);
                 }
                 // 给Def分配寄存器
                 List<VirtReg> defs = filterVirtReg(inst.defs);
@@ -456,7 +463,7 @@ public class LocalRegAllocator {
                 }
                 // 设置相关的Next值。
                 for (int j=0;j<uses.size();j++) {
-                    if (!notNeeded.get(j)) { // 仍然需要寄存器
+                    if (updateNext.get(j)) { // 仍然需要寄存器
                         var vreg = uses.get(j);
                         var phyReg = newUses.get(j);
                         boolean isFloat = vreg.isFloat;

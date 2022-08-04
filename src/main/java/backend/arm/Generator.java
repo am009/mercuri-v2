@@ -823,7 +823,7 @@ public class Generator {
             assert target instanceof Reg || target instanceof VfpReg;
             // 超出了4095，则add sub的imm字段也放不下? TODO
             AsmOperand tmp= new Reg(Reg.Type.ip);
-            var tmp2 = target;
+            var tmp2 = new Reg(Reg.Type.ip);
             if (so.type == StackOperand.Type.SELF_ARG) {
                 insts.addAll(MovInst.loadImm(p, tmp, new IntImm(Math.toIntExact(so.offset))));
                 insts.add(new BinOpInst(p, BinaryOp.ADD, tmp2, new Reg(Reg.Type.fp), tmp));

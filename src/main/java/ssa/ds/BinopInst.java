@@ -9,7 +9,7 @@ public class BinopInst extends Instruction {
 
     public BinopInst(BasicBlock parent, BinaryOp op, Value lhs, Value rhs) {
         this.parent = parent;
-        assert lhs.type.equals(rhs.type); // 确保两边类型相同
+        // assert lhs.type.equals(rhs.type); // 确保两边类型相同 TODO 为了`!0`这种运算临时取消assert
         Type type = lhs.type;
         this.opType = type;
         this.type = type;

@@ -411,19 +411,19 @@ public class FakeSSAGenerator {
             assert !expr.op.isShortCircuit();
             var l = visitDstExpr(ctx, curFunc, expr.left);
             var r = visitDstExpr(ctx, curFunc, expr.right);
-            if (expr.op.isBoolean()) {
-                if (!l.type.equals(r.type)) { // 检查两边类型，一边i1一边非i1时，需要cast到i1。
-                    if (l.type.equals(Type.Boolean)) {
-                        r = ctx.addToCurrentBB(
-                                new BinopInst(ctx.current, BinaryOp.LOG_NEQ, ConstantValue.getDefault(r.type), r));
-                    } else if (r.type.equals(Type.Boolean)) {
-                        l = ctx.addToCurrentBB(
-                                new BinopInst(ctx.current, BinaryOp.LOG_NEQ, ConstantValue.getDefault(l.type), l));
-                    } else {
-                        throw new RuntimeException("Wrong type for BinaryExpr " + expr.op.toString());
-                    }
-                }
-            }
+            // if (expr.op.isBoolean()) {
+            //     if (!l.type.equals(r.type)) { // 检查两边类型，一边i1一边非i1时，需要cast到i1。
+            //         if (l.type.equals(Type.Boolean)) {
+            //             r = ctx.addToCurrentBB(
+            //                     new BinopInst(ctx.current, BinaryOp.LOG_NEQ, ConstantValue.getDefault(r.type), r));
+            //         } else if (r.type.equals(Type.Boolean)) {
+            //             l = ctx.addToCurrentBB(
+            //                     new BinopInst(ctx.current, BinaryOp.LOG_NEQ, ConstantValue.getDefault(l.type), l));
+            //         } else {
+            //             throw new RuntimeException("Wrong type for BinaryExpr " + expr.op.toString());
+            //         }
+            //     }
+            // }
             var ret = ctx.addToCurrentBB(new BinopInst(ctx.current, expr.op, l, r));
             return ret;
         }
