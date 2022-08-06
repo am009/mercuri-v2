@@ -39,6 +39,7 @@ public class LocalRegAllocator {
     public AsmFunc func;
     public Set<VirtReg> globs = new HashSet<>(); // 跨基本块的全局值
     public Map<VirtReg, StackOperand> globSpill = new HashMap<>();
+    // asm bb 的上下文信息
     public Map<AsmBlock, BlockData> blockData = new HashMap<>();
     // 分配过的寄存器全部收集起来，之后过滤出callee saved的设置到函数里。
     public Set<Integer> usedReg = new HashSet<>();

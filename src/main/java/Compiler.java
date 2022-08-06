@@ -69,12 +69,15 @@ public class Compiler {
         AsmModule asm = backend.arm.Generator.process(ssa);
         Global.logger.trace("--- asm inst selection ---");
         Global.logger.trace(asm.toString());
-        asm = backend.arm.LocalRegAllocator.process(asm);
-        Global.logger.trace("--- asm reg alloc ---");
-        Global.logger.trace(asm.toString());
-        if (args.getOutFile() != null) {
-            Files.writeString(Path.of(args.getOutFile()), asm.toString());
-        }
+        // create log dir 
+        backend.ra.LiveIntervalAnalyzer.process(asm);
+        backend.FlowViewer.process(asm);
+        // asm = backend.arm.LocalRegAllocator.process(asm);
+        // Global.logger.trace("--- asm reg alloc ---");
+        // Global.logger.trace(asm.toString());
+        // if (args.getOutFile() != null) {
+        //     Files.writeString(Path.of(args.getOutFile()), asm.toString());
+        // }
     }
 
     private static void initLogger() throws IOException {
