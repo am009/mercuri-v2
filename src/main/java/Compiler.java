@@ -64,8 +64,8 @@ public class Compiler {
         }
         // TODO pass manager
         ssa = EABIArithmeicLowing.process(ssa);
-        Global.logger.trace("--- EABIArithmeicLowing ---");
-        Global.logger.trace(ssa.toString());
+        // Global.logger.trace("--- EABIArithmeicLowing ---");
+        // Global.logger.trace(ssa.toString());
         AsmModule asm = backend.arm.Generator.process(ssa);
         Global.logger.trace("--- asm inst selection ---");
         Global.logger.trace(asm.toString());

@@ -41,6 +41,15 @@ public class CastInst extends Instruction {
             return this;
         }
 
+        // from i1 to i32
+        public Builder boolExtCast() {
+            inst.op = CastOp.ZEXT;
+            inst.type = Type.Int;
+            inst.from = Type.Boolean;
+            assert inst.oprands.get(0).value.type.equals(Type.Boolean);
+            return this;
+        }
+
         // float to double
         public Builder f2d() {
             inst.op = CastOp.FPEXT;

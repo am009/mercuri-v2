@@ -27,7 +27,7 @@ for file in $BASEDIR/test/functional/*.sy; do
         continue
     fi
     
-    # runone_ir functional $file
+    runone_ir functional $file
 
     runone_asm functional $file
 done

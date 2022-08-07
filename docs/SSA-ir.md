@@ -92,9 +92,11 @@ sysy只有基本的类型int float和较为复杂的数组类型，没有复杂�
 
 #### boolean 相关
 
-由于源码中没有boolean类型，但是IR中跟随LLVM支持boolean类型，因此在Sematic分析阶段和IR生成阶段是不同的角度看待逻辑表达式的。Sematic阶段是把大于小于这种都看作int类型的操作，只不过只返回1或者0，最后在condition的时候通过比较是不是0来跳转。而IR阶段中让这种操作返回i1。遇到了NonShortLogicExpr的时候说明即使不是i1也要转换为i1了。
+2022年8月7日 为了支持类似`!0`这样的运算，那些看似返回boolean类型的值，其实都需要返回i32类型的。但是LLVM IR的比较运算都是返回i1，所以在IR阶段就直接根据语义，在这种比较运算后插入zext直接拓展到i32类型。
 
-因此Sematic阶段的Type不支持表示boolean，而IR阶段的Type则支持。
+~~由于源码中没有boolean类型，但是IR中跟随LLVM支持boolean类型，因此在Sematic分析阶段和IR生成阶段是不同的角度看待逻辑表达式的。Sematic阶段是把大于小于这种都看作int类型的操作，只不过只返回1或者0，最后在condition的时候通过比较是不是0来跳转。而IR阶段中让这种操作返回i1。遇到了NonShortLogicExpr的时候说明即使不是i1也要转换为i1了。~~
+
+~~因此Sematic阶段的Type不支持表示boolean，而IR阶段的Type则支持。~~
 
 #### 生成控制流
 

@@ -26,7 +26,7 @@ function runone_ir {
     name=$(basename $file)
     printf "${RED}--- Compile IR ${file} ---${NC}\n"
     compile_one $file $BASEDIR/target/test/${category}/${name}.ll > /dev/null
-    clang $BASEDIR/test/lib/sylib.ll $BASEDIR/target/test/${category}/${name}.ll -o $BASEDIR/target/test/${category}/${name}.elf
+    clang -O2 $BASEDIR/test/lib/sylib.ll $BASEDIR/target/test/${category}/${name}.ll -o $BASEDIR/target/test/${category}/${name}.elf
     printf "${RED}--- Testing IR ${file} ---${NC}\n"
     if [ ! -f $BASEDIR/test/${category}/${name%.*}.in ]; then
         python3 $BASEDIR/script/functional_checker.py ir $BASEDIR/target/test/${category}/${name}.elf $BASEDIR/test/${category}/${name%.*}.out

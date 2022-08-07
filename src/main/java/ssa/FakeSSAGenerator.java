@@ -411,21 +411,12 @@ public class FakeSSAGenerator {
             assert !expr.op.isShortCircuit();
             var l = visitDstExpr(ctx, curFunc, expr.left);
             var r = visitDstExpr(ctx, curFunc, expr.right);
-            // TODO 临时支持`!0`运算而注释
-            // if (expr.op.isBoolean()) {
-            //     if (!l.type.equals(r.type)) { // 检查两边类型，一边i1一边非i1时，需要cast到i1。
-            //         if (l.type.equals(Type.Boolean)) {
-            //             r = ctx.addToCurrentBB(
-            //                     new BinopInst(ctx.current, BinaryOp.LOG_NEQ, ConstantValue.getDefault(r.type), r));
-            //         } else if (r.type.equals(Type.Boolean)) {
-            //             l = ctx.addToCurrentBB(
-            //                     new BinopInst(ctx.current, BinaryOp.LOG_NEQ, ConstantValue.getDefault(l.type), l));
-            //         } else {
-            //             throw new RuntimeException("Wrong type for BinaryExpr " + expr.op.toString());
-            //         }
-            //     }
-            // }
             var ret = ctx.addToCurrentBB(new BinopInst(ctx.current, expr.op, l, r));
+            // 保证比较等布尔运算返回的是i32类型
+            if (ret.type.equals(Type.Boolean)) { // op.isBoolean()
+                ret = new CastInst.Builder(ctx.current, ret).boolExtCast().build();
+                ctx.addToCurrentBB(ret);
+            }
             return ret;
         }
 
@@ -478,8 +469,11 @@ public class FakeSSAGenerator {
                         new BinopInst(ctx.current, BinaryOp.SUB, ConstantValue.getDefault(val.type), val));
             } else if (expr.op == UnaryOp.NOT) {
                 var val = visitDstExpr(ctx, curFunc, expr.expr);
-                return ctx.addToCurrentBB(
+                var ret = ctx.addToCurrentBB(
                         new BinopInst(ctx.current, BinaryOp.LOG_EQ, ConstantValue.getDefault(val.type), val));
+                ret = new CastInst.Builder(ctx.current, ret).boolExtCast().build();
+                ctx.addToCurrentBB(ret);
+                return ret;
             } else {
                 throw new RuntimeException("Unknown UnaryOp type.");
             }

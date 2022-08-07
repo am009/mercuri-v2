@@ -437,7 +437,9 @@ public class Generator {
                 abb.insts.addAll(expandInstImm(vmov));
                 var vcvt = new VCVTInst(abb, VCVTInst.Ty.I2F, to, mid);
                 abb.insts.add(vcvt);
-            } else if (inst.op == CastOp.FPEXT) { // 目前只需要处理vararg的float传参提升到double的情况。
+            } else if (inst.op == CastOp.FPEXT) { // 目前只需要处理vararg的float传参提升到double的情况，在这里直接无视，在后面传参时单独处理。
+                vregMap.put(inst, convertValue(inst.oprands.get(0).value, func, abb));
+            } else if (inst.op == CastOp.ZEXT) { // 目前只有从i1到i32的情况，似乎不要做什么
                 vregMap.put(inst, convertValue(inst.oprands.get(0).value, func, abb));
             } else {throw new UnsupportedOperationException(inst.op.toString());}
             return;
