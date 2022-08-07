@@ -25,13 +25,13 @@ import backend.arm.inst.Prologue;
 import backend.arm.inst.RetInst;
 import backend.arm.inst.StoreInst;
 import backend.arm.inst.VLDRInst;
+import backend.arm.inst.VMovInst;
 import backend.arm.inst.VSTRInst;
 import ds.Global;
 
 // 简单的寄存器分配算法，尽量保证正确性即可。之后应当实现图着色来替换
 // 由于未优化的IR可能没有global（跨基本块使用）的值，所以相关的正确性有待进一步测试。
 // Bottom-Up Local Register Allocation
-// TODO 维护函数的 usedCalleeSavedReg
 public class LocalRegAllocator {
     public static final int CORE_REG_COUNT = 11;
     public static final int VFP_REG_COUNT = 32;
@@ -67,7 +67,16 @@ public class LocalRegAllocator {
     public class BlockData {
         // public Set<VirtReg> live = new HashSet<>();
         public Map<VirtReg, List<Integer>> useLists = new HashMap<>();// 里面的值应该是降序的。
-        public Map<VirtReg, AsmOperand> allocHint = new HashMap<>();
+        public Map<VirtReg, AllocHint> allocHint = new HashMap<>();
+    }
+
+    public static class AllocHint {
+        AsmOperand cons; // 如果后面存在约束，则优先直接分配到约束所在寄存器
+        boolean isCrossCall; // 如果跨了函数调用，则优先分配callee saved reg。
+
+        public AllocHint(AsmOperand cons, boolean isCrossCall) {
+            this.cons = cons; this.isCrossCall = isCrossCall;
+        }
     }
 
     public class RegClass {
@@ -109,12 +118,18 @@ public class LocalRegAllocator {
             return -1;
         }
 
-        public int allocateReg(VirtReg vreg, int hint, AsmBlock blk, List<AsmInst> toInsertBefore) {
+        public int allocateReg(VirtReg vreg, AllocHint hint, AsmBlock blk, List<AsmInst> toInsertBefore) {
             int ret = -1;
             RegClass rc = rcs[b2i(vreg.isFloat)];
             if (rc.free.size() > 0) {
-                if (hint != -1 && rc.free.contains(hint)) {
-                    ret = hint;
+                var hintInd = -1;
+                if (hint != null && hint.cons != null) {
+                    hintInd = reg2ind(hint.cons, vreg.isFloat);
+                }
+                if (hintInd != -1 && rc.free.contains(hintInd)) {
+                    ret = hintInd;
+                } else if (hint != null && hint.isCrossCall && (getFreeCalleeSavedReg(rc, vreg.isFloat) != -1)) {
+                    ret = getFreeCalleeSavedReg(rc, vreg.isFloat);
                 } else {
                     // get first element
                     ret = rc.free.getFirst();
@@ -214,7 +229,13 @@ public class LocalRegAllocator {
             // generate mov inst;
             AsmOperand regTo = ind2Reg(to, isFloat);
             AsmOperand regFrom = ind2Reg(from, isFloat);
-            var mov = new MovInst(blk, MovInst.Ty.REG, regTo, regFrom);
+            AsmInst mov;
+            if (isFloat) {
+                mov = new VMovInst(blk, VMovInst.Ty.CPY, regTo, regFrom);
+            } else {
+                mov = new MovInst(blk, MovInst.Ty.REG, regTo, regFrom);
+            }
+            
             mov.comment = "LocalRegAllocator.moveTo";
             toInsertBefore.add(mov);
 
@@ -299,6 +320,22 @@ public class LocalRegAllocator {
         return m;
     }
 
+    // 从rc.free中找，是否有callee saved reg，有则返回index
+    public int getFreeCalleeSavedReg(RegClass rc, boolean isFloat) {
+        int startInd;
+        if (!isFloat) { // r4+
+            startInd = 4;
+        } else { // s16+
+            startInd = 16;
+        }
+        for (int ind: rc.free) {
+            if (ind >= startInd) {
+                return ind;
+            }
+        }
+        return -1;
+    }
+
     // 把每个基本块里，每个虚拟寄存器的使用处index记录下来组合成一个list，便于实现Dist函数
     // 需要每个寄存器的最后一个使用点，用于判断某寄存器是否可以被Free掉。
     // global值的发现：如果遍历到开头时发现某变量被使用而没有被定义，则说明是global的。
@@ -312,6 +349,19 @@ public class LocalRegAllocator {
             Set<VirtReg> dead = new HashSet<>(); // 确保每个VirtReg仅有一个live range。
             for (int j = blk.insts.size() - 1; j >= 0; j--) {
                 var inst = blk.insts.get(j);
+                // 逆向分析，所以先处理def
+                for (var def: inst.defs) {
+                    if (def instanceof VirtReg) {
+                        live.remove((VirtReg)def);
+                        dead.add((VirtReg)def);
+                    }
+                }
+                // 在call的use和def中间还活跃的值，就是跨越了函数调用的，优先分配callee saved寄存器
+                if (inst instanceof CallInst) {
+                    for (var vreg: live) {
+                        ba.allocHint.getOrDefault(vreg, new AllocHint(null, false)).isCrossCall = true;
+                    }
+                }
                 for (var u: inst.uses) {
                     if (u instanceof VirtReg) {
                         live.add((VirtReg)u);
@@ -323,15 +373,11 @@ public class LocalRegAllocator {
                         if (dead.contains(u)) {throw new RuntimeException("Multiple live ranges use same VirtReg!");}
                     }
                 }
-                for (var def: inst.defs) {
-                    if (def instanceof VirtReg) {
-                        live.remove((VirtReg)def);
-                        dead.add((VirtReg)def);
-                    }
-                }
                 if (inst instanceof ConstrainRegInst) {
                     // 替换式加入，因此仅保留最靠前的约束
-                    ba.allocHint.putAll(((ConstrainRegInst)inst).getConstraints());
+                    for (var con: ((ConstrainRegInst)inst).getConstraints().entrySet()) {
+                        ba.allocHint.getOrDefault(con.getKey(), new AllocHint(null, false)).cons = con.getValue();
+                    }
                 }
             }
             globs.addAll(live);
@@ -376,7 +422,7 @@ public class LocalRegAllocator {
                             continue;
                         }
                         // 没有约束，且没有分配寄存器，先随便分配寄存器，然后找到值，加载进来。
-                        int regind = state.allocateReg(vreg, reg2ind(hint, vreg.isFloat), blk, toInsertBefore);
+                        int regind = state.allocateReg(vreg, hint, blk, toInsertBefore);
                         StackOperand spilledLoc = state.getSpill(vreg);
                         assert spilledLoc != null; // 
                         var to = ind2Reg(regind, vreg.isFloat);
@@ -461,7 +507,7 @@ public class LocalRegAllocator {
                     }
                     if (constraints == null || !constraints.containsKey(vreg)) {
                         var hint = bd.allocHint.get(vreg);
-                        int regind = state.allocateReg(vreg, reg2ind(hint, vreg.isFloat), blk, toInsertBefore);
+                        int regind = state.allocateReg(vreg, hint, blk, toInsertBefore);
                         var phyReg = ind2Reg(regind, vreg.isFloat);
                         phyReg.comment = vreg.comment;
                         addUsedReg(regind, vreg.isFloat);
