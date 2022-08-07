@@ -1,8 +1,11 @@
 package backend.arm;
 
+import java.util.ArrayList;
+
 import backend.AsmFunc;
 import backend.AsmGlobalVariable;
 import backend.StackOperand;
+import common.Util;
 import ssa.ds.ConstantValue;
 
 public class AsmPrinter {
@@ -34,6 +37,47 @@ public class AsmPrinter {
     public static String varHeader = ".global\t%s\n"
         +"\t.type\t%s, %%object\n"
         +"\t.size\t%s, %d\n";
+
+    static void flattenConstant(ConstantValue init, ArrayList<Integer> arr) {
+        if(! init.isArray()) { // 简单情况，单个数字
+            arr.add(init.valToAsmWords());
+        } else {
+            for (var child: init.children) {
+                flattenConstant(child, arr);
+            }
+        }
+    }
+
+    static String emitConstant(ArrayList<Integer> arr) {
+        if (arr.size() == 0) {
+            return "\n";
+        }
+        var sb = new StringBuilder();
+        int prev = arr.get(0);
+        int count = 0;
+        for (int i: arr) {
+            if (i == prev) {
+                count += 1;
+            } else {
+                sb.append(emitWords(prev, count));
+                prev = i;
+                count = 1;
+            }
+        }
+        if (count != 0) {
+            sb.append(emitWords(prev, count));
+        }
+        return sb.toString();
+    }
+
+    // https://sourceware.org/binutils/docs-2.38/as.html#Rept
+    private static String emitWords(int i, int count) {
+        if (count == 1) {
+            return String.format("\t.long\t0x%s\n", Util.to32HexString(i));
+        } else {
+            return String.format("\t.rept\t%s\n\t.long\t0x%s\n\t.endr\n", count, Util.to32HexString(i));
+        }
+    }
 
     static String emitConstant(ConstantValue init) {
         if(! init.isArray()) { // 简单情况，单个数字
@@ -67,7 +111,10 @@ public class AsmPrinter {
         sb.append("\t@ ").append(ssaGv.varType.toString()).append("\n");
     
         if (ssaGv.init != null) {
-            sb.append(emitConstant(ssaGv.init));
+            // sb.append(emitConstant(ssaGv.init));
+            ArrayList<Integer> words = new ArrayList<>();
+            flattenConstant(ssaGv.init, words);
+            sb.append(emitConstant(words));
         } else {
             sb.append(String.format("\t.zero\t%s\n", gv.size));
         }

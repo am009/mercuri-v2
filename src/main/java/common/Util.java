@@ -99,7 +99,7 @@ public class Util {
         return "0x" + to32HexString(Float.floatToRawIntBits(f));
     }
 
-    private static String to32HexString(int l) {
+    public static String to32HexString(int l) {
         int count = (l == 0L) ? 1 : ((32 - Integer.numberOfLeadingZeros(l)) + 3) / 4;
         StringBuilder buffer = new StringBuilder(count);
         long k = l;
@@ -117,7 +117,7 @@ public class Util {
         return buffer.toString();
     }
 
-    public static Object toSignedHexString(long offset) {
+    public static String toSignedHexString(long offset) {
         var sb = new StringBuilder();
         if (offset < 0) {
             sb.append("-");

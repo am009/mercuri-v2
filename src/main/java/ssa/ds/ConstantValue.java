@@ -91,8 +91,7 @@ public class ConstantValue extends Value {
         }
         return b.toString();
     }
-    
-    // used by asm gen
+
     public String valToAsmString() {
         assert !isArray();
         if (val instanceof Float) {
@@ -102,5 +101,16 @@ public class ConstantValue extends Value {
         } else {
             return val.toString();
         }
+    }
+
+    // used by asm gen
+    public Integer valToAsmWords() {
+        assert !isArray();
+        if (val instanceof Float) {
+            return Float.floatToRawIntBits((Float)val);
+        } else if (val instanceof Integer) {
+            return (Integer)val;
+        }
+        throw new UnsupportedOperationException();
     }
 }
