@@ -17,17 +17,10 @@ fi
 set -e; # error exit
 
 for file in $BASEDIR/test/performance/*.sy; do
-    name_=$(basename $file)
-    beforeIfs=$IFS
-    IFS='_' array=($name_)
-    IFS=$beforeIfs
+    # 性能测试后面很多文件名没有带01_这样的标号，因此不支持从第n个开始
 
-    if [ ${array[0]} -lt $1 ] ; then
-        echo "skip ${array[0]}"
-        continue
-    fi
-    
-    runone_ir performance $file
+    # runone_ir performance $file
 
-    runone_asm performance $file
+    # 把运行时间放到一个单独的文件，方便对比
+    runone_asm performance $file 2>> ./performance_log
 done

@@ -34,7 +34,7 @@ def test(target_elf, out_file, in_file=None, is_asm=False):
     NC='\033[0m' # No Color
 
     if out.strip() == s.strip():
-        print(err) # perfomance test打印所花时间
+        print(err, file=sys.stderr) # perfomance test打印所花时间
         print(RED+"=========== Pass! ==============" +NC)
         return True
     else:
@@ -44,10 +44,10 @@ import os
 
 proj_dir = os.path.dirname(os.path.dirname(__file__))
 debug_case = None
-# debug_case = '54_hidden_var' # uncomment to debug
+# debug_case = '00_bitset1' # uncomment to debug
 if debug_case:
     assert len(sys.argv) == 1
-    sys.argv = ['debugasm', f'{proj_dir}/script/functional_checker.py', f'{proj_dir}/target/test/functional/{debug_case}.sy.elf', f'{proj_dir}/test/functional/{debug_case}.out']
+    sys.argv = [f'{proj_dir}/script/functional_checker.py', 'debugasm', f'{proj_dir}/target/test/performance/{debug_case}.sy.arm.elf', f'{proj_dir}/test/performance/{debug_case}.out']
 print(sys.argv)
 
 if len(sys.argv) < 4:
@@ -68,9 +68,11 @@ if len(sys.argv) >= 5:
     in_file = sys.argv[4]
 if mode == 'ir':
     ret = test(target_elf, out_file, in_file, is_asm=False)
-    exit(ret!=True)
+    if (not ret):
+        exit(-1)
 elif mode == 'asm':
     ret = test(target_elf, out_file, in_file, is_asm=True)
-    exit(ret!=True)
+    if (not ret):
+        exit(-1)
 else:
     assert False

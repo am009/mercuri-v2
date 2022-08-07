@@ -6,3 +6,5 @@ target
 test/lib/sylib.ll
 .VSCodeCounter
 *.pri.*
+test/performance
+performance_log

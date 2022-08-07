@@ -25,7 +25,7 @@ function runone_ir {
     file=$2
     name=$(basename $file)
     printf "${RED}--- Compile IR ${file} ---${NC}\n"
-    compile_one $file $BASEDIR/target/test/${category}/${name}.ll
+    compile_one $file $BASEDIR/target/test/${category}/${name}.ll > /dev/null
     clang $BASEDIR/test/lib/sylib.ll $BASEDIR/target/test/${category}/${name}.ll -o $BASEDIR/target/test/${category}/${name}.elf
     printf "${RED}--- Testing IR ${file} ---${NC}\n"
     if [ ! -f $BASEDIR/test/${category}/${name%.*}.in ]; then
@@ -42,7 +42,7 @@ function runone_asm {
     file=$2
     name=$(basename $file)
     printf "${RED}--- Compile ASM ${file} ---${NC}\n"
-    compile_one $file $BASEDIR/target/test/${category}/${name}.S
+    compile_one $file $BASEDIR/target/test/${category}/${name}.S > /dev/null
     arm-linux-gnueabihf-gcc -march=armv7-a -mfpu=vfpv3 -static $BASEDIR/target/test/${category}/${name}.S $BASEDIR/test/lib/libsysy.a -o $BASEDIR/target/test/${category}/${name}.arm.elf
     printf "${RED}--- Testing ASM ${file} ---${NC}\n"
     if [ ! -f $BASEDIR/test/${category}/${name%.*}.in ]; then

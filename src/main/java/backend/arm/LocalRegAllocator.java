@@ -134,7 +134,10 @@ public class LocalRegAllocator {
         private void spillInd(int ind, boolean isFloat, AsmBlock blk, List<AsmInst> toInsertBefore) {
             RegClass rc = rcs[b2i(isFloat)];
             var toSpillVreg = rc.current[ind];
-            StackOperand spilledLoc = allocateOrGetSpill(toSpillVreg);
+            StackOperand spilledLoc = allocateOrNullSpill(toSpillVreg);
+            if(spilledLoc == null) {
+                return;
+            }
             AsmInst store;
             var to = ind2Reg(ind, isFloat);
             if (isFloat) {
@@ -144,6 +147,31 @@ public class LocalRegAllocator {
             }
             store.comment = "Spill "+toSpillVreg.comment;
             toInsertBefore.addAll(Generator.expandStackOperandLoadStoreIP(store));
+        }
+
+        // allocateOrGetSpill的修改版，如果local值获取过spill区域，则说明这个值被保存过。
+        // 而每个vreg只有一个live range，则说明不需要再额外生成store了
+        private StackOperand allocateOrNullSpill(VirtReg vreg) {
+            StackOperand spilledLoc;
+            if (globs.contains(vreg)) {
+                spilledLoc = globSpill.get(vreg);
+                if (spilledLoc == null) {
+                    spilledLoc = new StackOperand(StackOperand.Type.SPILL, func.sm.allocSpill(4));
+                    spilledLoc.comment = vreg.comment;
+                    globSpill.put(vreg, spilledLoc);
+                }
+            } else {
+                spilledLoc = localSpill.get(vreg);
+                if (spilledLoc != null) {
+                    return null;
+                }
+                if (spilledLoc == null) {
+                    spilledLoc = new StackOperand(StackOperand.Type.SPILL, func.sm.allocSpill(4));
+                    spilledLoc.comment = vreg.comment;
+                    localSpill.put(vreg, spilledLoc);
+                }
+            }
+            return spilledLoc;
         }
 
         private StackOperand allocateOrGetSpill(VirtReg vreg) {

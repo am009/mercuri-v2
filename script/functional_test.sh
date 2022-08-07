@@ -22,12 +22,12 @@ for file in $BASEDIR/test/functional/*.sy; do
     IFS='_' array=($name_)
     IFS=$beforeIfs
 
-    if [ ${array[0]} -lt $1 ] ; then
+    if [ ${array[0]} -lt ${1:-0} ] ; then
         echo "skip ${array[0]}"
         continue
     fi
     
-    runone_ir functional $file
+    # runone_ir functional $file
 
     runone_asm functional $file
 done
