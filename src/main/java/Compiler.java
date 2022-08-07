@@ -72,13 +72,13 @@ public class Compiler {
         // create log dir 
         // backend.lsra.LiveIntervalAnalyzer.process(asm);
         // backend.FlowViewer.process(asm);
-        // asm = backend.arm.LocalRegAllocator.process(asm);
-        backend.lsra.LinearScanRegisterAllocator.process(asm)
-        // Global.logger.trace("--- asm reg alloc ---");
-        // Global.logger.trace(asm.toString());
-        // if (args.getOutFile() != null) {
-        //     Files.writeString(Path.of(args.getOutFile()), asm.toString());
-        // }
+        asm = backend.arm.LocalRegAllocator.process(asm);
+        // backend.lsra.LinearScanRegisterAllocator.process(asm);
+        Global.logger.trace("--- asm reg alloc ---");
+        Global.logger.trace(asm.toString());
+        if (args.getOutFile() != null) {
+            Files.writeString(Path.of(args.getOutFile()), asm.toString());
+        }
     }
 
     private static void initLogger() throws IOException {
