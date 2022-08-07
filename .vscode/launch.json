@@ -6,12 +6,19 @@
     "configurations": [
         {
             "type": "java",
+            "name": "Launch FlowViewer",
+            "request": "launch",
+            "mainClass": "backend.FlowViewer",
+            "projectName": "mercuri-v2_fd3b0796"
+        },
+        {
+            "type": "java",
             "name": "Launch Compiler",
             "request": "launch",
-            "mainClass": "Compiler",
+            "mainClass": "src.main.Compiler",
             "projectName": "mercuri_89ae2924",
-            "vmArgs": "-DlogTarget=file -DlogFile=${workspaceRoot}/mercuri.log -DlogLevel=TRACE",
-            "args": "-S -o /root/run/testcase.s test/spec/004-const-decl.c"
+            "vmArgs": "-ea -DlogTarget=file -DlogFile=${workspaceRoot}/mercuri.log -DlogLevel=TRACE",
+            "args": "-S test/spec/ra/02_simple.c"
         }
     ]
 }

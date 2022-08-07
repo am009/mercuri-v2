@@ -1,4 +1,4 @@
-package backend.ra;
+package backend.lsra;
 
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -17,8 +17,10 @@ class DagLinearFlow {
     // injected by user
     Map<AsmBlock, LiveInfo> liveInfo;
 
-    Map<VirtReg, LiveRange> liveIntervals = new HashMap<>();
+    public Map<VirtReg, LiveRange> liveIntervals = new HashMap<>();
     Map<AsmInst, Integer> instSlotIdx = new HashMap<>();
+
+    
 
     public LiveRange intervalOf(VirtReg vreg) {
         if (!liveIntervals.containsKey(vreg)) {
@@ -60,17 +62,23 @@ class DagLinearFlow {
             }
         }
         for (var block : reversedBlocks) {
-            int blockStartSlot = instSlotIdx.get(block.insts.get(0));
-            int blockEndSlot = instSlotIdx.get(block.insts.get(block.insts.size() - 1));
-            for (var liveOutVar : liveInfo.get(block).liveOut) {
-                intervalOf(liveOutVar).extend(blockStartSlot, blockEndSlot);
+            Global.logger.trace("build liveInterval for block " + block.label);
+            int blockFrom = instSlotIdx.get(block.insts.get(0));
+            int blockTo = instSlotIdx.get(block.insts.get(block.insts.size() - 1)) + 1; // + 1是为了连续到下一个块
+            var blockLiveInfo = liveInfo.get(block);
+            for (var liveOutVar : blockLiveInfo.liveOut) {
+                Global.logger.trace("ref liveOut, init liveRange for " + liveOutVar);
+                intervalOf(liveOutVar).extend(blockFrom, blockTo);
             }
             // int blockEndSlot = linearInstSlotIndex;
             for (var inst : block.insts) {
                 int instIdx = instSlotIdx.get(inst);
                 for (var def : inst.defs) {
                     if (def instanceof VirtReg) {
-                        intervalOf((VirtReg) def).disconnect(instIdx);
+                        // intervalOf((VirtReg) def).disconnect(instIdx);
+                        // 发现一个问题，在上一轮循环中截断的，结果在下一轮循环又被连接上了。
+                        // 这肯定不对，所以索性都加入到 todo,最后单独开个循环做截断
+                        intervalOf((VirtReg) def).todoBreaks.add(Long.valueOf(instIdx));
                     } else {
                         Global.logger.warning("DagLinearFlow: def is not a VirtReg");
                         assert (false);
@@ -78,7 +86,7 @@ class DagLinearFlow {
                 }
                 for (var use : inst.uses) {
                     if (use instanceof VirtReg) {
-                        intervalOf((VirtReg) use).extend(blockStartSlot, instIdx);
+                        intervalOf((VirtReg) use).extend(blockFrom, instIdx);
                     } else {
                         Global.logger.warning(
                                 "DagLinearFlow: use is not a VirtReg. It is a " + use.getClass().getSimpleName()
@@ -86,8 +94,11 @@ class DagLinearFlow {
                     }
                 }
             }
-            for (var def : liveInfo.get(block).liveDef) {
-                intervalOf(def).handleTodoBreaks();
+        }
+        for (var block : reversedBlocks) {
+            var blockLiveInfo = liveInfo.get(block);
+            for (var def : blockLiveInfo.liveDef) {
+                intervalOf(def).finishTodoBreaks();
             }
         }
     }

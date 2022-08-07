@@ -70,9 +70,10 @@ public class Compiler {
         Global.logger.trace("--- asm inst selection ---");
         Global.logger.trace(asm.toString());
         // create log dir 
-        backend.ra.LiveIntervalAnalyzer.process(asm);
-        backend.FlowViewer.process(asm);
+        // backend.lsra.LiveIntervalAnalyzer.process(asm);
+        // backend.FlowViewer.process(asm);
         // asm = backend.arm.LocalRegAllocator.process(asm);
+        backend.lsra.LinearScanRegisterAllocator.process(asm)
         // Global.logger.trace("--- asm reg alloc ---");
         // Global.logger.trace(asm.toString());
         // if (args.getOutFile() != null) {

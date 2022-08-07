@@ -1,4 +1,4 @@
-package backend.ra;
+package backend.lsra;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -29,10 +29,10 @@ public class LiveIntervalAnalyzer {
         this.m = m;
     }
 
-    public static AsmModule process(AsmModule m) {
+    public static DagLinearFlow process(AsmModule m) {
         var g = new LiveIntervalAnalyzer(m);
         g.doAnalysis();
-        return m;
+        return g.result;
     }
 
     private void doAnalysis() {
@@ -81,7 +81,10 @@ public class LiveIntervalAnalyzer {
         for (AsmInst inst : block.insts) {
             for (AsmOperand operand : inst.uses) {
                 if (operand instanceof VirtReg) {
-                    liveInfo.liveUse.add((VirtReg) operand);
+                    var vr = (VirtReg) operand;
+                    if (!liveInfo.liveDef.contains(vr)) {
+                        liveInfo.liveUse.add(vr);
+                    }
                 } else {
                     Global.logger.error("operand is not VirtReg");
                 }
@@ -100,14 +103,19 @@ public class LiveIntervalAnalyzer {
     Boolean analyzeInOut(AsmBlock block) {
         var blive = liveInfoOf(block);
         var liveOutBefore = new HashSet<VirtReg>(blive.liveOut);
-        for (var predbb : block.pred) {
-            blive.liveOut.addAll(liveInfoOf(predbb).liveIn);
+        for (var succbb : block.succ) {
+            blive.liveOut.addAll(liveInfoOf(succbb).liveIn);
         }
+        // b.live_gen 是否包括其自己定义的？
+        // 答案是不包括，参见 JavaHotSpot LSRA 62 页
+        // b.live_in = (b.live_out – b.live_kill) ∪ b.live_gen
         blive.liveIn.clear();
         blive.liveIn.addAll(blive.liveOut);
         blive.liveIn.removeAll(blive.liveDef);
         blive.liveIn.addAll(blive.liveUse);
         var stable = liveOutBefore.equals(blive.liveOut);
+        Global.logger.trace("block " + block.label + " liveIn: " + blive.liveIn + " liveOut: " + blive.liveOut
+                + " stable: " + stable);
         return stable;
     }
 
@@ -167,11 +175,12 @@ public class LiveIntervalAnalyzer {
         sb.append("<th>Inst</th>\n");
         sb.append("<th>Uses</th>\n");
         sb.append("<th>Defs</th>\n");
-        sb.append("<th>Slot ID</th>\n");
+        sb.append("<th>Slot</th>\n");
 
         var ents = result.liveIntervals.entrySet();
         for (var lv : ents) {
-            sb.append("<th>" + lv.getKey() + "</th>");
+            var k = lv.getKey();
+            sb.append("<th>" + k + (k.isFloat ? "f" : "i") + "</th>");
         }
 
         sb.append("</tr>\n");
@@ -182,7 +191,7 @@ public class LiveIntervalAnalyzer {
                 for (var inst : block.insts) {
                     var instSlotIndex = result.instSlotIdx.get(inst);
                     sb.append("<tr>\n");
-                    if(isFirstInst){
+                    if (isFirstInst) {
                         // colspan
                         sb.append("<td rowspan=\"" + block.insts.size() + "\">");
                         sb.append(block.label);
@@ -206,14 +215,16 @@ public class LiveIntervalAnalyzer {
                         if (seg == null) {
                             sb.append("<td>");
                         } else {
-                            sb.append("<td style=\"background: #131517; ");
+                            sb.append("<td style=\"background: #f1f1f1; ");
                             // if is end of seg
                             if (seg.end == instSlotIndex) {
-                                sb.append("border-bottom: 4px solid #13f5ff; ");
+                                sb.append("border-bottom: 2px solid #1313ff; ");
                             }
-                            if(seg.start == instSlotIndex){
-                                sb.append("border-top: 4px solid #13f5ff; ");
+                            if (seg.start == instSlotIndex) {
+                                sb.append("border-top: 2px solid #1313ff; ");
                             }
+                            // sb.append("border-left: 2px solid #1313ff; ");
+                            // sb.append("border-right: 2px solid #1313ff; ");
                             sb.append("\">");
                         }
                         sb.append("</td>\n");
