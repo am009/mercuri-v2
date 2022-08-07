@@ -5,6 +5,7 @@ import java.util.List;
 import dst.ds.BasicType;
 import dst.ds.Block;
 import dst.ds.Decl;
+import dst.ds.DeclType;
 import dst.ds.Func;
 import dst.ds.FuncType;
 
@@ -12,6 +13,7 @@ public class Module {
     public Scope globalScope;
     public String id;
     public static List<Func> builtinFuncs;
+    public static final int MEMSET = 0;
 
     public Module(Scope globalScope, String id) {
         this.globalScope = globalScope;
@@ -25,6 +27,17 @@ public class Module {
         }
 
         var list = new ArrayList<Func>();
+        // memset for array initialization to zero
+        list.add(new Func(FuncType.VOID, "memset", new ArrayList<Decl>() {
+            {
+                // var ret = new Decl(DeclType.VAR, true, false, BasicType.INT, "ptr", null, null);
+                // ret.isDimensionOmitted = true;
+                // add(ret); 
+                add(Decl.fromSimpleParam("ptr", BasicType.STRING_LITERAL)); // TODO i8* pointer
+                add(Decl.fromSimpleParam("c", BasicType.INT));
+                add(Decl.fromSimpleParam("n", BasicType.INT));
+            }
+        }, Block.Empty));
         // int getint()
         list.add(new Func(FuncType.INT, "getint", new ArrayList<Decl>(), Block.Empty));
         // int getch()

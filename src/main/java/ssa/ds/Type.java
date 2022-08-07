@@ -40,6 +40,21 @@ public class Type implements Cloneable {
         return this.baseType.isFloat() && !this.isArray() && !this.isPointer;
     }
 
+    public long getSize() {
+        long size;
+        if (! isArray()) {
+            size = baseType.getByteSize();
+            assert size == 4;
+            return size;
+        } else {
+            long s = baseType.getByteSize();
+            for (int d: dims) {
+                s = s * d;
+            }
+            return s;
+        }
+    }
+
     @Override
     public Type clone() {
         var dims_ = dims;

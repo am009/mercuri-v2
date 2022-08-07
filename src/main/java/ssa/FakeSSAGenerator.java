@@ -127,7 +127,7 @@ public class FakeSSAGenerator {
         ctx.module.globs.add(gv);
         ctx.globVarMap.put(decl, gv);
         // 初始值
-        if (decl.initVal != null) {
+        if (decl.initVal != null && (!decl.initVal.isAllZero)) {
             gv.init = visitConstInitVal(ctx, decl.type, decl.initVal);
         }
     }
@@ -431,7 +431,7 @@ public class FakeSSAGenerator {
 
         if (expr_ instanceof FuncCall) {
             var expr = (FuncCall) expr_;
-            var fv = (FuncValue) ctx.funcMap.get(expr.funcSymbol.func);
+            var fv = ctx.funcMap.get(expr.funcSymbol.func);
             var cb = new CallInst.Builder(ctx.current, fv);
             if (expr.args != null) {
                 for (int i = 0; i < expr.args.length; i++) {
@@ -615,7 +615,16 @@ public class FakeSSAGenerator {
                 var inst = new StoreInst.Builder(ctx.current).addOperand(val, alloca).build();
                 ctx.addToCurrentBB(inst);
             } else {
-                // TODO array memset to 0 and getelementptr and set content.
+                // bitcast alloca to int*
+                var cast = new CastInst.Builder(ctx.current, alloca).strBitCast(alloca.type).build();
+                ctx.addToCurrentBB(cast);
+                // memset ptr, char, size.
+                var memsetFunc = ctx.funcMap.get(ir.ds.Module.builtinFuncs.get(ir.ds.Module.MEMSET));
+                var memset = new CallInst.Builder(ctx.current, memsetFunc)
+                                .addArg(cast)
+                                .addArg(ConstantValue.ofInt(0))
+                                .addArg(ConstantValue.ofInt(Math.toIntExact(alloca.ty.getSize()))).build();
+                ctx.addToCurrentBB(memset);
                 setArrayInitialVal(ctx, curFunc, alloca, decl.initVal, decl.type.dims);
             }
         }
@@ -660,10 +669,10 @@ public class FakeSSAGenerator {
 
     void setArrayInitialVal(FakeSSAGeneratorContext ctx, ssa.ds.Func curFunc, Value ptr, InitValue initValue,
             List<Integer> dims) {
-        // TODO 先把整个内存区域memset为0，再仅赋值非零元素
-        // if (initValue.isAllZero) { // 为了第一次调用时检查。
-        //     return;
-        // }
+        // 先把整个内存区域memset为0，再仅赋值非零元素
+        if (initValue.isAllZero) { // 为了第一次调用时检查。
+            return;
+        }
 
         assert initValue.isArray;
         // 处理多维度
@@ -689,10 +698,10 @@ public class FakeSSAGenerator {
                 var initval = initValue.values.get(i);
                 assert !initval.isArray;
                 
-                // TODO 先把整个内存区域memset为0，再仅赋值非零元素
-                // if (initval.value instanceof LiteralExpr && ((LiteralExpr) (initval.value)).value.isDefault()) {
-                //     // TODO
-                // } else {// 如果iv不是默认值则生成gep和store
+                // 先把整个内存区域memset为0，再仅赋值非零元素
+                if (initval.value instanceof LiteralExpr && ((LiteralExpr) (initval.value)).value.isDefault()) {
+                    
+                } else {// 如果iv不是默认值则生成gep和store
                     // 计算地址
                     var ptr_ = new GetElementPtr(ctx.current, ptr);
                     ptr_.addIndex(ConstantValue.ofInt(i));
@@ -702,7 +711,7 @@ public class FakeSSAGenerator {
                     // 然后把初始化的结果写入到 gep 指令算出的地址那里
                     var inst = new StoreInst.Builder(ctx.current).addOperand(val, ptr_).build();
                     ctx.addToCurrentBB(inst);
-                // }
+                }
             }
         }
     }

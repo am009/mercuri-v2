@@ -41,7 +41,7 @@ public class CastInst extends Instruction {
             return this;
         }
 
-        // from [n x i8]* to i8*
+        // float to double
         public Builder f2d() {
             inst.op = CastOp.FPEXT;
             inst.type = Type.Double;

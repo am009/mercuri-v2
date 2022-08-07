@@ -174,7 +174,7 @@ public class Generator {
         assert !gv.varType.isPointer;
         var agv = new AsmGlobalVariable(gv);
         // set size
-        agv.size = getSize(gv.varType);
+        agv.size = gv.varType.getSize();
         // 加入module
         if (gv.init != null) {
             module.dataGlobs.add(agv);
@@ -310,7 +310,7 @@ public class Generator {
     private void visitNonTermInst(AsmFunc func, Instruction inst_, AsmBlock abb) {
         if (inst_ instanceof AllocaInst) {
             var inst = (AllocaInst) inst_;
-            long offset = func.sm.allocLocal(getSize(inst.ty));
+            long offset = func.sm.allocLocal(inst.ty.getSize());
             var bin = new BinOpInst(abb, BinaryOp.SUB, convertValue(inst, func, abb), new Reg(Reg.Type.fp), new IntImm(Math.toIntExact(offset)));
             bin.comment = inst.toString();
             abb.insts.addAll(expandBinOp(bin));
@@ -494,7 +494,7 @@ public class Generator {
     }
 
     private void calcGep(AsmFunc func, AsmBlock abb, GetElementPtr inst, AsmOperand addr, List<Use> ops) {
-        var baseSize = getSize(inst.base);
+        var baseSize = inst.base.getSize();
         ArrayList<Integer> dims;
         if (inst.base.dims != null) {
             dims = new ArrayList<>(inst.base.dims);
@@ -720,21 +720,6 @@ public class Generator {
         } else {
             // 不变
             newOps.add(op);
-        }
-    }
-
-    private long getSize(Type ty) {
-        long size;
-        if (! ty.isArray()) {
-            size = ty.baseType.getByteSize();
-            assert size == 4;
-            return size;
-        } else {
-            long s = ty.baseType.getByteSize();
-            for (int d: ty.dims) {
-                s = s * d;
-            }
-            return s;
         }
     }
 

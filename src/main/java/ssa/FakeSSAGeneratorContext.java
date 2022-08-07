@@ -7,6 +7,7 @@ import dst.ds.LoopStatement;
 import ssa.ds.BasicBlock;
 import ssa.ds.BasicBlockValue;
 import ssa.ds.Func;
+import ssa.ds.FuncValue;
 import ssa.ds.Instruction;
 import ssa.ds.Module;
 import ssa.ds.TerminatorInst;
@@ -21,7 +22,7 @@ public class FakeSSAGeneratorContext {
 
     // 从 dst decl 到 alloca 指令的映射，或者常量到 ConstantValue 的映射等等
     public Map<dst.ds.Decl, Value> varMap;
-    public Map<dst.ds.Func, Value> funcMap; // including builtin funcs
+    public Map<dst.ds.Func, FuncValue> funcMap; // including builtin funcs
     // 全局变量由于直接取的是地址，所以单独分开
     public Map<dst.ds.Decl, Value> globVarMap;
     // 等效于 LoopStatement 多了一个 Value 成员，保存 break 和 Continue 需要的 BasicBlockValue
