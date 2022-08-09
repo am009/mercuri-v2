@@ -73,7 +73,7 @@ public class Compiler {
         // backend.lsra.LiveIntervalAnalyzer.process(asm);
         // backend.FlowViewer.process(asm);
         // asm = backend.arm.LocalRegAllocator.process(asm);
-        backend.lsra.LinearScanRegisterAllocator.process(asm)
+        backend.lsra.LinearScanRegisterAllocator.process(asm);
         // Global.logger.trace("--- asm reg alloc ---");
         // Global.logger.trace(asm.toString());
         // if (args.getOutFile() != null) {

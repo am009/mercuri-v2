@@ -211,7 +211,7 @@ public class LiveIntervalAnalyzer {
                     sb.append("</td>\n");
                     for (var lv : ents) {
                         var liveRange = lv.getValue();
-                        var seg = liveRange.getLiveSegmentAt(instSlotIndex);
+                        var seg = liveRange.getLiveSubRangeAt(instSlotIndex);
                         if (seg == null) {
                             sb.append("<td>");
                         } else {

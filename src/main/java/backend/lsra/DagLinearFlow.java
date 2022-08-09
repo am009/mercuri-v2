@@ -2,13 +2,13 @@ package backend.lsra;
 
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 
 import backend.AsmBlock;
 import backend.AsmInst;
 import backend.AsmModule;
 import backend.VirtReg;
-import backend.arm.Reg;
 import ds.Global;
 
 class DagLinearFlow {
@@ -17,14 +17,34 @@ class DagLinearFlow {
     // injected by user
     Map<AsmBlock, LiveInfo> liveInfo;
 
-    public Map<VirtReg, LiveRange> liveIntervals = new HashMap<>();
+    public Map<VirtReg, LiveInterval> liveIntervals = new HashMap<>();
     Map<AsmInst, Integer> instSlotIdx = new HashMap<>();
 
     
 
-    public LiveRange intervalOf(VirtReg vreg) {
+    public List<SubRange> getSortedSubRanges() {
+        List<SubRange> subRanges = new LinkedList<>();
+        for (var kv : liveIntervals.entrySet()) {
+            subRanges.addAll(kv.getValue().getSubRanges());
+        }
+        // sort all subRanges by start
+        subRanges.sort((x, y) -> (int) (x.start - y.start));
+        return subRanges;
+    }
+
+    public List<LiveInterval> getSortedRanges() {
+        List<LiveInterval> ranges = new LinkedList<>();
+        for (var kv : liveIntervals.entrySet()) {
+            ranges.add(kv.getValue());
+        }
+        // sort all ranges by start
+        ranges.sort((x, y) -> (int) (x.first().start - y.first().start));
+        return ranges;
+    }
+
+    public LiveInterval intervalOf(VirtReg vreg) {
         if (!liveIntervals.containsKey(vreg)) {
-            var lr = new LiveRange(vreg);
+            var lr = new LiveInterval(vreg);
             lr.owner = vreg;
             liveIntervals.put(vreg, lr);
             return lr;
@@ -87,6 +107,7 @@ class DagLinearFlow {
                 for (var use : inst.uses) {
                     if (use instanceof VirtReg) {
                         intervalOf((VirtReg) use).extend(blockFrom, instIdx);
+                        intervalOf((VirtReg) use).addUsage(instIdx);
                     } else {
                         Global.logger.warning(
                                 "DagLinearFlow: use is not a VirtReg. It is a " + use.getClass().getSimpleName()

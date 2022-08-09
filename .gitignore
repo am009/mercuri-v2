@@ -8,3 +8,4 @@ test/lib/sylib.ll
 *.pri.*
 test/performance
 performance_log
+log/
