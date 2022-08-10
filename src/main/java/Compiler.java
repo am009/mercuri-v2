@@ -16,6 +16,7 @@ import dst.DstGenerator;
 import dst.ds.CompUnit;
 import ir.SemanticAnalyzer;
 import ssa.FakeSSAGenerator;
+import ssa.NumValueNamer;
 import ssa.ds.Module;
 import ssa.pass.EABIArithmeicLowing;
 import ssa.pass.GVN;
@@ -61,6 +62,7 @@ public class Compiler {
 
         Global.logger.trace("--- ssa - after GVN ---");
         GVN.process(ssa);
+        NumValueNamer.process(ssa, true);
         Global.logger.trace(ssa.toString());
 
         // !! END_IF

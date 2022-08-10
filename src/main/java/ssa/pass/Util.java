@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Stack;
 
 import common.ListUtil;
+import ds.Global;
 import dst.ds.BinaryOp;
 import dst.ds.EvaluatedValue;
 import ssa.ds.AllocaInst;
@@ -53,7 +54,7 @@ public class Util {
     }
 
     public static Value simplify(Instruction inst, Boolean rec) {
-
+        Global.logger.trace("simplify: " + inst);
         if (inst instanceof BinopInst) {
             var binop = (BinopInst) inst;
             return switch (binop.op) {
@@ -95,9 +96,9 @@ public class Util {
         }
 
         if (lhs instanceof ConstantValue) {
-            inst.removeAllUseFromValue();
+            inst.removeAllOpr();
             inst.addOprand(rhs);
-            inst.addOprand(rhs);
+            inst.addOprand(lhs);
 
             lhs = inst.getOperand0();
             rhs = inst.getOperand1();

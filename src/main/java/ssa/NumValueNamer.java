@@ -15,6 +15,14 @@ import ssa.ds.Value;
  * 全局变量和函数参数也应当在生成时命名。语法里好像函数参数的名字不能省略。
  */
 public class NumValueNamer {
+    Boolean renumber = false;
+
+    public static void process(Module m, Boolean renumber) {
+        var instance = new NumValueNamer();
+        instance.renumber = renumber;
+        instance.visitModule(m);
+    }
+
     long count = 0;
 
     public void visitModule(Module m) {
@@ -36,8 +44,10 @@ public class NumValueNamer {
     }
 
     public void visitValue(Value i) {
-        if ((!i.type.equals(Type.Void)) && i.name == null && (!(i instanceof ConstantValue))) {
-            i.name = String.valueOf(count++);
+        if ((!i.type.equals(Type.Void)) && (!(i instanceof ConstantValue))) {
+            if (i.name == null || renumber) {
+                i.name = String.valueOf(count++);
+            }
         }
     }
 }

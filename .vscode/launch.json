@@ -18,7 +18,7 @@
             "mainClass": "src.main.Compiler",
             "projectName": "mercuri_89ae2924",
             "vmArgs": "-ea -DlogTarget=file -DlogFile=${workspaceRoot}/mercuri.log -DlogLevel=TRACE",
-            "args": "-S test/spec/ra/02_simple.c"
+            "args": "-S test/functional/51_short_circuit3.sy"
         }
     ]
 }
