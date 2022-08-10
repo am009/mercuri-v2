@@ -59,9 +59,9 @@ public class Compiler {
         Global.logger.trace("--- ssa ---");
         Global.logger.trace(ssa.toString());
 
-        // Global.logger.trace("--- ssa - after GVN ---");
-        // GVN.process(ssa);
-        // Global.logger.trace(ssa.toString());
+        Global.logger.trace("--- ssa - after GVN ---");
+        GVN.process(ssa);
+        Global.logger.trace(ssa.toString());
 
         // !! END_IF
         if (args.getOutFile() != null && args.getOutFile().endsWith(".ll")) { // 生成LLVM IR
