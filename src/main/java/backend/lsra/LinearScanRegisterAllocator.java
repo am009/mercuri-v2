@@ -82,12 +82,12 @@ public class LinearScanRegisterAllocator {
 
             // find a free register for current
             var result = tryAllocFreeReg(current);
-            if(null == result) {
-                allocBlockedReg(current);
-            }
-            if(isAssigned(current)){
-                active.add(current);
-            }
+            // if(null == result) {
+                // allocBlockedReg(current);
+            // }
+            // if(isAssigned(current)){
+                // active.add(current);
+            // }
         }
     }
 
@@ -96,8 +96,9 @@ public class LinearScanRegisterAllocator {
     Object tryAllocFreeReg(LiveRange current){
         var freePos = -1;
         for(var it : active) {
-            It2freePos.put(It2freePos, 0);
+            // It2freePos.put(It2freePos, 0);
         }
+        return null;
     }
 
     // 通过 spill 方式抢占一个寄存器
