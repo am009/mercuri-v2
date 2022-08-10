@@ -1,3 +1,6 @@
+/**
+ * 此模块基于 LiveIntervalAnalyzer 生成的 liveInfo 构建最终的 LiveInterval, 以便给后续的 Walker 使用
+ */
 package backend.lsra;
 
 import java.util.HashMap;
@@ -8,7 +11,9 @@ import java.util.Map;
 import backend.AsmBlock;
 import backend.AsmInst;
 import backend.AsmModule;
+import backend.AsmOperand;
 import backend.VirtReg;
+import backend.arm.inst.ConstrainRegInst;
 import ds.Global;
 
 class DagLinearFlow {
@@ -19,8 +24,6 @@ class DagLinearFlow {
 
     public Map<VirtReg, LiveInterval> liveIntervals = new HashMap<>();
     Map<AsmInst, Integer> instSlotIdx = new HashMap<>();
-
-    
 
     public List<SubRange> getSortedSubRanges() {
         List<SubRange> subRanges = new LinkedList<>();
@@ -46,6 +49,8 @@ class DagLinearFlow {
         if (!liveIntervals.containsKey(vreg)) {
             var lr = new LiveInterval(vreg);
             lr.owner = vreg;
+            lr.trySetPrecolorReg(vreg);
+
             liveIntervals.put(vreg, lr);
             return lr;
         }
@@ -75,10 +80,12 @@ class DagLinearFlow {
         for (var func : m.funcs) {
             for (var block : func.bbs) {
                 reversedBlocks.add(0, block);
-                for (var inst : block.insts) {
-                    linearInstSlotIndex++;
-                    instSlotIdx.put(inst, linearInstSlotIndex);
-                }
+            }
+        }
+        for(var rbb : reversedBlocks) {
+            for (var inst : rbb.insts) {
+                linearInstSlotIndex++;
+                instSlotIdx.put(inst, linearInstSlotIndex);
             }
         }
         for (var block : reversedBlocks) {
@@ -93,12 +100,21 @@ class DagLinearFlow {
             // int blockEndSlot = linearInstSlotIndex;
             for (var inst : block.insts) {
                 int instIdx = instSlotIdx.get(inst);
+                Map<VirtReg, AsmOperand> constraints = null;
+                if (inst instanceof ConstrainRegInst) {
+                    ConstrainRegInst cri = (ConstrainRegInst) inst;
+                    constraints = cri.getConstraints();
+                }
                 for (var def : inst.defs) {
                     if (def instanceof VirtReg) {
                         // intervalOf((VirtReg) def).disconnect(instIdx);
                         // 发现一个问题，在上一轮循环中截断的，结果在下一轮循环又被连接上了。
                         // 这肯定不对，所以索性都加入到 todo,最后单独开个循环做截断
                         intervalOf((VirtReg) def).todoBreaks.add(Long.valueOf(instIdx));
+
+                        if (constraints != null && constraints.containsKey(def)) {
+                            intervalOf((VirtReg) def).trySetPrecolorReg(constraints.get(def));
+                        }
                     } else {
                         Global.logger.warning("DagLinearFlow: def is not a VirtReg");
                         assert (false);
@@ -108,6 +124,10 @@ class DagLinearFlow {
                     if (use instanceof VirtReg) {
                         intervalOf((VirtReg) use).extend(blockFrom, instIdx);
                         intervalOf((VirtReg) use).addUsage(instIdx);
+
+                        if (constraints != null && constraints.containsKey(use)) {
+                            intervalOf((VirtReg) use).trySetPrecolorReg(constraints.get(use));
+                        }
                     } else {
                         Global.logger.warning(
                                 "DagLinearFlow: use is not a VirtReg. It is a " + use.getClass().getSimpleName()

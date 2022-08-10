@@ -18,6 +18,7 @@ import ir.SemanticAnalyzer;
 import ssa.FakeSSAGenerator;
 import ssa.ds.Module;
 import ssa.pass.EABIArithmeicLowing;
+import ssa.pass.GVN;
 import ds.LoggerBuilder;
 
 /**
@@ -57,6 +58,11 @@ public class Compiler {
         // !! IF_DEBUG
         Global.logger.trace("--- ssa ---");
         Global.logger.trace(ssa.toString());
+
+        // Global.logger.trace("--- ssa - after GVN ---");
+        // GVN.process(ssa);
+        // Global.logger.trace(ssa.toString());
+
         // !! END_IF
         if (args.getOutFile() != null && args.getOutFile().endsWith(".ll")) { // 生成LLVM IR
             Files.writeString(Path.of(args.getOutFile()), ssa.toString());
@@ -64,21 +70,21 @@ public class Compiler {
         }
         // TODO pass manager
         ssa = EABIArithmeicLowing.process(ssa);
-        // Global.logger.trace("--- EABIArithmeicLowing ---");
-        // Global.logger.trace(ssa.toString());
+        Global.logger.trace("--- EABIArithmeicLowing ---");
+        Global.logger.trace(ssa.toString());
         AsmModule asm = backend.arm.Generator.process(ssa);
         Global.logger.trace("--- asm inst selection ---");
         Global.logger.trace(asm.toString());
         // create log dir 
         // backend.lsra.LiveIntervalAnalyzer.process(asm);
         // backend.FlowViewer.process(asm);
-        // asm = backend.arm.LocalRegAllocator.process(asm);
-        backend.lsra.LinearScanRegisterAllocator.process(asm);
-        // Global.logger.trace("--- asm reg alloc ---");
-        // Global.logger.trace(asm.toString());
-        // if (args.getOutFile() != null) {
-        //     Files.writeString(Path.of(args.getOutFile()), asm.toString());
-        // }
+        asm = backend.arm.LocalRegAllocator.process(asm);
+        // backend.lsra.LinearScanRegisterAllocator.process(asm);
+        Global.logger.trace("--- asm reg alloc ---");
+        Global.logger.trace(asm.toString());
+        if (args.getOutFile() != null) {
+            Files.writeString(Path.of(args.getOutFile()), asm.toString());
+        }
     }
 
     private static void initLogger() throws IOException {

@@ -21,6 +21,10 @@ public class BinopInst extends Instruction {
         this.oprands.add(new Use(this, rhs));
     }
 
+    public void addOprand(Value v){
+        oprands.add(new Use(this, v));
+    }
+
     @Override
     public String getOpString() {
         return op.toString(opType.baseType.isFloat()) + " " + opType.toString();

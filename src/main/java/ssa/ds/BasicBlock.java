@@ -19,12 +19,18 @@ public class BasicBlock {
         return val;
     }
 
+    public void replaceInst(Instruction oldInst, Instruction newInst) {
+        int ind = insts.indexOf(oldInst);
+        assert ind != -1;
+        insts.set(ind, newInst);
+    }
+
     /**
      * 判断基本块是否应该终止。例如最后一个指令是 TerminatorInst
      * @return 如果应该终止，返回 true，否则返回 false
      */
     public boolean hasTerminator() {
-        if (insts.size() == 0 || !(insts.get(insts.size()-1) instanceof TerminatorInst)) {
+        if (insts.size() == 0 || !(insts.get(insts.size() - 1) instanceof TerminatorInst)) {
             return false;
         }
         return true;
@@ -36,10 +42,10 @@ public class BasicBlock {
      * @return
      */
     public Instruction addBeforeTerminator(Instruction i) {
-        if (insts.size() == 0 || !(insts.get(insts.size()-1) instanceof TerminatorInst)) {
+        if (insts.size() == 0 || !(insts.get(insts.size() - 1) instanceof TerminatorInst)) {
             insts.add(i);
         } else {
-            insts.add(insts.size()-1, i);
+            insts.add(insts.size() - 1, i);
         }
         return i;
     }
@@ -50,12 +56,12 @@ public class BasicBlock {
      * @return
      */
     public Instruction addBeforeJump(Instruction i) {
-        if (insts.size() == 0 || !(insts.get(insts.size()-1) instanceof TerminatorInst)) {
+        if (insts.size() == 0 || !(insts.get(insts.size() - 1) instanceof TerminatorInst)) {
             insts.add(i);
-        } else if (insts.get(insts.size()-1) instanceof RetInst) {
+        } else if (insts.get(insts.size() - 1) instanceof RetInst) {
             insts.add(i);
         } else {
-            insts.add(insts.size()-1, i);
+            insts.add(insts.size() - 1, i);
         }
         return i;
     }
@@ -66,7 +72,7 @@ public class BasicBlock {
     public List<BasicBlock> pred() {
         var val = getValue();
         ArrayList<BasicBlock> ret = new ArrayList<>();
-        for(Use u: val.getUses()) {
+        for (Use u : val.getUses()) {
             // 目前User仅有Instruction，以后多了新的User需要再次考虑此处
             // 目前使用BasicBlockValue的也仅有TerminatorInst。
             assert u.user instanceof TerminatorInst;
@@ -81,8 +87,8 @@ public class BasicBlock {
      * @return
      */
     public List<BasicBlock> succ() {
-        assert insts.size() != 0 && insts.get(insts.size()-1) instanceof TerminatorInst;
-        TerminatorInst t = (TerminatorInst)insts.get(insts.size()-1);
+        assert insts.size() != 0 && insts.get(insts.size() - 1) instanceof TerminatorInst;
+        TerminatorInst t = (TerminatorInst) insts.get(insts.size() - 1);
         return t.getSuccessors();
     }
 
@@ -92,5 +98,10 @@ public class BasicBlock {
         b.append(label).append(":\n");
         insts.forEach(i -> b.append("  ").append(i.toString()).append("\n"));
         return b.toString();
+    }
+
+    public void destroyInst(Instruction inst) {
+        inst.removeAllOpr();
+        insts.remove(inst);
     }
 }

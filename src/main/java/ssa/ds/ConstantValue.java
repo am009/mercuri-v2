@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.StringJoiner;
 
 import common.Util;
+import dst.ds.EvaluatedValue;
 
 // 要么是普通常数，Number不为空，children为空
 // 要么children不为空，Number为空
@@ -29,14 +30,13 @@ public class ConstantValue extends Value {
         if (ty.equals(Type.Boolean)) {
             return ConstantValue.ofBoolean(false);
         } else if (ty.equals(Type.Int)) {
-            return ConstantValue.ofInt(0); 
+            return ConstantValue.ofInt(0);
         } else if (ty.equals(Type.Float)) {
             return ConstantValue.ofFloat(0f);
         } else {
             throw new UnsupportedOperationException("Cannot get default ConstanValue for complex types.");
         }
     }
-
 
     // for simple value
     public static ConstantValue ofInt(int i) {
@@ -63,6 +63,20 @@ public class ConstantValue extends Value {
         return ret;
     }
 
+    public EvaluatedValue toEvaluatedValue() {
+        if (this.isArray()) {
+            //    not support
+            throw new UnsupportedOperationException("Not support array constant value.");
+        }
+        if (this.val instanceof Integer) {
+            return EvaluatedValue.ofInt((Integer) this.val);
+        } else if (this.val instanceof Float) {
+            return EvaluatedValue.ofFloat((Float) this.val);
+        }
+        throw new UnsupportedOperationException("Not support array constant value.");
+
+    }
+
     @Override
     public String toString() {
         var b = new StringBuilder();
@@ -76,15 +90,15 @@ public class ConstantValue extends Value {
         if (!isArray()) {
             if (val instanceof Float) {
                 // To more exact representation
-                b.append(Util.floatToLLVM((Float)val));
+                b.append(Util.floatToLLVM((Float) val));
             } else if (val instanceof Double) {
-                b.append(Util.doubleToLLVM((Double)val));
+                b.append(Util.doubleToLLVM((Double) val));
             } else {
                 b.append(val.toString());
             }
         } else {
             var sj = new StringJoiner(", ", "[", "]");
-            for (var c: children) {
+            for (var c : children) {
                 sj.add(c.toString());
             }
             b.append(sj.toString());
@@ -95,9 +109,9 @@ public class ConstantValue extends Value {
     public String valToAsmString() {
         assert !isArray();
         if (val instanceof Float) {
-            return Util.floatToASM((Float)val);
+            return Util.floatToASM((Float) val);
         } else if (val instanceof Double) {
-            return Util.doubleToLLVM((Double)val);
+            return Util.doubleToLLVM((Double) val);
         } else {
             return val.toString();
         }
@@ -107,10 +121,22 @@ public class ConstantValue extends Value {
     public Integer valToAsmWords() {
         assert !isArray();
         if (val instanceof Float) {
-            return Float.floatToRawIntBits((Float)val);
+            return Float.floatToRawIntBits((Float) val);
         } else if (val instanceof Integer) {
-            return (Integer)val;
+            return (Integer) val;
         }
         throw new UnsupportedOperationException();
+    }
+
+    public static ConstantValue of(EvaluatedValue evald) {
+        switch (evald.basicType) {
+            case INT:
+                return ConstantValue.ofInt(evald.intValue);
+            case FLOAT:
+                return ConstantValue.ofFloat(evald.floatValue);
+            default:
+                throw new UnsupportedOperationException();
+
+        }
     }
 }

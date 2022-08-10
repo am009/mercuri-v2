@@ -17,6 +17,7 @@ import backend.AsmInst;
 import backend.AsmModule;
 import backend.AsmOperand;
 import backend.VirtReg;
+import backend.arm.inst.ConstrainRegInst;
 import ds.Global;
 
 public class LiveIntervalAnalyzer {
@@ -86,14 +87,15 @@ public class LiveIntervalAnalyzer {
                         liveInfo.liveUse.add(vr);
                     }
                 } else {
-                    Global.logger.error("operand is not VirtReg");
+                    Global.logger.warning("operand is not VirtReg, but " + operand.getClass().getSimpleName() +" " + operand);
                 }
             }
             for (AsmOperand operand : inst.defs) {
                 if (operand instanceof VirtReg) {
                     liveInfo.liveDef.add((VirtReg) operand);
                 } else {
-                    Global.logger.error("operand is not VirtReg");
+                    Global.logger.warning("operand is not VirtReg, but " + operand.getClass().getSimpleName() +" " + operand);
+
                 }
             }
         }
@@ -136,7 +138,7 @@ public class LiveIntervalAnalyzer {
         sb.append("</head>\n");
         sb.append("<body>\n");
         sb.append("<h1>LiveInterval</h1>\n");
-        sb.append("<table border=\"1\" style=\"border-collapse: collapse;\">\n");
+        sb.append("<table border=\"1\" style=\"border-collapse: collapse; width: max-content;\">\n");
         sb.append("<tr>\n");
         sb.append("<th>Block</th>\n");
         sb.append("<th>LiveIn</th>\n");
@@ -169,7 +171,7 @@ public class LiveIntervalAnalyzer {
         sb.append("</table>\n");
 
         sb.append("<h1>LinearFlow</h1>\n");
-        sb.append("<table border=\"1\" style=\"border-collapse: collapse;\">\n");
+        sb.append("<table border=\"1\" style=\"border-collapse: collapse;width: max-content\">\n");
         sb.append("<tr>\n");
         sb.append("<th>Owner Block</th>\n");
         sb.append("<th>Inst</th>\n");
@@ -180,7 +182,7 @@ public class LiveIntervalAnalyzer {
         var ents = result.liveIntervals.entrySet();
         for (var lv : ents) {
             var k = lv.getKey();
-            sb.append("<th>" + k + (k.isFloat ? "f" : "i") + "</th>");
+            sb.append("<th>" + k.toString().replace("vreg","vr") + (k.isFloat ? "f" : "i") + "</th>");
         }
 
         sb.append("</tr>\n");
@@ -201,10 +203,10 @@ public class LiveIntervalAnalyzer {
                     sb.append(inst.toString());
                     sb.append("</td>\n");
                     sb.append("<td>");
-                    sb.append(debugVregsAsmOperand(inst.uses));
+                    sb.append(debugVregsAsmOperand(inst, inst.uses));
                     sb.append("</td>\n");
                     sb.append("<td>");
-                    sb.append(debugVregsAsmOperand(inst.defs));
+                    sb.append(debugVregsAsmOperand(inst, inst.defs));
                     sb.append("</td>\n");
                     sb.append("<td>");
                     sb.append(result.instSlotIdx.get(inst));
@@ -215,7 +217,7 @@ public class LiveIntervalAnalyzer {
                         if (seg == null) {
                             sb.append("<td>");
                         } else {
-                            sb.append("<td style=\"background: #f1f1f1; ");
+                            sb.append("<td style=\"background: #c1c1c1; ");
                             // if is end of seg
                             if (seg.end == instSlotIndex) {
                                 sb.append("border-bottom: 2px solid #1313ff; ");
@@ -259,16 +261,29 @@ public class LiveIntervalAnalyzer {
         StringBuilder sb = new StringBuilder();
         for (var v : s) {
             var isFloat = v.isFloat ? "f" : "i";
-            sb.append(v.toString() + isFloat + " ");
+            sb.append(v.toString().replace("vreg", "vr") + isFloat + " ");
         }
         return sb.toString();
     }
 
-    public static String debugVregsAsmOperand(Iterable<AsmOperand> s) {
+    public static String debugVregsAsmOperand(AsmInst inst, Iterable<AsmOperand> s) {
         StringBuilder sb = new StringBuilder();
         for (var v : s) {
             var isFloat = v.isFloat ? "f" : "i";
-            sb.append(v.toString() + isFloat + " ");
+            sb.append(v.toString().replace("vreg", "vr"));
+            sb.append(isFloat);
+
+            if (inst instanceof ConstrainRegInst) {
+                var constrainRegInst = (ConstrainRegInst) inst;
+                constrainRegInst.getConstraints().entrySet().forEach(action -> {
+                    if (action.getKey().equals(v)) {
+                        sb.append("(" + action.getValue() + ")");
+                    }
+                });
+            }
+
+            sb.append(" ");
+
         }
         return sb.toString();
     }

@@ -8,7 +8,10 @@ import java.util.Set;
 
 import javax.swing.text.html.HTML;
 
+import backend.AsmOperand;
 import backend.VirtReg;
+import backend.arm.Reg;
+import backend.arm.VfpReg;
 import ds.Global;
 
 public class LiveInterval {
@@ -20,9 +23,39 @@ public class LiveInterval {
     // 此区间哪些指令是使用了值
     private List<Long> usePositions = new ArrayList<>();
 
+    // 预先绑定的寄存器。例如调用规约导致的绑定。
+    private AsmOperand precolorReg; // VfpReg or Reg
+
+    public void setPrecolorReg(AsmOperand reg) {
+        assert reg instanceof VfpReg || reg instanceof Reg;
+        precolorReg = reg;
+    }
+
+    public void trySetPrecolorReg(AsmOperand reg) {
+        if (reg instanceof VfpReg || reg instanceof Reg)
+            precolorReg = reg;
+    }
+
+    public Boolean isFixed() {
+        return precolorReg != null;
+    }
+
+    public Integer getPrecoloredRegId() {
+        if (!isFixed()) {
+            return null;
+        }
+        if (precolorReg instanceof VfpReg) {
+            return (((VfpReg) precolorReg).getIndex()) + LsraConsts.VFP_REG_OFFSET;
+        } else {
+            return ((Reg) precolorReg).getIndex() + 0;
+        }
+    }
+
     public void addUsage(long position) {
         // 必须递增
-        assert (usePositions.isEmpty() || position > usePositions.get(usePositions.size() - 1));
+        if (!(usePositions.isEmpty() || position > usePositions.get(usePositions.size() - 1))){
+            assert false;
+        }
         usePositions.add(position);
     }
 
@@ -47,6 +80,7 @@ public class LiveInterval {
     @Override
     public String toString() {
         var sbuf = new StringBuffer();
+        sbuf.append("interval. owner=" + owner.toString() + ", range=");
         for (SubRange subRange : subRanges) {
             sbuf.append("[");
             sbuf.append(subRange.start);
@@ -54,6 +88,11 @@ public class LiveInterval {
             sbuf.append(subRange.end);
             sbuf.append("] ");
         }
+        sbuf.append("allocatedReg=");
+        sbuf.append(allocatedReg);
+        sbuf.append("\n");
+        sbuf.append("precolorReg=");
+        sbuf.append(getPrecoloredRegId());
         return sbuf.toString();
     }
 
@@ -272,6 +311,22 @@ public class LiveInterval {
         return subRanges.get(0);
     }
 
+    // 一个迭代器状态
+    private SubRange current;
+
+    public SubRange next() {
+        if (current == null) {
+            current = first();
+        } else {
+            current = subRanges.get(subRanges.indexOf(current) + 1);
+        }
+        return current;
+    }
+
+    public SubRange current() {
+        return current;
+    }
+
     public boolean covers(long position) {
         for (var seg : subRanges) {
             if (seg.start <= position && position <= seg.end) {
@@ -362,6 +417,7 @@ public class LiveInterval {
     public LiveInterval splitAt(Long splitPos) {
         assert (splitPos >= 0 && splitPos != Long.MAX_VALUE);
         var newInterval = new LiveInterval(owner);
+        newInterval.trySetPrecolorReg(this.precolorReg);
         var foundSegToBeSplited = false;
         for (var seg : subRanges) {
             // 如果已经找到分割点，那么后面 subrange 的全送给新 interval

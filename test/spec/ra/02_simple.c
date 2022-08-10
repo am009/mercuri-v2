@@ -1,14 +1,7 @@
 
+
 int main() {
-    int a = 1;
-    int b = 2;
-    float c;
-    if(a > b) {
-        c = a / b;
-    }
-    else {
-        c = b / a;
-    }
-    c = c + 1;
+    int ret = 1 + 2 - 3 + 4 - 5;
+    putint(ret);
     return 0;
 }

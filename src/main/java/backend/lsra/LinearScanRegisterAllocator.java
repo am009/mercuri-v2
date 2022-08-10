@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 import backend.AsmModule;
 import backend.VirtReg;
 import backend.arm.Reg;
+import ds.Global;
 
 public class LinearScanRegisterAllocator {
     DagLinearFlow flow;
@@ -25,29 +26,70 @@ public class LinearScanRegisterAllocator {
     public LinearScanRegisterAllocator(AsmModule m, DagLinearFlow flow) {
         this.m = m;
         this.flow = flow;
-
-        initUsePosAndBlockPos();
+        Global.logger.trace("BEGIN LinearScanRegisterAllocator initialization");
+        // Global.logger.trace("-- initUsePosAndBlockPos");
+        // initUsePosAndBlockPos();
+        Global.logger.trace("-- initFreePos");
         initFreePos();
+        Global.logger.trace("-- initIntervals (sorting)");
+        initIntervals();
+        Global.logger.trace("END LinearScanRegisterAllocator initialization");
+
     }
 
     public static AsmModule process(AsmModule m) {
         // 构建 interval
         var flow = LiveIntervalAnalyzer.process(m);
         var g = new LinearScanRegisterAllocator(m, flow);
-        g.init();
+        Global.logger.trace("BEGIN LinearScanRegisterAllocator process");
+        Global.logger.trace("-- allocateRegisters");
         g.walkAndAlloc();
+        Global.logger.trace("END LinearScanRegisterAllocator process");
         return m;
     }
 
-    // 初始化 LSRA 所需的区间信息，得到排序后的所有 interval
-    private void init() {
-        unhandled = flow.getSortedRanges();
+    private void allocateRegisters() {
+        // List<LiveInterval> fixedIntervals = new LinkedList<LiveInterval>();
+        // List<LiveInterval> nonFixedIntervals = new LinkedList<LiveInterval>();
+        // divideIntervals(sortedIntervals, fixedIntervals, nonFixedIntervals);
+        // var walker = new LinearScanWalker(fixedIntervals, nonFixedIntervals);
+        // walker.walk();
+        // walker.finishAllocation();
+    }
+
+    // 由于调用规约，有的 interval 事先分配到了物理寄存器，因此在此分组
+    private void divideIntervals(List<LiveInterval> sortedIntervalsIn, List<LiveInterval> fixedIntervalsOut,
+            List<LiveInterval> nonFixedIntervalsOut) {
+        for (var interval : sortedIntervalsIn) {
+            if (interval.isFixed()) {
+                fixedIntervalsOut.add(interval);
+            } else {
+                nonFixedIntervalsOut.add(interval);
+            }
+        }
+    }
+
+    /**
+     * 初始化 LSRA 所需的区间信息，得到排序后的所有 interval
+     */
+    private void initIntervals() {
+        sortedIntervals = flow.getSortedRanges();
+        assert isIntervalsSorted(sortedIntervals);
     }
 
     // 线性扫描的上下文
 
+    private boolean isIntervalsSorted(List<LiveInterval> sortedIntervals2) {
+        for (int i = 0; i < sortedIntervals2.size() - 1; i++) {
+            if (sortedIntervals2.get(i).first().start > sortedIntervals2.get(i + 1).first().start) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     // 尚未处理的区间. 各个 vreg 的活跃区间, 按 subRange 的 start 排序
-    List<LiveInterval> unhandled;
+    List<LiveInterval> sortedIntervals;
     // 与扫描光标有交集的区间
     List<LiveInterval> active = new LinkedList<LiveInterval>();
     // 不活跃的区间, 即那些虽然开始结束范围涵盖当前 pos, 但实际上当前 pos 处于其中的空洞
@@ -59,40 +101,52 @@ public class LinearScanRegisterAllocator {
     // 参考 Java Hotspot 论文 p67
     private void walkAndAlloc() {
 
-        while (!unhandled.isEmpty()) {
+        while (!sortedIntervals.isEmpty()) {
             // 获取一个最靠前的未处理区间
-            var current = unhandled.iterator().next();
-            unhandled.remove(current);
+            var current = sortedIntervals.iterator().next();
+            Global.logger.trace("Walking interval " + current.toString());
+            sortedIntervals.remove(current);
 
             // 扫描游标
             var position = current.first().start;
+            Global.logger.trace("position=" + position);
 
             // 判断 active 中的区间是否过期或者不活跃
-            for (var it : active) {
+            var activeIterator = active.iterator();
+            while (activeIterator.hasNext()) {
+                var it = activeIterator.next();
                 if (it.last().end < position) {
-                    active.remove(it);
+                    activeIterator.remove();
                     handled.add(it);
                 } else if (!it.covers(position)) {
-                    active.remove(it);
+                    activeIterator.remove();
                     inactive.add(it);
                 }
             }
             // 判断 inactive 中的区间是否过期或者活跃
-            for (var it : inactive) {
+            var inactiveIterator = inactive.iterator();
+            while (inactiveIterator.hasNext()) {
+                var it = inactiveIterator.next();
                 if (it.last().end < position) {
-                    inactive.remove(it);
+                    inactiveIterator.remove();
                     handled.add(it);
                 } else if (it.covers(position)) {
-                    inactive.remove(it);
+                    inactiveIterator.remove();
                     active.add(it);
                 }
             }
+            if(current.getPrecoloredRegId() != null){
+                current.allocatedReg = current.getPrecoloredRegId();
+            }
+            if (current.allocatedReg == -1) {
+                // 寻找一个空闲的寄存器, 分配给 current 区间
+                var result = tryAllocFreeReg(position, current);
+                Global.logger.trace("Walking interval: tryAllocFreeReg returns " + result);
 
-            // 寻找一个空闲的寄存器, 分配给 current 区间
-            var result = tryAllocFreeReg(position, current);
-            if (null == result) {
-                // 如果没有空闲的，就试图抢一个，抢不到就 spill
-                allocBlockedReg(current);
+                if (null == result) {
+                    // 如果没有空闲的，就试图抢一个，抢不到就 spill
+                    allocBlockedReg(current);
+                }
             }
             if (current.isAssigned()) {
                 active.add(current);
@@ -125,13 +179,20 @@ public class LinearScanRegisterAllocator {
     // key: reg, value: no spill position
     Map<Integer, Long> blockPos = new HashMap<Integer, Long>();
 
-    private void initUsePosAndBlockPos() {
+    private void initUsePos() {
         for (int i = 0; i < LsraConsts.CORE_REG_COUNT; i++) {
             usePos.put(i, Long.MAX_VALUE);
-            blockPos.put(i, Long.MAX_VALUE);
         }
         for (int i = 0; i < LsraConsts.VFP_REG_COUNT; i++) {
             usePos.put(i + LsraConsts.VFP_REG_OFFSET, Long.MAX_VALUE);
+        }
+    }
+
+    private void initBlockPos() {
+        for (int i = 0; i < LsraConsts.CORE_REG_COUNT; i++) {
+            blockPos.put(i, Long.MAX_VALUE);
+        }
+        for (int i = 0; i < LsraConsts.VFP_REG_COUNT; i++) {
             blockPos.put(i + LsraConsts.VFP_REG_OFFSET, Long.MAX_VALUE);
         }
     }
@@ -140,20 +201,18 @@ public class LinearScanRegisterAllocator {
         usePos.put(it.allocatedReg, pos);
     }
 
-    Map<LiveInterval, Boolean> fixed = new HashMap<LiveInterval, Boolean>();
-
     // 为当前的区间抢一个寄存器
     private void allocBlockedReg(LiveInterval current) {
-
+        Global.logger.trace("allocBlockedReg: " + current);
         // 初始化各区间的下一次使用位置
         for (var it : active) {
-            if (fixed.get(it))
+            if (it.isFixed())
                 continue;
 
             setUsePos(it, it.nextUsage(current.first().start));
         }
         for (var it : inactive) {
-            if (fixed.get(it))
+            if (it.isFixed())
                 continue;
 
             if (it.nextIntersection(current.first()) != -1) {
@@ -162,13 +221,13 @@ public class LinearScanRegisterAllocator {
         }
 
         for (var it : active) {
-            if (!fixed.get(it))
+            if (!it.isFixed())
                 continue;
 
             setUsePos(it, 0);
         }
         for (var it : inactive) {
-            if (!fixed.get(it))
+            if (!it.isFixed())
                 continue;
 
             var nextInter = it.nextIntersection(current.first());
@@ -244,6 +303,15 @@ public class LinearScanRegisterAllocator {
         }
     }
 
+    private String debugFreePos() {
+        StringBuilder sb = new StringBuilder();
+        for (var it : freePos.keySet()) {
+            var v = freePos.get(it);
+            sb.append(it).append(": ").append(v == Long.MAX_VALUE ? "+inf" : v).append("\n");
+        }
+        return sb.toString();
+    }
+
     /**
      * 规则类怪谈:
      * 1. 所有 active 区间使用的 reg 必须是排他的, 因此会将 freePos 设置为 0
@@ -252,18 +320,17 @@ public class LinearScanRegisterAllocator {
      * 4. setFreePos 用于设置被分配给某区间的某寄存器的 freePos
      */
 
-    Map<LiveInterval, List<Integer>> Inteval2Register = new HashMap<LiveInterval, List<Integer>>();
-
     void setFreePos(LiveInterval interval, long FreePos) {
-        var regs = Inteval2Register.get(interval);
-        assert (regs != null);
-        for (var reg : regs) {
+        var reg = interval.getPrecoloredRegId();
+        if (reg != null) {
             freePos.put(reg, FreePos);
         }
     }
 
     // 尝试寻找一个空闲的寄存器，这样不用 spill 操作
     Boolean tryAllocFreeReg(long position, LiveInterval current) {
+        Global.logger.trace("tryAllocFreeReg " + position + " " + current);
+        initUsePos();
         Boolean success = false;
         // 将活跃区间占用的寄存器标记为已占用
         for (var another : active) {
@@ -298,6 +365,8 @@ public class LinearScanRegisterAllocator {
                 setFreePos(another, nextIntersection);
             }
         }
+        Global.logger.trace("tryAllocFreeReg: freePos state: " + debugFreePos());
+
         var reg = getRegisterWithHighestFreePos();
         var highFreePos = freePos.get(reg);
         if (highFreePos == 0) {
@@ -327,9 +396,9 @@ public class LinearScanRegisterAllocator {
     private void addToUnhandled(LiveInterval splitChild) {
         assert (splitChild.allocatedReg == -1);
         var start = splitChild.first().start;
-        for (int i = 0; i < unhandled.size(); i++) {
-            if (unhandled.get(i).first().start > start) {
-                unhandled.add(i, splitChild);
+        for (int i = 0; i < sortedIntervals.size(); i++) {
+            if (sortedIntervals.get(i).first().start > start) {
+                sortedIntervals.add(i, splitChild);
                 return;
             }
         }
@@ -361,9 +430,9 @@ public class LinearScanRegisterAllocator {
      * 比如说，我们在分割点造成了移动。那么如果跳转到的点恰好从移动到的栈上拿回了数据，那么这还好。但如果跳转到的点还在认之前的寄存器，那就不对了。
      */
 
-     /**
-      * 对于每个参作数
-      */
+    /**
+     * 对于每个参作数
+     */
     private void resolveDataFlow() {
         var resolver = new MoveResolver();
         for (var func : m.funcs) {

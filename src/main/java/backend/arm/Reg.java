@@ -1,5 +1,7 @@
 package backend.arm;
 
+import java.nio.channels.AsynchronousServerSocketChannel;
+
 import backend.AsmOperand;
 
 public class Reg extends AsmOperand {
@@ -72,4 +74,10 @@ public class Reg extends AsmOperand {
     public String toString() {
         return ty.toString();
     }
+
+    public Integer getIndex(){
+        assert !isFloat;
+        return this.ty.toInt();
+    }
+
 }

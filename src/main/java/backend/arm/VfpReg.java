@@ -23,6 +23,10 @@ public class VfpReg extends AsmOperand {
         return false;
     }
 
+    public Integer getIndex(){
+        return (int)index;
+    }
+
     @Override
     public String toString() {
         return "s"+String.valueOf(index);

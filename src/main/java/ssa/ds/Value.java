@@ -28,6 +28,7 @@ public class Value {
             var newu = new Use(u.user, v);
             u.user.replaceUseWith(u, newu);
         }
+        uses.clear();
     }
 
     public String toValueString() {
