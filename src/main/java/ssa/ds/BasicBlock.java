@@ -25,6 +25,11 @@ public class BasicBlock {
         insts.set(ind, newInst);
     }
 
+    public void removeOprsAndReplaceInst(Instruction inst, Instruction newInst) {
+        inst.removeAllOpr();
+        replaceInst(inst, newInst);
+    }
+
     /**
      * 判断基本块是否应该终止。例如最后一个指令是 TerminatorInst
      * @return 如果应该终止，返回 true，否则返回 false
@@ -100,7 +105,12 @@ public class BasicBlock {
         return b.toString();
     }
 
-    public void destroyInst(Instruction inst) {
+    public boolean hasValidTerm() {
+        return insts.get(insts.size() - 1) instanceof TerminatorInst;
+    }
+
+    // 删除指令，但是不一定将其 User 删除，因为此指令可能被替换为**值**
+    public void removeInst(Instruction inst) {
         inst.removeAllOpr();
         insts.remove(inst);
     }

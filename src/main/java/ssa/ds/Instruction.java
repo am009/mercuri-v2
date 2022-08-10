@@ -38,9 +38,4 @@ public abstract class Instruction extends User {
         return oprands.get(2).value;
     }
 
-    public void removeAllOpr() {
-        //TODO: CHECK NEED THIS?
-        oprands.forEach(opr -> opr.value.removeUse(opr));
-        oprands.clear();
-    }
 }

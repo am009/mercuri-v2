@@ -25,8 +25,7 @@ public class Value {
     public void replaceAllUseWith(Value v) {
         for (var u: uses) {
             assert u.value == this;
-            var newu = new Use(u.user, v);
-            u.user.replaceUseWith(u, newu);
+            u.user.replaceUseWith(u, new Use(u.user, v));
         }
         uses.clear();
     }

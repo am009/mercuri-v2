@@ -635,7 +635,7 @@ public class LocalRegAllocator {
 
     private int calcDist(int currentInd, List<Integer> useList) {
         if (useList == null) {
-            Global.logger.warning("Cannot find usage of a virtual register.");
+            Global.logger.warning("Cannot find usage of a virtual register. currentInd=" + currentInd);
             return Integer.MAX_VALUE;
         }
         for (int j = useList.size() - 1; j >= 0; j--) {

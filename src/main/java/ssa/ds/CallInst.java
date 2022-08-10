@@ -53,4 +53,17 @@ public class CallInst extends Instruction {
         }
         return b.toString();
     }
+
+    public boolean isPure() {
+        // TODO: 跨调用分析
+        // var fv = ((FuncValue) oprands.get(0).value);
+        // var targetFunc = fv.func;
+        // if(func.hasSideEffect() || func.usingGlobalVar()) {
+        //     return false;
+        // }
+        // for(var val: this.oprands) {
+
+        // }
+        return false;
+    }
 }

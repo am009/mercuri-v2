@@ -1,5 +1,7 @@
 package dst.ds;
 
+import common.Pair;
+
 public enum BinaryOp {
     // addExpr
     ADD,
@@ -163,5 +165,33 @@ public enum BinaryOp {
             }
         }
         throw new UnsupportedOperationException();
+    }
+    private static  BinaryOp[] commutativeOps = new BinaryOp[]{ADD, MUL, LOG_AND, LOG_OR, LOG_EQ, LOG_NEQ};
+
+    public boolean isCommutative() {
+        for (var op : commutativeOps) {
+            if (op == this) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean isReverse(BinaryOp op) {
+        var a = this;
+        var b = op;
+        if(a == LOG_LT && b == LOG_GT) {
+            return true;
+        }
+        if(a == LOG_GT && b == LOG_LT) {
+            return true;
+        }
+        if(a == LOG_LE && b == LOG_GE) {
+            return true;
+        }
+        if(a == LOG_GE && b == LOG_LE) {
+            return true;
+        }
+        return false;
     }
 }

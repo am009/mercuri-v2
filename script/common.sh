@@ -6,6 +6,7 @@ NC='\033[0m' # No Color
 
 function compile_one {
     java -DlogLevel=trace \
+        -DlogFile=log/`basename ${1}`.log \
         -jar $BASEDIR/target/compiler.jar \
             -S -o $2 \
             $1
@@ -13,6 +14,7 @@ function compile_one {
 
 function compile_one_opt {
     java -DlogLevel=trace \
+        -DlogFile=log/`basename ${1}`.log \
         -jar $BASEDIR/target/compiler.jar \
             -S -o $2 \
             $1 -O2

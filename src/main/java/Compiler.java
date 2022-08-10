@@ -35,7 +35,8 @@ public class Compiler {
         var tokenStream = new CommonTokenStream(tokenSource);
         var parser = new SysyParser(tokenStream);
         var dstGen = new DstGenerator();
-        CompUnit dst = dstGen.process(parser.compUnit(), args.getInFile());
+        var compUnit = parser.compUnit();
+        CompUnit dst = dstGen.process(compUnit, args.getInFile());
         // !! IF_DEBUG
         // var gb = new com.google.gson.GsonBuilder();
         // gb.setPrettyPrinting();
@@ -60,9 +61,13 @@ public class Compiler {
         Global.logger.trace("--- ssa ---");
         Global.logger.trace(ssa.toString());
 
-        Global.logger.trace("--- ssa - after GVN ---");
+        Global.logger.trace("--- ssa - doing GVN ---");
         GVN.process(ssa);
-        NumValueNamer.process(ssa, true);
+        NumValueNamer.process(ssa);
+        Global.logger.trace("--- ssa - after GVN  ---");
+        Global.logger.trace(ssa.toString());
+
+        Global.logger.trace("--- ssa - after GVN  ---");
         Global.logger.trace(ssa.toString());
 
         // !! END_IF

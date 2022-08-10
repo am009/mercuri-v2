@@ -10,6 +10,10 @@ public class LoadInst extends Instruction {
         type.isPointer = false;
     }
 
+    public Value getPtr() {
+        return oprands.get(0).value;
+    }
+
     // load [volatile] <ty>, <ty>* <pointer>
     @Override
     public String getOpString() {
@@ -21,4 +25,5 @@ public class LoadInst extends Instruction {
         type.isPointer = false;
         return b.toString();
     }
+
 }
