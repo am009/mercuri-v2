@@ -1,5 +1,8 @@
 package ssa;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import ssa.ds.BasicBlock;
 import ssa.ds.ConstantValue;
 import ssa.ds.Func;
@@ -15,11 +18,9 @@ import ssa.ds.Value;
  * 全局变量和函数参数也应当在生成时命名。语法里好像函数参数的名字不能省略。
  */
 public class NumValueNamer {
-    Boolean renumber = false;
 
-    public static void process(Module m, Boolean renumber) {
+    public static void process(Module m) {
         var instance = new NumValueNamer();
-        instance.renumber = renumber;
         instance.visitModule(m);
     }
 
@@ -43,10 +44,13 @@ public class NumValueNamer {
         i.getUses().forEach(use -> visitValue(use.value));
     }
 
+    public Map<Value, Boolean> visited = new HashMap<>();
+
     public void visitValue(Value i) {
         if ((!i.type.equals(Type.Void)) && (!(i instanceof ConstantValue))) {
-            if (i.name == null || renumber) {
+            if (!visited.containsKey(i)) {
                 i.name = String.valueOf(count++);
+                visited.put(i, true);
             }
         }
     }
