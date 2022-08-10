@@ -45,6 +45,14 @@ public class StoreInst extends Instruction {
         }
     }
 
+    public Value getPtr() {
+        return oprands.get(1).value;
+    }
+
+    public Value getVal() {
+        return oprands.get(0).value;
+    }
+
     public static boolean checkType(Type val, Type ptr) {
         // 必须 store 到地址
         if (!ptr.isPointer){

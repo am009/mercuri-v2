@@ -8,11 +8,18 @@ public class BasicBlock {
     public String label;
     public List<Instruction> insts;
     public BasicBlockValue val;
+    public List<BasicBlock> domers; // 谁支配我
+    public List<BasicBlock> idoms; // 我直接支配谁
+    public List<BasicBlock> domiFrontier; // 支配边界
+    public BasicBlock idomer; // 谁直接支配我
+    public Integer domLevel;
 
     public BasicBlock(String name) {
         label = name;
         insts = new ArrayList<>();
         val = new BasicBlockValue(this);
+        domers = new ArrayList<>();
+        idoms = new ArrayList<>();
     }
 
     public BasicBlockValue getValue() {

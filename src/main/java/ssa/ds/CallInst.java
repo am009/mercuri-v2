@@ -24,6 +24,10 @@ public class CallInst extends Instruction {
         }
     }
 
+    public Func target(){
+        return ((FuncValue)oprands.get(0).value).func;
+    }
+
     public boolean isVariadic() {
         FuncValue fv = (FuncValue) oprands.get(0).value;
         return fv.func.isVariadic;

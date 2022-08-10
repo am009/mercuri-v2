@@ -1,5 +1,6 @@
 package ssa.ds;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.StringJoiner;
 
@@ -13,6 +14,12 @@ public class Func {
     public boolean isVariadic = false; // 是否有可变参数
     public FuncType retType;
     public List<ParamValue> argType;
+
+    // filled after IPA
+    public List<Func> callers = new ArrayList<>();
+    public List<Func> callees = new ArrayList<>();
+    public boolean hasSideEffect = true;
+    public boolean usingGlobs = true;
 
     public Func(String name, FuncType retTy, List<ParamValue> argTy) {
         this.name = name;
@@ -90,5 +97,9 @@ public class Func {
         }
         builder.append(sj.toString());
         return builder.toString();
+    }
+
+    public BasicBlock entry() {
+        return bbs.get(0);
     }
 }

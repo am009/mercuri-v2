@@ -31,4 +31,12 @@ public class AllocaInst extends Instruction {
     public String getOpString() {
         return "alloca " + ty.toString();
     }
+
+    public Type getType() {
+        return ty;
+    }
+
+    public Type getReturnType() {
+        return type;
+    }
 }
