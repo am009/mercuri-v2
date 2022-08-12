@@ -15,12 +15,12 @@ https://mapping-high-level-constructs-to-llvm-ir.readthedocs.io/en/latest/README
 TODO
 1. 加入Phi节点，
 1. 模仿mimic写SSA construction(mem2reg)
-1. 用split critical edge的方法实现ssa destruction(reg2mem)
+1. 用split critical edge的方法实现ssa destruction(reg2mem?)
 1. pass manager？
 
-目前还有设计需要进一步考虑的地方：
-- 跳转指令不应该完全跟着LLVM走，跳转指令在IR就直接带着一个比较运算的话，后端生成可以直接生成`cmp ; b<cond>` ? （但是SYSY是否允许比较运算的嵌套？比如`((a>2)==1)`）
-
+需要注意的地方
+- 部分看似返回boolean类型的运算返回的其实是i32类型的0或者1，为了满足部分`-!0`等于-1这种运算的需求。
+- 局部变量的Alloca指令都放到基本块开头，不然在函数内部（比如一些循环内部）执行Alloc的语义其实是动态栈内存分配。
 
 ### 基础
 

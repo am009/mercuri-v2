@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import dst.ds.LoopStatement;
+import ssa.ds.AllocaInst;
 import ssa.ds.BasicBlock;
 import ssa.ds.BasicBlockValue;
 import ssa.ds.Func;
@@ -56,6 +57,22 @@ public class FakeSSAGeneratorContext {
         } else {
             return current.addBeforeTerminator(i);
         }
+    }
+
+    /**
+     * 将(Alloca)指令放到函数的entry基本块开头的一堆Alloca指令后面。
+     */
+    public AllocaInst addAllocaToEntry(AllocaInst i) {
+        int ind = 0;
+        var list = currentFunc.entry().insts;
+        for (var inst: list) {
+            if (!(inst instanceof AllocaInst)) {
+                break;
+            }
+            ind += 1;
+        }
+        list.add(ind, i);
+        return i;
     }
 
     /**

@@ -13,7 +13,9 @@ import ssa.ds.Module;
 import ssa.ds.ParamValue;
 import ssa.ds.Type;
 
-// TODO 定义Pass接口后使用统一接口
+/**
+ * 处理取模运算，转换为对__aeabi_mymod（自定义汇编函数）的调用。
+ */
 public class EABIArithmeicLowing {
     public static Map<String, Func> extFuncs = buildMap();
 
