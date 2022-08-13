@@ -643,7 +643,9 @@ public class LocalRegAllocator {
                         load.comment = "Load callee saved reg "+reg.toString();
                         loads.addAll(Generator.expandStackOperandLoadStoreIP(load));
                     } else if (reg instanceof VfpReg) {
-                        throw new RuntimeException("TODO");
+                        var load = new VLDRInst(func.entry, ent.getKey(), loc);
+                        load.comment = "Load callee saved reg "+reg.toString();
+                        loads.addAll(Generator.expandStackOperandLoadStoreIP(load));
                     } else {throw new RuntimeException("Unknown Register Type to save.");}
                 }
                 abb.insts.addAll(i, loads);

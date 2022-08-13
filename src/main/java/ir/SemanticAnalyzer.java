@@ -260,7 +260,11 @@ public class SemanticAnalyzer {
                     expr.right = cast;
                 }
             }
-            expr.setType(Type.getCommon(expr.left.type, expr.right.type));
+            if (!expr.op.isBoolean()) {
+                expr.setType(Type.getCommon(expr.left.type, expr.right.type));
+            } else { // 比较运算即使两边是Float，返回的也是i32
+                expr.setType(Type.Integer);
+            }
             return;
         }
 

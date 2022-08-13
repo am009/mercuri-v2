@@ -636,7 +636,7 @@ public class Generator {
         if (inst instanceof backend.arm.inst.StoreInst || inst instanceof VSTRInst) {
             newuse.add(inst.uses.get(0));
             expandStackOperand((StackOpInst)inst, inst.uses.get(1), newuse, ret, inst.parent);
-        } else if (inst instanceof backend.arm.inst.LoadInst || inst instanceof VSTRInst) {
+        } else if (inst instanceof backend.arm.inst.LoadInst || inst instanceof VLDRInst) {
             expandStackOperand((StackOpInst)inst, inst.uses.get(0), newuse, ret, inst.parent);
         }
         inst.uses = newuse;
