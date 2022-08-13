@@ -100,10 +100,12 @@ class DagLinearFlow {
             // int blockEndSlot = linearInstSlotIndex;
             for (var inst : block.insts) {
                 int instIdx = instSlotIdx.get(inst);
-                Map<VirtReg, AsmOperand> constraints = null;
+                // Map<VirtReg, AsmOperand> constraints = null;
+                Map<AsmOperand, VirtReg> inConstraints = null;
+                Map<AsmOperand, VirtReg> outConstraints = null;
                 if (inst instanceof ConstrainRegInst) {
-                    ConstrainRegInst cri = (ConstrainRegInst) inst;
-                    constraints = cri.getConstraints();
+                    inConstraints = ((ConstrainRegInst)inst).getInConstraints();
+                    outConstraints = ((ConstrainRegInst)inst).getInConstraints();
                 }
                 for (var def : inst.defs) {
                     if (def instanceof VirtReg) {
@@ -112,8 +114,9 @@ class DagLinearFlow {
                         // 这肯定不对，所以索性都加入到 todo,最后单独开个循环做截断
                         intervalOf((VirtReg) def).todoBreaks.add(Long.valueOf(instIdx));
 
-                        if (constraints != null && constraints.containsKey(def)) {
-                            intervalOf((VirtReg) def).trySetPrecolorReg(constraints.get(def));
+                        if (outConstraints != null && outConstraints.containsValue(def)) {
+                            // TODO
+                            // intervalOf((VirtReg) def).trySetPrecolorReg();
                         }
                     } else {
                         Global.logger.warning("DagLinearFlow: def is not a VirtReg");
@@ -125,8 +128,9 @@ class DagLinearFlow {
                         intervalOf((VirtReg) use).extend(blockFrom, instIdx);
                         intervalOf((VirtReg) use).addUsage(instIdx);
 
-                        if (constraints != null && constraints.containsKey(use)) {
-                            intervalOf((VirtReg) use).trySetPrecolorReg(constraints.get(use));
+                        if (inConstraints != null && inConstraints.containsValue(use)) {
+                            // TODO
+                            // intervalOf((VirtReg) use).trySetPrecolorReg();
                         }
                     } else {
                         Global.logger.warning(

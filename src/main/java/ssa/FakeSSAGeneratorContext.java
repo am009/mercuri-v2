@@ -47,7 +47,7 @@ public class FakeSSAGeneratorContext {
      * 将指令追加到当前上下文的基本块
      */
     public Instruction addToCurrentBB(Instruction i) {
-        if (i instanceof TerminatorInst && current.hasTerminator()) {
+        if (current.hasTerminator()) {
             // 只能生成到一个新的空基本块了
             var newBB = new BasicBlock("tmp_"+nextBBIdx());
             currentFunc.bbs.add(newBB);

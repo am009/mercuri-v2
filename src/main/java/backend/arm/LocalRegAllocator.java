@@ -220,7 +220,7 @@ public class LocalRegAllocator {
         }
 
         // 将from移动到to。要检查to是否是free的
-        public void moveTo(int from, int to, boolean isFloat, AsmBlock blk, List<AsmInst> toInsertBefore) {
+        public void copyTo(int from, int to, boolean isFloat, AsmBlock blk, List<AsmInst> toInsertBefore) {
             assert from >= 0 && to >= 0;
             RegClass rc = rcs[b2i(isFloat)];
             if (!rc.free.contains(to)) {
@@ -242,7 +242,6 @@ public class LocalRegAllocator {
             rc.free.remove(Integer.valueOf(to));
             rc.current[to] = rc.current[from];
             rc.next[to] = rc.next[from];
-            free(from, isFloat);
         }
 
         public void allocateTo(int to, VirtReg vreg, AsmBlock blk, List<AsmInst> toInsertBefore) {
@@ -284,11 +283,11 @@ public class LocalRegAllocator {
             }
         }
 
-        public void spillCallerSaved(Map<VirtReg, AsmOperand> constrains, AsmBlock blk, List<AsmInst> toInsertBefore) {
+        public void spillCallerSaved(Map<AsmOperand, VirtReg> inConstraints, AsmBlock blk, List<AsmInst> toInsertBefore) {
             var iargs = new HashSet<Integer>();
             var fargs = new HashSet<Long>();
-            for (var ent: constrains.entrySet()) {
-                var reg = ent.getValue();
+            for (var ent: inConstraints.entrySet()) {
+                var reg = ent.getKey();
                 if (reg instanceof Reg) {
                     iargs.add(((Reg)reg).ty.toInt());
                 } else if(reg instanceof VfpReg) {
@@ -375,7 +374,7 @@ public class LocalRegAllocator {
                 }
                 if (inst instanceof ConstrainRegInst) {
                     // 替换式加入，因此仅保留最靠前的约束
-                    for (var con: ((ConstrainRegInst)inst).getConstraints().entrySet()) {
+                    for (var con: ((ConstrainRegInst)inst).getConstraints()) {
                         ba.allocHint.getOrDefault(con.getKey(), new AllocHint(null, false)).cons = con.getValue();
                     }
                 }
@@ -400,9 +399,11 @@ public class LocalRegAllocator {
                 List<AsmOperand> newUses = new ArrayList<>();
                 List<AsmInst> toInsertBefore = new ArrayList<>();
                 List<AsmInst> toInsertAfter = new ArrayList<>();
-                Map<VirtReg, AsmOperand> constraints = null;
+                Map<AsmOperand, VirtReg> inConstraints = null;
+                Map<AsmOperand, VirtReg> outConstraints = null;
                 if (inst instanceof ConstrainRegInst) {
-                    constraints = ((ConstrainRegInst)inst).getConstraints();
+                    inConstraints = new HashMap<>(((ConstrainRegInst)inst).getInConstraints());
+                    outConstraints = new HashMap<>(((ConstrainRegInst)inst).getOutConstraints());
                 }
                 
                 // for (var vreg: uses) {
@@ -412,7 +413,7 @@ public class LocalRegAllocator {
                     // 没有约束的就直接看是不是寄存器，不是的话有两种情况，要么spill了，要么是global的spill，就分配一个寄存器并且把值加载出来。
                     // 有约束的就得首先获得约束，然后检查是否在目标寄存器里，不在的就还是要强行分配寄存器
                     // 如果已经在寄存器里，强行分配寄存器就先spill原有的值，然后mov过去？
-                    if (constraints == null || !constraints.containsKey(vreg)) { // 没有约束，正常分配
+                    if (inConstraints == null || !inConstraints.containsValue(vreg)) { // 没有约束，正常分配
                         var hint = bd.allocHint.get(vreg);
                         int currentind = state.checkInPhyReg(vreg);
                         AsmOperand phyReg = ind2Reg(currentind, vreg.isFloat);
@@ -437,7 +438,16 @@ public class LocalRegAllocator {
                         addUsedReg(regind, vreg.isFloat);
                         newUses.add(ind2Reg(regind, vreg.isFloat));
                     } else {
-                        var phyReg = constraints.get(vreg);
+                        // get key from value
+                        AsmOperand phyReg = null;
+                        for (var ent: inConstraints.entrySet()) {
+                            if (ent.getValue().equals(vreg)) {
+                                phyReg = ent.getKey();
+                                inConstraints.remove(phyReg);
+                                break;
+                            }
+                        }
+                        assert phyReg != null;
                         int currentind = state.checkInPhyReg(vreg);
                         boolean inReg = currentind != -1;
                         int ind = reg2ind(phyReg, vreg.isFloat);
@@ -450,7 +460,7 @@ public class LocalRegAllocator {
                         }
                         // 必须要强行分配到ind寄存器中
                         if (inReg) {
-                            state.moveTo(currentind, ind, vreg.isFloat, blk, toInsertBefore);
+                            state.copyTo(currentind, ind, vreg.isFloat, blk, toInsertBefore);
                             continue;
                         }
                         state.allocateTo(ind, vreg, blk, toInsertBefore);
@@ -468,7 +478,7 @@ public class LocalRegAllocator {
                 assert uses.size() == newUses.size();
                 // 如果是call指令，则caller saved reg要spill掉。TODO 实现对跨越call的寄存器的hint，不要分配到这些寄存器？
                 if (inst instanceof CallInst) {
-                    state.spillCallerSaved(((CallInst)inst).inConstraints, blk, toInsertBefore);
+                    state.spillCallerSaved(((CallInst)inst).getInConstraints(), blk, toInsertBefore);
                 }
 
                 // 如果use不需要了当前的值，则free寄存器。
@@ -505,7 +515,7 @@ public class LocalRegAllocator {
                         newDefs.add(phyReg);
                         continue;
                     }
-                    if (constraints == null || !constraints.containsKey(vreg)) {
+                    if (outConstraints == null || !outConstraints.containsValue(vreg)) {
                         var hint = bd.allocHint.get(vreg);
                         int regind = state.allocateReg(vreg, hint, blk, toInsertBefore);
                         var phyReg = ind2Reg(regind, vreg.isFloat);
@@ -513,7 +523,16 @@ public class LocalRegAllocator {
                         addUsedReg(regind, vreg.isFloat);
                         newDefs.add(phyReg);
                     } else {
-                        var phyReg = constraints.get(vreg);
+                        // get key from value
+                        AsmOperand phyReg = null;
+                        for (var ent: outConstraints.entrySet()) {
+                            if (ent.getValue().equals(vreg)) {
+                                phyReg = ent.getKey();
+                                outConstraints.remove(phyReg);
+                                break;
+                            }
+                        }
+                        assert phyReg != null;
                         phyReg.comment = vreg.comment;
                         int regind = reg2ind(phyReg, vreg.isFloat);
                         state.allocateTo(regind, vreg, blk, toInsertBefore);

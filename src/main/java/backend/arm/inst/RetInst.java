@@ -2,6 +2,9 @@ package backend.arm.inst;
 
 import backend.AsmBlock;
 import backend.AsmFunc;
+import backend.VirtReg;
+import backend.arm.Reg;
+import backend.arm.VfpReg;
 
 // 代表了需要插入epilogue和返回的抽象指令
 // use可能为空，代表空的return，也可能返回一个值
@@ -29,5 +32,17 @@ public class RetInst extends ConstrainRegInst {
             comment = "ret void";
         }
         return String.format(format, comment);
+    }
+
+    @Override
+    public void setConstraint(VirtReg reg, Reg phyReg) {
+        assert !reg.isFloat;
+        inConstraints.put(phyReg, reg);
+    }
+
+    @Override
+    public void setConstraint(VirtReg reg, VfpReg phyReg) {
+        assert reg.isFloat;
+        inConstraints.put(phyReg, reg);
     }
 }

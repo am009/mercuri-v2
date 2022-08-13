@@ -275,7 +275,7 @@ public class LiveIntervalAnalyzer {
 
             if (inst instanceof ConstrainRegInst) {
                 var constrainRegInst = (ConstrainRegInst) inst;
-                constrainRegInst.getConstraints().entrySet().forEach(action -> {
+                constrainRegInst.getConstraints().forEach(action -> {
                     if (action.getKey().equals(v)) {
                         sb.append("(" + action.getValue() + ")");
                     }

@@ -26,10 +26,7 @@ public class CallInst extends ConstrainRegInst {
         return String.format("BL\t%s", target.label);
     }
 
-    // 区分是参数的约束还是返回值约束
-    public Map<VirtReg, AsmOperand> inConstraints = new HashMap<>();
-    public Map<VirtReg, AsmOperand> outConstraints = new HashMap<>();
-
+    // Call 指令设置约束使用更下面两个方法
     @Override
     public void setConstraint(VirtReg reg, Reg phyReg) {
         throw new UnsupportedOperationException();
@@ -41,20 +38,18 @@ public class CallInst extends ConstrainRegInst {
     }
 
     public void setConstraint(VirtReg reg, Reg phyReg, boolean argOrRet) {        
-        super.setConstraint(reg, phyReg);
         if (argOrRet) {
-            inConstraints.put(reg, phyReg);
+            inConstraints.put(phyReg, reg);
         } else {
-            outConstraints.put(reg, phyReg);
+            outConstraints.put(phyReg, reg);
         }
     }
 
     public void setConstraint(VirtReg reg, VfpReg phyReg, boolean argOrRet) {
-        super.setConstraint(reg, phyReg);
         if (argOrRet) {
-            inConstraints.put(reg, phyReg);
+            inConstraints.put(phyReg, reg);
         } else {
-            outConstraints.put(reg, phyReg);
+            outConstraints.put(phyReg, reg);
         }
     }
 
