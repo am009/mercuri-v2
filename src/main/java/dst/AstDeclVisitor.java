@@ -104,7 +104,7 @@ public class AstDeclVisitor extends SysyBaseVisitor<List<Decl>> {
         // List<Integer> dims = dimsRaw.stream().map(i -> i.eval().intValue).collect(Collectors.toList());
 
         var initVal = ctx.getVisitors().of(AstInitValVisitor.class).visitInitVal(ast.initVal(), ctx,
-                basicType, InitValType.VAR_EXPR);
+                basicType, InitValType.VAR_EXPR, true);
 
         return new Decl(declType, isParam, isGlobal, basicType, id, dimsRaw, initVal);
     }

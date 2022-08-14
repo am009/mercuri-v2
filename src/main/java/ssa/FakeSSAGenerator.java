@@ -604,22 +604,24 @@ public class FakeSSAGenerator {
 
         // 处理非Const普通变量的初始值，可能是复杂表达式。
         // 语义分析没有计算evaledVal
-        if (decl.initVal != null) {
-            if (!decl.type.isArray) {
+        if (!decl.type.isArray) {
+            if (decl.initVal != null) {
                 var val = visitDstExpr(ctx, curFunc, decl.initVal.value);
                 var inst = new StoreInst.Builder(ctx.current).addOperand(val, alloca).build();
                 ctx.addToCurrentBB(inst);
-            } else {
-                // bitcast alloca to int*
-                var cast = new CastInst.Builder(ctx.current, alloca).strBitCast(alloca.type).build();
-                ctx.addToCurrentBB(cast);
-                // memset ptr, char, size.
-                var memsetFunc = ctx.funcMap.get(ir.ds.Module.builtinFuncs.get(ir.ds.Module.MEMSET));
-                var memset = new CallInst.Builder(ctx.current, memsetFunc)
-                                .addArg(cast)
-                                .addArg(ConstantValue.ofInt(0))
-                                .addArg(ConstantValue.ofInt(Math.toIntExact(alloca.ty.getSize()))).build();
-                ctx.addToCurrentBB(memset);
+            }
+        } else {
+            // bitcast alloca to int*
+            var cast = new CastInst.Builder(ctx.current, alloca).strBitCast(alloca.type).build();
+            ctx.addToCurrentBB(cast);
+            // memset ptr, char, size.
+            var memsetFunc = ctx.funcMap.get(ir.ds.Module.builtinFuncs.get(ir.ds.Module.MEMSET));
+            var memset = new CallInst.Builder(ctx.current, memsetFunc)
+                            .addArg(cast)
+                            .addArg(ConstantValue.ofInt(0))
+                            .addArg(ConstantValue.ofInt(Math.toIntExact(alloca.ty.getSize()))).build();
+            ctx.addToCurrentBB(memset);
+            if (decl.initVal != null) {
                 setArrayInitialVal(ctx, curFunc, alloca, decl.initVal, decl.type.dims);
             }
         }

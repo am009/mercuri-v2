@@ -19,7 +19,7 @@ public class AstInitValVisitor extends SysyBaseVisitor<InitValue> {
      * ;
      */
     public InitValue visitInitVal(InitValContext ast, DstGeneratorContext ctx, BasicType basicType,
-            InitValType initType) {
+            InitValType initType, boolean outMost) {
         if (ast == null) { // 无initVal
             return null;
         }
@@ -30,11 +30,11 @@ public class AstInitValVisitor extends SysyBaseVisitor<InitValue> {
             // var fromIndex = 1;
             // var toIndex = ast.initVal().size() - 1;
             // final var finalInitType = fromIndex == toIndex ? InitValType.basicInitTypeOf(initType) : initType;
-            if (ast.initVal().size() == 0) { // 仅双大括号`={}`，当作没有initVal
+            if (outMost && ast.initVal().size() == 0) { // 仅双大括号`={}`，当作没有initVal
                 return null;
             }
             var exprs = ast.initVal().stream()
-                    .map(i -> this.visitInitVal(i, ctx, basicType, initType))
+                    .map(i -> this.visitInitVal(i, ctx, basicType, initType, false))
                     .collect(Collectors.toList());
             return InitValue.ofArray(initType, exprs);
         }
