@@ -48,6 +48,22 @@ public class BasicBlock {
         return true;
     }
 
+    public Instruction getTerminator() {
+        assert hasTerminator();
+        return insts.get(insts.size()-1);
+    }
+
+    public boolean hasPhi() {
+        if (insts.size() == 0) return false;
+        for (var inst: insts) {
+            if (inst instanceof PhiInst) {
+                return true;
+            }
+            break;
+        }
+        return false;
+    }
+
     /**
      * 将一个指令插入到基本块末尾的终结指令**前**。
      * @param i
@@ -108,11 +124,18 @@ public class BasicBlock {
     public String toString() {
         var b = new StringBuilder();
         b.append(label).append(":\n");
-        insts.forEach(i -> b.append("  ").append(i.toString()).append("\n"));
+        insts.forEach(i -> {
+            b.append("  ").append(i.toString());
+            if (i.comments != null) {
+                b.append("    ; ").append(i.comments);
+            }
+            b.append("\n");
+        });
         return b.toString();
     }
 
     public boolean hasValidTerm() {
+        assert insts.size() > 0;
         return insts.get(insts.size() - 1) instanceof TerminatorInst;
     }
 

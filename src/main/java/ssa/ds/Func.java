@@ -50,6 +50,10 @@ public class Func {
         throw new RuntimeException("Get function return type failed.");
     }
 
+    public boolean isDeclaration() {
+        return bbs == null;
+    }
+
     public String toString() {
         var builder = new StringBuilder();
         if (bbs == null) {

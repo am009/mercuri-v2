@@ -52,10 +52,12 @@ public class FakeSSAGeneratorContext {
             var newBB = new BasicBlock("tmp_"+nextBBIdx());
             currentFunc.bbs.add(newBB);
             newBB.insts.add(i);
+            i.parent = newBB;
             current = newBB;
             return i;
         } else {
-            return current.addBeforeTerminator(i);
+            current.insts.add(i);
+            return i;
         }
     }
 

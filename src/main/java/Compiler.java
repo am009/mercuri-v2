@@ -18,8 +18,11 @@ import ir.SemanticAnalyzer;
 import ssa.FakeSSAGenerator;
 import ssa.NumValueNamer;
 import ssa.ds.Module;
+import ssa.pass.BasicBlockMerging;
+import ssa.pass.DeadBlockElimination;
 import ssa.pass.EABIArithmeicLowing;
 import ssa.pass.GVN;
+import ssa.pass.Mem2Reg;
 import ds.LoggerBuilder;
 
 /**
@@ -61,14 +64,18 @@ public class Compiler {
         Global.logger.trace("--- ssa ---");
         Global.logger.trace(ssa.toString());
 
-        Global.logger.trace("--- ssa - doing GVN ---");
-        GVN.process(ssa);
+        ssa = DeadBlockElimination.process(ssa);
+        ssa = BasicBlockMerging.process(ssa);
+        ssa = Mem2Reg.process(ssa);
         NumValueNamer.process(ssa);
-        Global.logger.trace("--- ssa - after GVN  ---");
+        Global.logger.trace("--- ssa - after mem2reg  ---");
         Global.logger.trace(ssa.toString());
 
-        Global.logger.trace("--- ssa - after GVN  ---");
-        Global.logger.trace(ssa.toString());
+        // Global.logger.trace("--- ssa - doing GVN ---");
+        // GVN.process(ssa);
+        // NumValueNamer.process(ssa);
+        // Global.logger.trace("--- ssa - after GVN  ---");
+        // Global.logger.trace(ssa.toString());
 
         // !! END_IF
         if (args.getOutFile() != null && args.getOutFile().endsWith(".ll")) { // 生成LLVM IR
@@ -77,8 +84,8 @@ public class Compiler {
         }
         // TODO pass manager
         ssa = EABIArithmeicLowing.process(ssa);
-        Global.logger.trace("--- EABIArithmeicLowing ---");
-        Global.logger.trace(ssa.toString());
+        // Global.logger.trace("--- EABIArithmeicLowing ---");
+        // Global.logger.trace(ssa.toString());
         AsmModule asm = backend.arm.Generator.process(ssa);
         Global.logger.trace("--- asm inst selection ---");
         Global.logger.trace(asm.toString());

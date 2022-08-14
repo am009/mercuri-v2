@@ -6,7 +6,7 @@ import java.util.List;
 public class User extends Value {
     public List<Use> oprands = new ArrayList<>();
 
-    public void removeAllUseFromValue() {
+    public void removeAllOperandUseFromValue() {
         for (var u : oprands) {
             assert u.user == this;
             u.value.removeUse(u);
@@ -14,7 +14,7 @@ public class User extends Value {
     }
 
     public void removeAllOpr() {
-        removeAllUseFromValue();
+        removeAllOperandUseFromValue();
         oprands.clear();
     }
 

@@ -30,6 +30,9 @@ public class AstInitValVisitor extends SysyBaseVisitor<InitValue> {
             // var fromIndex = 1;
             // var toIndex = ast.initVal().size() - 1;
             // final var finalInitType = fromIndex == toIndex ? InitValType.basicInitTypeOf(initType) : initType;
+            if (ast.initVal().size() == 0) { // 仅双大括号`={}`，当作没有initVal
+                return null;
+            }
             var exprs = ast.initVal().stream()
                     .map(i -> this.visitInitVal(i, ctx, basicType, initType))
                     .collect(Collectors.toList());

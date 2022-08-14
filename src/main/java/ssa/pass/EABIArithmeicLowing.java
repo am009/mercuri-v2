@@ -55,7 +55,7 @@ public class EABIArithmeicLowing {
                     var op1 = inst.oprands.get(0);
                     var op2 = inst.oprands.get(1);
                     var call = new CallInst.Builder(inst.parent, func.getValue()).addArg(op1.value).addArg(op2.value).build();
-                    inst.removeAllUseFromValue(); // 移除对operands的使用
+                    inst.removeAllOperandUseFromValue(); // 移除对operands的使用
                     inst.replaceAllUseWith(call); // 其他使用该指令的指令
                     // 从基本块中移除
                     var ind = bb.insts.indexOf(inst);
