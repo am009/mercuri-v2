@@ -147,7 +147,7 @@ public class Mem2Reg {
         }
         phi.replaceAllUseWith(same);
         phi.comments = "replaced by "+same.toValueString();
-        // validPhis.remove(phi);
+        validPhis.remove(phi); // COMMENT TO DEBUG
         
         // 在currentDef里也要替换。
         // 但是为了避免每次遍历一遍整个currentDef，使用deadPhis作为一个缓存层，同时使用路径压缩。
