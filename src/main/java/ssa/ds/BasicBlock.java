@@ -101,11 +101,11 @@ public class BasicBlock {
         var val = getValue();
         ArrayList<BasicBlock> ret = new ArrayList<>();
         for (Use u : val.getUses()) {
-            // 目前User仅有Instruction，以后多了新的User需要再次考虑此处
-            // 目前使用BasicBlockValue的也仅有TerminatorInst。
-            assert u.user instanceof TerminatorInst;
-            TerminatorInst inst = (TerminatorInst) u.user;
-            ret.add(inst.parent);
+            // 目前使用BasicBlockValue有TerminatorInst和PhiInstruction的preds。
+            if (u.user instanceof TerminatorInst) {
+                TerminatorInst inst = (TerminatorInst) u.user;
+                ret.add(inst.parent);
+            }
         }
         return ret;
     }

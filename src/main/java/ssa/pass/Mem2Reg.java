@@ -118,7 +118,8 @@ public class Mem2Reg {
         for (var pred: bb.pred()) {
             var val = readVariable(pred, ptr);
             assert val.type.equals(phi.type);
-            phi.oprands.add(new Use(phi, val));
+            // phi.oprands.add(new Use(phi, val));
+            phi.addOperand(val, pred.getValue());
         }
         return tryRemoveTrivialPhi(phi, ptr);
     }

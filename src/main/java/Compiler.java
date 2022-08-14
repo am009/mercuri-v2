@@ -19,6 +19,7 @@ import ssa.FakeSSAGenerator;
 import ssa.NumValueNamer;
 import ssa.ds.Module;
 import ssa.pass.BasicBlockMerging;
+import ssa.pass.CriticalEdgeSpliting;
 import ssa.pass.DeadBlockElimination;
 import ssa.pass.EABIArithmeicLowing;
 import ssa.pass.GVN;
@@ -61,8 +62,8 @@ public class Compiler {
         var ssaIrGen = new FakeSSAGenerator();
         Module ssa = ssaIrGen.process(dst);
         // !! IF_DEBUG
-        Global.logger.trace("--- ssa ---");
-        Global.logger.trace(ssa.toString());
+        // Global.logger.trace("--- ssa no opt ---");
+        // Global.logger.trace(ssa.toString());
 
         ssa = DeadBlockElimination.process(ssa);
         ssa = BasicBlockMerging.process(ssa);
@@ -82,9 +83,10 @@ public class Compiler {
             Files.writeString(Path.of(args.getOutFile()), ssa.toString());
             return;
         }
-        // TODO pass manager
+
         ssa = EABIArithmeicLowing.process(ssa);
-        // Global.logger.trace("--- EABIArithmeicLowing ---");
+        ssa = CriticalEdgeSpliting.process(ssa);
+        // Global.logger.trace("--- CriticalEdgeSpliting ---");
         // Global.logger.trace(ssa.toString());
         AsmModule asm = backend.arm.Generator.process(ssa);
         Global.logger.trace("--- asm inst selection ---");
