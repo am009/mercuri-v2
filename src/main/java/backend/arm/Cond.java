@@ -9,6 +9,26 @@ public enum Cond {
     LE,
     LT;
     
+    public Cond negate() {
+         switch(this) {
+            case EQ:
+                return NE;
+            case NE:
+                return EQ;
+            case GE:
+                return LT;
+            case GT:
+                return LE;
+            case LE:
+                return GT;
+            case LT:
+                return GE;
+            default:
+            case AL:
+                return null;
+         }
+    }
+
     @Override
     public String toString() {
         switch(this) {

@@ -31,4 +31,12 @@ public class VfpReg extends AsmOperand {
     public String toString() {
         return "s"+String.valueOf(index);
     }
+    // for peephole optimization
+    @Override
+    public boolean equals(Object o) {
+        if (o == this) return true;
+        if (!(o instanceof VfpReg)) return false;
+        VfpReg other = (VfpReg)o;
+        return index == other.index && useAsDouble == other.useAsDouble;
+    }
 }

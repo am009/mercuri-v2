@@ -311,3 +311,41 @@ ssa-ir那边是有个fext，但是后端这边遇到了fext的cast就先什么�
 - `VSTR/VLDR Fd, [Rn{, #<immed>}]`  Immediate range 0-1020, multiple of 4.
 
 想了想，直接在指令中都增加一个isImmFit函数，因为有Operand2这种灵活性很强的常量，所以还是定义成函数接口的形式。
+
+### 窥孔优化
+
+后端：
+- Mov两边操作数相同：local寄存器分配即使Mov两边分配了同一个寄存器也不会移除Mov指令。
+- 跳转到下一个指令的无用跳转：由于在SSA-IR那边基本块不算是线性的，到了汇编这里才是线性的，所以还是在后端去消除。而且instruction selection那边依赖跳转语句维护前驱后继关系，所以留到最后窥孔优化来去除。
+
+#### 窥孔优化-分支判断
+
+为了实现任何条件判断语句返回的是i32的值，因此IR层就已经有不少冗余。即任何产生i1的指令会立刻跟随一个zext。任何判断跳转都接受一个i32，执行`icmp ne 0`转为i1再跳转，例如：
+```
+%48 = icmp eq i32 1, %47
+%49 = zext i1 %48 to i32
+%50 = icmp ne i32 0, %49
+br i1 %50, label %if_true_12, label %if_end_12
+```
+对于 `%result = icmp ne i32 0, %x` 这个语句，如果x是从一个boolean类型转换过来的（zext i1 to i32）那这个不等于0的判断没有任何意义，result应该被直接替换为前面的i1，然后删除中间的zext和icmp。
+
+上述优化在`src/main/java/ssa/pass/Peephole.java`中实现。优化后为：
+```
+%48 = icmp eq i32 1, %47
+br i1 %48, label %if_true_12, label %if_end_12
+```
+
+但是后端在指令选择的时候仍然有非常大的冗余：
+- 任何icmp转换为CMP、MOVW r, #0、MOVWNE r, #1序列：
+- `br i1`转换为CMP r, #0、BEQ/BNE label.
+例如：
+```
+	CMP	vr57, #0x0		@ %18 = icmp ne i32 0, %17
+	MOVW	vr58, #0x0
+	MOVWNE	vr58, #0x1		@ %18 = icmp ne i32 0, %17
+	CMP	vr58, #0x0
+	BEQ	.LBB_main_if_end_6		@ br i1 %18, label %if_true_6, label %if_end_6
+```
+
+需要优化的序列是下面四个指令。下面四个指令可以直接折叠为`B<cond>`。识别模式后，根据是BEQ还是BNE，需要对MOV的cond取反，然后折叠为单独的一个`B<cond>`。
+

@@ -80,4 +80,13 @@ public class Reg extends AsmOperand {
         return this.ty.toInt();
     }
 
+    // for peephole optimization
+    @Override
+    public boolean equals(Object o) {
+        if (o == this) return true;
+        if (!(o instanceof Reg)) return false;
+        Reg other = (Reg)o;
+        return ty.equals(other.ty);
+    }
+
 }

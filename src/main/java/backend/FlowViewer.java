@@ -43,7 +43,7 @@ public class FlowViewer {
 
                 """);
         for (var func : m.funcs) {
-            for (var block : func.bbs) {
+            for (var block : func) {
                 sb.append(escape(block.label));
                 sb.append("""
                            [

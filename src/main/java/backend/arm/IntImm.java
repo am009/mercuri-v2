@@ -2,7 +2,7 @@ package backend.arm;
 
 public class IntImm extends Imm {
     // 当作Unsigned使用
-    int value;
+    public int value;
 
     public IntImm(int val) {
         value = val;

@@ -29,7 +29,7 @@ public class MovInst extends AsmInst {
             return null;
         }
     }
-    Ty ty;
+    public Ty ty;
     public Cond cond;
 
     public MovInst(AsmBlock p, Ty ty, AsmOperand to, AsmOperand from) {

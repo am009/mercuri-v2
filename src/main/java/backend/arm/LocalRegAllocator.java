@@ -348,7 +348,7 @@ public class LocalRegAllocator {
     // global值的发现：如果遍历到开头时发现某变量被使用而没有被定义，则说明是global的。
     // 保存每个基本块使用过的global值。以便于在后面用到的时候从内存中取出
     private void preAnalysis() {
-        for (var blk: func.bbs) {
+        for (var blk: func) {
             BlockData ba = new BlockData();
             blockData.put(blk, ba);
             Set<VirtReg> live = new HashSet<>();
@@ -397,7 +397,7 @@ public class LocalRegAllocator {
     // 首先分配vri1和vri2，即use的值。
     private void doAnalysis() {
         preAnalysis();
-        for (var blk: func.bbs) {
+        for (var blk: func) {
             var bd = blockData.get(blk);
             currentBD = bd;
             var state = new BlockAllocator();
@@ -646,7 +646,7 @@ public class LocalRegAllocator {
         assert func.entry.insts.get(0) instanceof Prologue;
         func.entry.insts.addAll(1, stores);
 
-        for (var abb: func.bbs) {
+        for (var abb: func) {
             // for (var inst: abb.insts) {
             for (int i=0;i<abb.insts.size();i++) {
                 var inst = abb.insts.get(i);

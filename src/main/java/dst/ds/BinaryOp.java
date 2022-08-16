@@ -67,6 +67,29 @@ public enum BinaryOp {
         }
     }
 
+    public boolean isCommutative() {
+        switch (this) {
+            case ADD:
+            case MUL:
+            case LOG_EQ:
+            case LOG_NEQ:
+                return true;
+            case LOG_GE:
+            case LOG_GT:
+            case LOG_LE:
+            case LOG_LT:
+            case DIV:
+            case MOD:
+            case SUB:
+                return false;
+            case LOG_AND: // 短路求值过，所以不会出现
+            case LOG_OR:
+                return true;
+            default:
+                throw new IllegalArgumentException("Unknown binary operator: " + this);
+        }
+    }
+
     public static BinaryOp fromString(String s) {
         switch (s) {
             case "+":
@@ -165,16 +188,6 @@ public enum BinaryOp {
             }
         }
         throw new UnsupportedOperationException();
-    }
-    private static  BinaryOp[] commutativeOps = new BinaryOp[]{ADD, MUL, LOG_AND, LOG_OR, LOG_EQ, LOG_NEQ};
-
-    public boolean isCommutative() {
-        for (var op : commutativeOps) {
-            if (op == this) {
-                return true;
-            }
-        }
-        return false;
     }
 
     public boolean isReverse(BinaryOp op) {

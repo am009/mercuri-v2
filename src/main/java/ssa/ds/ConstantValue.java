@@ -38,6 +38,23 @@ public class ConstantValue extends Value {
         }
     }
 
+    public boolean isDefault() {
+        if (isArray()) return false;
+        switch(type.baseType) {
+            case BOOLEAN:
+            case INT:
+            case CHAR:
+                return (val instanceof Integer && ((Integer)val).intValue() == 0);
+            case FLOAT:
+                return (val instanceof Float && ((Float)val).floatValue() == 0.0f);
+            case DOUBLE:
+                return (val instanceof Double && ((Double)val).doubleValue() == 0.0d);
+            case VOID:
+            default:
+                return false;
+        }
+    }
+
     // for simple value
     public static ConstantValue ofInt(int i) {
         var ret = new ConstantValue(Type.Int.clone(), null);

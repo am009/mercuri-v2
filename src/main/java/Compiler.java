@@ -24,6 +24,7 @@ import ssa.pass.DeadBlockElimination;
 import ssa.pass.EABIArithmeicLowing;
 import ssa.pass.GVN;
 import ssa.pass.Mem2Reg;
+import ssa.pass.Peephole;
 import ds.LoggerBuilder;
 
 /**
@@ -68,6 +69,7 @@ public class Compiler {
         ssa = DeadBlockElimination.process(ssa);
         ssa = BasicBlockMerging.process(ssa);
         ssa = Mem2Reg.process(ssa);
+        ssa = Peephole.process(ssa);
         NumValueNamer.process(ssa);
         Global.logger.trace("--- ssa - after mem2reg  ---");
         Global.logger.trace(ssa.toString());
@@ -98,6 +100,10 @@ public class Compiler {
         // backend.lsra.LinearScanRegisterAllocator.process(asm);
         Global.logger.trace("--- asm reg alloc ---");
         Global.logger.trace(asm.toString());
+
+        asm = backend.arm.pass.Peephole.process(asm);
+        // Global.logger.trace("--- asm peephole ---");
+        // Global.logger.trace(asm.toString());
         if (args.getOutFile() != null) {
             Files.writeString(Path.of(args.getOutFile()), asm.toString());
         }

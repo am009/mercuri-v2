@@ -436,7 +436,7 @@ public class LinearScanRegisterAllocator {
     private void resolveDataFlow() {
         var resolver = new MoveResolver();
         for (var func : m.funcs) {
-            for (var fromBlock : func.bbs) {
+            for (var fromBlock : func) {
                 // 收集所有必要的 resolving moves
                 for (var toBlock : fromBlock.succ) {
                     flow.liveInfo.get(toBlock).liveIn.forEach(opr -> {

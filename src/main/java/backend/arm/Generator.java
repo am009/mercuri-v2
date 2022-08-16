@@ -6,8 +6,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import backend.AsmBlock;
@@ -54,7 +54,6 @@ import ssa.ds.PrimitiveTypeTag;
 import ssa.ds.RetInst;
 import ssa.ds.StoreInst;
 import ssa.ds.TerminatorInst;
-import ssa.ds.Type;
 import ssa.ds.Use;
 import ssa.ds.Value;
 
@@ -451,6 +450,14 @@ public class Generator {
             var inst = (BinopInst) inst_;
             var op1 = convertValue(inst.oprands.get(0).value, func, abb);
             var op2 = convertValue(inst.oprands.get(1).value, func, abb);
+            // 倾向于常量放右边
+            if (inst.op.isCommutative()) {
+                if (!(op2 instanceof Imm) && op1 instanceof Imm) {
+                    var tmp = op1;
+                    op1 = op2;
+                    op2 = tmp;
+                }
+            }
             var to = convertValue(inst, func, abb);
             assert op1.isFloat == op2.isFloat;
             boolean isFloat = op1.isFloat;
