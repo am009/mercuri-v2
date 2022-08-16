@@ -44,6 +44,7 @@ public class LocalRegAllocator {
     // 分配过的寄存器全部收集起来，之后过滤出callee saved的设置到函数里。
     public Set<Integer> usedReg = new HashSet<>();
     public Set<Integer> usedVfpReg = new HashSet<>();
+    BlockData currentBD; // 处理每一个基本块时，传递数据的全局变量
     private void addUsedReg(int regind, boolean isFloat) {
         if (isFloat) {
             usedVfpReg.add(regind);
@@ -68,6 +69,7 @@ public class LocalRegAllocator {
         // public Set<VirtReg> live = new HashSet<>();
         public Map<VirtReg, List<Integer>> useLists = new HashMap<>();// 里面的值应该是降序的。
         public Map<VirtReg, AllocHint> allocHint = new HashMap<>();
+        public Set<VirtReg> dirtyGlobal = new HashSet<>();
     }
 
     public static class AllocHint {
@@ -171,9 +173,15 @@ public class LocalRegAllocator {
             if (globs.contains(vreg)) {
                 spilledLoc = globSpill.get(vreg);
                 if (spilledLoc == null) {
+                    assert currentBD.dirtyGlobal.contains(vreg);
                     spilledLoc = new StackOperand(StackOperand.Type.SPILL, func.sm.allocSpill(4));
                     spilledLoc.comment = vreg.comment;
                     globSpill.put(vreg, spilledLoc);
+                } else {
+                    // 非dirty的gloabl可以不spill
+                    if (!currentBD.dirtyGlobal.contains(vreg)) {
+                        return null;
+                    }
                 }
             } else {
                 spilledLoc = localSpill.get(vreg);
@@ -391,6 +399,7 @@ public class LocalRegAllocator {
         preAnalysis();
         for (var blk: func.bbs) {
             var bd = blockData.get(blk);
+            currentBD = bd;
             var state = new BlockAllocator();
             // // 把所有需要添加的指令都延迟到分配后添加。里面的值分别表示要在index处加入这个list的指令。
             // List<Map.Entry<Integer,List<AsmInst>>> addSeqs = new ArrayList<>();
@@ -542,6 +551,10 @@ public class LocalRegAllocator {
                         state.allocateTo(regind, vreg, blk, toInsertBefore);
                         addUsedReg(regind, vreg.isFloat);
                         newDefs.add(phyReg);
+                    }
+                    // 处理dirtyGlobal的维护
+                    if (globs.contains(vreg)) {
+                        bd.dirtyGlobal.add(vreg);
                     }
                 }
                 assert newDefs.size() == defs.size();

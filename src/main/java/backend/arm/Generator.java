@@ -284,9 +284,15 @@ public class Generator {
             List<Map.Entry<AsmOperand, AsmOperand>> parallelMovs = new ArrayList<>();
             for (var phi: phis) {
                 var target = convertValue(phi, func, abb);
+                if (target.comment == null) {
+                    target.comment = phi.toValueString();
+                }
                 assert phi.oprands.size() == 1;
                 for (var use:phi.oprands) {
                     var from = convertValue(use.value, func, abb);
+                    if (from.comment == null) {
+                        from.comment = use.value.toValueString();
+                    }
                     parallelMovs.add(Map.entry(target, from));
                 }
             }
@@ -302,6 +308,9 @@ public class Generator {
                 // mov放到pred的基本块
                 for (var phi: phis) {
                     var target = convertValue(phi, func, abb);
+                    if (target.comment == null) {
+                        target.comment = phi.toValueString();
+                    }
                     assert size == phi.oprands.size();
                     boolean found = false;
                     for (int i=0;i<size;i++) {
@@ -314,6 +323,9 @@ public class Generator {
                         // 找到了对应的值
                         // 注意convertValue可能会生成load指令，要生成到pred结尾。
                         var from = convertValue(phi.oprands.get(i).value, func, pred, true);
+                        if (from.comment == null) {
+                            from.comment = phi.oprands.get(i).value.toValueString();
+                        }
                         parallelMovs.add(Map.entry(target, from));
                     }
                     assert found == true;
