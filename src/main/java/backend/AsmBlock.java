@@ -1,7 +1,10 @@
 package backend;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+
+import backend.arm.inst.BrInst;
 
 public class AsmBlock {
     // 双向链表
@@ -22,6 +25,15 @@ public class AsmBlock {
         this.label = prefix + label;
         insts = new ArrayList<>();
         pred = new ArrayList<>();
+    }
+
+    public void addAllBeforeJump(Collection<? extends AsmInst> is) {
+        if (insts.size() != 0 && insts.get(insts.size()-1) instanceof BrInst) {
+            // 有br指令
+            insts.addAll(insts.size()-1, is);
+        } else { // 无br指令
+            insts.addAll(is);
+        }
     }
 
     @Override

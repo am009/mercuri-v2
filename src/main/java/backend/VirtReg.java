@@ -12,6 +12,6 @@ public class VirtReg extends AsmOperand {
 
     @Override
     public String toString() {
-        return "vreg"+String.valueOf(index);
+        return "vr"+String.valueOf(index);
     }
 }

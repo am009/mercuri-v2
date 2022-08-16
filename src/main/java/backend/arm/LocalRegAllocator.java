@@ -369,7 +369,9 @@ public class LocalRegAllocator {
                         } else {
                             useList.computeIfAbsent(((VirtReg)u), k -> new ArrayList<>()).add(j);
                         }
-                        if (dead.contains(u)) {throw new RuntimeException("Multiple live ranges use same VirtReg!");}
+                        if (dead.contains(u) && !globs.contains(u)) {
+                            Global.logger.warning("Multiple live ranges use same VirtReg! (%s %s)", blk.label, u.toString());
+                        }
                     }
                 }
                 if (inst instanceof ConstrainRegInst) {
@@ -488,16 +490,18 @@ public class LocalRegAllocator {
                     int lastUse = bd.useLists.get(vreg).get(0); // global value may have size 0.
                     boolean notNeed = (i-addedInstCount) >= lastUse; // 是最后一个用该VirtReg的指令
                     int currentInd = state.checkInPhyReg(vreg);
-                    assert currentInd != -1;
-                    if (notNeed) { // TODO check notNeed 是否判断正确
-                        if (globs.contains(vreg)) { // use不会改变vreg的值，如果spill过就不用spill？TODO
+                    // assert currentInd != -1;
+                    if (currentInd != -1) { // 指令多个操作数用到了相同的vreg
+                        if (notNeed) { // TODO check notNeed 是否判断正确
+                            if (globs.contains(vreg)) { // use不会改变vreg的值，如果spill过就不用spill？TODO
+                                state.spillInd(currentInd, vreg.isFloat, blk, toInsertBefore);
+                            }
+                            state.free(currentInd, vreg.isFloat);
+                        } else if (inst instanceof CallInst) { // 特殊情况，Call指令的参数（caller saved reg）即使你需要，也得spill&free掉。而且不用updateNext
+                            notNeed = true; // 不计算Next。
                             state.spillInd(currentInd, vreg.isFloat, blk, toInsertBefore);
+                            state.free(currentInd, vreg.isFloat);
                         }
-                        state.free(currentInd, vreg.isFloat);
-                    } else if (inst instanceof CallInst) { // 特殊情况，Call指令的参数（caller saved reg）即使你需要，也得spill&free掉。而且不用updateNext
-                        notNeed = true; // 不计算Next。
-                        state.spillInd(currentInd, vreg.isFloat, blk, toInsertBefore);
-                        state.free(currentInd, vreg.isFloat);
                     }
                     updateNext.add(!notNeed);
                 }

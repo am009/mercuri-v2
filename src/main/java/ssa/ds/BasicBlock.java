@@ -64,6 +64,18 @@ public class BasicBlock {
         return false;
     }
 
+    public List<PhiInst> getPhis() {
+        var ret = new ArrayList<PhiInst>();
+        for (var inst: insts) {
+            if (inst instanceof PhiInst) {
+                ret.add((PhiInst)inst);
+            } else { // 因为phi必然在基本块开头
+                break;
+            }
+        }
+        return ret;
+    }
+
     /**
      * 将一个指令插入到基本块末尾的终结指令**前**。
      * @param i

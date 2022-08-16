@@ -2,6 +2,10 @@
 
 import sys
 
+RED='\033[0;34m'
+NC='\033[0m' # No Color
+
+
 def get_commands(elf, is_asm):
     if is_asm:
         return ["qemu-arm", "-L", "/usr/arm-linux-gnueabihf/", elf]
@@ -17,7 +21,10 @@ def test(target_elf, out_file, in_file=None, is_asm=False):
 
     from subprocess import Popen,PIPE,STDOUT
 
-    p = Popen(get_commands(target_elf, is_asm), stdout=PIPE,  stdin=PIPE, stderr=PIPE)
+    commands = get_commands(target_elf, is_asm)
+    if (is_asm):
+        print(' '.join(commands))
+    p = Popen(commands, stdout=PIPE,  stdin=PIPE, stderr=PIPE)
     out, err = p.communicate(input=in_str)
     code = p.returncode
     if len(out) > 0 and out[-1] != ord('\n'):
@@ -30,11 +37,8 @@ def test(target_elf, out_file, in_file=None, is_asm=False):
     print(out)
     print(s)
 
-    RED='\033[0;34m'
-    NC='\033[0m' # No Color
-
+    print(err, file=sys.stderr) # perfomance test打印所花时间
     if out.strip() == s.strip():
-        print(err, file=sys.stderr) # perfomance test打印所花时间
         print(RED+"=========== Pass! ==============" +NC)
         return True
     else:
@@ -48,7 +52,7 @@ debug_case = None
 if debug_case:
     assert len(sys.argv) == 1
     sys.argv = [f'{proj_dir}/script/functional_checker.py', 'debugasm', f'{proj_dir}/target/test/performance/{debug_case}.sy.arm.elf', f'{proj_dir}/test/performance/{debug_case}.out']
-print(sys.argv)
+print(' '.join(sys.argv))
 
 if len(sys.argv) < 4:
     print("Usage: {} [ir|debugir|asm|debugasm] target_elf out_file [in_file]")

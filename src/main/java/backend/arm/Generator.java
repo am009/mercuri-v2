@@ -3,7 +3,11 @@ package backend.arm;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import backend.AsmBlock;
@@ -45,6 +49,7 @@ import ssa.ds.JumpInst;
 import ssa.ds.LoadInst;
 import ssa.ds.Module;
 import ssa.ds.ParamValue;
+import ssa.ds.PhiInst;
 import ssa.ds.PrimitiveTypeTag;
 import ssa.ds.RetInst;
 import ssa.ds.StoreInst;
@@ -92,10 +97,15 @@ public class Generator {
         return ret;
     }
 
+    // 仅当处理phi指令的时候的部分情况需要 beforeJump = true
+    public AsmOperand convertValue(Value v, AsmFunc func, AsmBlock abb) {
+        return convertValue(v, func, abb, false);
+    }
+
     // 对指令返回的值分配Vreg
     // 对其他Value进行转换
     // 该函数还需要为内存中的参数生成必要的Load指令
-    public AsmOperand convertValue(Value v, AsmFunc func, AsmBlock abb) {
+    public AsmOperand convertValue(Value v, AsmFunc func, AsmBlock abb, boolean beforeJump) {
         if (vregMap.containsKey(v)) {
             return vregMap.get(v);
         }
@@ -140,10 +150,18 @@ public class Generator {
                 // 生成Load指令加载内存里的值到虚拟寄存器里。
                 if (pv.type.isBaseFloat()) {
                     var load = new VLDRInst(abb, ret, loc);
-                    abb.insts.addAll(expandStackOperandLoadStore(load));
+                    if (beforeJump) {
+                        abb.addAllBeforeJump(expandStackOperandLoadStore(load));
+                    } else {
+                        abb.insts.addAll(expandStackOperandLoadStore(load));
+                    }
                 } else {
                     var load = new backend.arm.inst.LoadInst(abb, ret, loc);
-                    abb.insts.addAll(expandStackOperandLoadStore(load));
+                    if (beforeJump) {
+                        abb.addAllBeforeJump(expandStackOperandLoadStore(load));
+                    } else {
+                        abb.insts.addAll(expandStackOperandLoadStore(load));
+                    }
                 }
                 
             }
@@ -232,6 +250,13 @@ public class Generator {
         for(BasicBlock bb: f.bbs) {
             visitBlock(asmFunc, bb, bbMap.get(bb));
         }
+
+        // phi指令在基本块的前驱后继关系构建完成后处理
+        for (BasicBlock bb: f.bbs) {
+            if (bb.hasPhi()) { // phi指令需要批量处理
+                visitPhis(asmFunc, bb.getPhis(), bbMap.get(bb));
+            }
+        }
     }
 
     private String getBlockLabel(Func f, BasicBlock bb) {
@@ -240,12 +265,105 @@ public class Generator {
 
     private void visitBlock(AsmFunc func, BasicBlock bb, AsmBlock abb) {
         for (var inst: bb.insts) {
+            if (inst instanceof PhiInst) {
+                continue;
+            }
             if (inst instanceof TerminatorInst) {
                 visitTermInst(func, inst, abb);
             } else {
                 visitNonTermInst(func, inst, abb);
             }
         }
+    }
+
+    private void visitPhis(AsmFunc func, List<PhiInst> phis, AsmBlock abb) {
+        var preds = abb.pred;
+        assert preds.size() != 0;
+        // 已经split了critical edge，则要么仅有一个predcessor，要么每个predcessor仅有一个successor。
+        if (preds.size() == 1) { // mov放到当前基本块
+            List<Map.Entry<AsmOperand, AsmOperand>> parallelMovs = new ArrayList<>();
+            for (var phi: phis) {
+                var target = convertValue(phi, func, abb);
+                assert phi.oprands.size() == 1;
+                for (var use:phi.oprands) {
+                    var from = convertValue(use.value, func, abb);
+                    parallelMovs.add(Map.entry(target, from));
+                }
+            }
+            makeParallemMovs(abb, parallelMovs);
+        } else {
+            int size = preds.size();
+            for (var pred: preds) {
+                if (pred.succ.size() != 1) {
+                    throw new RuntimeException(String.format("Unsplit critical edge: %s to %s.", pred.label, abb.label));
+                }
+                
+                List<Map.Entry<AsmOperand, AsmOperand>> parallelMovs = new ArrayList<>();
+                // mov放到pred的基本块
+                for (var phi: phis) {
+                    var target = convertValue(phi, func, abb);
+                    assert size == phi.oprands.size();
+                    boolean found = false;
+                    for (int i=0;i<size;i++) {
+                        var fromBb = ((BasicBlockValue)phi.preds.get(i).value).b;
+                        if (bbMap.get(fromBb) != pred) {
+                            continue;
+                        }
+                        assert found == false;
+                        found = true;
+                        // 找到了对应的值
+                        // 注意convertValue可能会生成load指令，要生成到pred结尾。
+                        var from = convertValue(phi.oprands.get(i).value, func, pred, true);
+                        parallelMovs.add(Map.entry(target, from));
+                    }
+                    assert found == true;
+                }
+                makeParallemMovs(pred, parallelMovs);
+            }
+        }
+    }
+
+    // parallelMovs里的entry是从右移动到左。
+    private void makeParallemMovs(AsmBlock abb, List<Entry<AsmOperand, AsmOperand>> parallelMovs) {
+        Set<AsmOperand> killed = new HashSet<>();
+        List<AsmInst> toAdd = new ArrayList<>();
+        for (var ent: parallelMovs) {
+            // 后面的mov使用到了前面mov覆盖了的值
+            boolean isFloat = ent.getKey().isFloat;
+            if (killed.contains(ent.getValue())) {
+                // 在开头备份一下原来的值
+                var temp = getVReg(isFloat);
+                temp.comment = "phi mov backup";
+                AsmInst backup;
+                if (isFloat) {
+                    backup = new VMovInst(abb, VMovInst.Ty.CPY, temp, ent.getValue());
+                } else {
+                    backup = new MovInst(abb, MovInst.Ty.REG, temp, ent.getValue());
+                }
+                backup.comment = "phi backup";
+                toAdd.addAll(0, expandInstImm(backup));
+                AsmInst mov;
+                if (isFloat) {
+                    mov = new VMovInst(abb, VMovInst.Ty.CPY, ent.getKey(), temp);
+                } else {
+                    mov = new MovInst(abb, MovInst.Ty.REG, ent.getKey(), temp);
+                }
+                mov.comment = "phi mov";
+                toAdd.addAll(expandInstImm(mov));
+                killed.add(ent.getKey());
+            } else {
+                AsmInst mov;
+                if (isFloat) {
+                    mov = new VMovInst(abb, VMovInst.Ty.CPY, ent.getKey(), ent.getValue());
+                } else {
+                    mov = new MovInst(abb, MovInst.Ty.REG, ent.getKey(), ent.getValue());
+                }
+                mov.comment = "phi mov";
+                toAdd.addAll(expandInstImm(mov));
+                killed.add(ent.getKey());
+            }
+        }
+        abb.addAllBeforeJump(toAdd);
     }
 
     // 跳转指令的生成同时要维护前驱后继关系。
