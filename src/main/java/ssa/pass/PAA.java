@@ -22,6 +22,7 @@ import ssa.ds.Instruction;
 import ssa.ds.LoadInst;
 import ssa.ds.MemPhiInst;
 import ssa.ds.Module;
+import ssa.ds.ParamValue;
 import ssa.ds.PlaceHolder;
 import ssa.ds.StoreInst;
 import ssa.ds.Type;
@@ -79,6 +80,7 @@ public class PAA {
     // Use array as memory unit
     // pointer 通常是一个数组的 Alloca, 或者 GEP, 或者 LoadInst 或者 GlobalVariable
     public static Value getArrayValue(Value pointer) {
+        var original = pointer;
         while (pointer instanceof GetElementPtr || pointer instanceof LoadInst) {
             if (pointer instanceof GetElementPtr) {
                 pointer = ((Instruction) pointer).getOperand0();
@@ -87,7 +89,7 @@ public class PAA {
             }
         }
         // pointer should be an AllocaInst or GlobalVariable
-        if (pointer instanceof AllocaInst || pointer instanceof GlobalVariable) {
+        if (pointer instanceof AllocaInst || pointer instanceof GlobalVariable /* || pointer instanceof ParamValue */) {
             // 若是 array 的 alloca, 那么找它的定值指令 store 到的地址
             if (pointer instanceof AllocaInst && ((AllocaInst) pointer).ty.isArray()) {
                 for (var use : pointer.getUses()) {
@@ -96,8 +98,19 @@ public class PAA {
                     }
                 }
             }
+            // else if (pointer instanceof ParamValue) {
+            // var pv = (ParamValue) pointer;
+            // for (var use : pv.getUses()) {
+            // if (use.user instanceof CallInst) {
+            // 
+            // }
+            // }
+            // }
             return pointer;
         } else {
+            if (pointer.name.contains("arr")) {
+                assert (false);
+            }
             Global.logger.trace("this is not a pointer of array " + pointer);
             return null;
         }

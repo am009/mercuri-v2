@@ -211,11 +211,12 @@ public class FakeSSAGenerator {
                 // array参数不需要创建alloca指令
                 ctx.varMap.put(param, ref);
             } else {
-                var alloc = new AllocaInst.Builder(ent).addType(convertDstType(param.type)).build();
-                alloc.name = ctx.nameLocal(param.id);
-                ctx.addToCurrentBB(alloc);
-                ctx.varMap.put(param, alloc);
-                var inst = new StoreInst.Builder(ent).addOperand(ref, alloc).build();
+                var alloca = new AllocaInst.Builder(ent).addType(convertDstType(param.type)).build();
+                alloca.name = ctx.nameLocal(param.id);
+                ctx.addToCurrentBB(alloca);
+                // assert ctx.current.insts.contains(alloca) && alloca.parent == ctx.current;
+                ctx.varMap.put(param, alloca);
+                var inst = new StoreInst.Builder(ent).addOperand(ref, alloca).build();
                 ctx.addToCurrentBB(inst);
             }
         }
@@ -624,6 +625,10 @@ public class FakeSSAGenerator {
                 setArrayInitialVal(ctx, curFunc, alloca, decl.initVal, decl.type.dims);
             }
         }
+
+        // alloca 在 entry, 因此下面的断言可能失败
+        // assert ctx.current.insts.contains(alloca) && alloca.parent == ctx.current;
+
     }
 
     /**

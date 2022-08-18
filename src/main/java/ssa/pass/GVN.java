@@ -6,6 +6,7 @@ import java.util.List;
 
 import common.Pair;
 import ds.Global;
+import ssa.ds.AllocaInst;
 import ssa.ds.BasicBlock;
 import ssa.ds.BinopInst;
 import ssa.ds.CallInst;
@@ -30,19 +31,19 @@ public class GVN {
     public static void process(Module ssaModule) {
         var gvn = new GVN(ssaModule);
         // 不要用 ssaModule.funcs.forEach
-        var lastSize = ssaModule.funcs.size();
-        for (int i = 0; 0 <= i && i < lastSize; i++) {
+        var curSize = ssaModule.funcs.size();
+        for (int i = 0; 0 <= i && i < curSize; i++) {
             var func = ssaModule.funcs.get(i);
             Global.logger.trace("GVN on " + func.name);
             PAA.run(func);
             gvn.executeGVN(func);
             PAA.clear(func);
-            var size = lastSize;
+            var prevSize = curSize;
             DCE.process(ssaModule);
-            lastSize = ssaModule.funcs.size();
-            var deltaSize = size - lastSize;
-            assert (deltaSize >= 0);
-            i -= deltaSize;
+            curSize = ssaModule.funcs.size();
+            var deltaSize = curSize - prevSize;
+            assert (deltaSize <= 0);
+            i += deltaSize;
             assert (i >= 0) : "Correctness of func emit ought to be reviewed";
         }
     }
@@ -66,11 +67,14 @@ public class GVN {
             curSize = bb.insts.size();
             var deltaSize = curSize - prevSize;
             i += deltaSize;
+            // deltaSize 很可能小于 0, 从而 i 可能反而要回退。因此每次循环要确保它 i >= 0
         }
     }
 
     private void executeOnInst(BasicBlock parent, Instruction inst) {
-        if (parent != inst.parent) {
+        if (parent != inst.parent && !(inst instanceof AllocaInst)) {
+            // FakeSSAGenerator.java
+            // 此处 alloca 的指令不一定在当前块。alloca 都在 entry 块
             assert (false);
         }
         if (inst.getUses().size() == 0 && !(inst instanceof StoreInst) && !(inst instanceof CallInst)) {
@@ -193,7 +197,8 @@ public class GVN {
         } // CallInst
     }
 
-    // 此处 replace 并非原地替换，而是令旧有代码变成死代码，然后在尾部追加新的代码
+    // 此处 replace 只负责将对 inst 的使用换成对 v 的使用，然后废弃 inst.
+    // inst 的插入不由此处完成
     private boolean replaceIfDiffrent(Instruction inst, Value v) {
         if (inst == v) {
             return false;

@@ -2,6 +2,7 @@ package ssa.ds;
 
 public class LoadInst extends Instruction {
     // fill after alias analysis
+    // load 所 load 的值是在哪里 store 的
     public Value useStore;
 
     
