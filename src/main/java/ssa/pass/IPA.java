@@ -2,6 +2,7 @@ package ssa.pass;
 
 import ssa.ds.StoreInst;
 import ssa.ds.Value;
+import ds.Global;
 import ssa.ds.AllocaInst;
 import ssa.ds.BasicBlock;
 import ssa.ds.CallInst;
@@ -32,7 +33,14 @@ public class IPA {
                 }
             }
         }
-
+        for (var func : module.builtins) {
+            if (func.hasSideEffect) {
+                dfsSideEffect(func);
+            }
+            if (func.usingGlobs) {
+                dfsUsedGlobalVariable(func);
+            }
+        }
         for (var func : module.funcs) {
             if (func.hasSideEffect) {
                 dfsSideEffect(func);
@@ -43,6 +51,7 @@ public class IPA {
         }
     }
 
+    // 如果一个函数有副作用，那么所有依赖它的函数都有副作用
     private void dfsSideEffect(Func func) {
         for (var callerFunc : func.callers) {
             callerFunc.defGlobs.addAll(func.defGlobs);
@@ -128,6 +137,34 @@ public class IPA {
             func.hasSideEffect = true;
             func.usingGlobs = true;
         });
+    }
+
+    public static void debug(Module ssa) {
+        var sb = new StringBuilder();
+        ssa.funcs.forEach(func -> {
+            sb.append(func.name);
+            sb.append(":\n");
+            sb.append("\t hasSideEffect:");
+            sb.append(func.hasSideEffect);
+            sb.append("\n");
+            sb.append("\t callees:");
+            func.callees.forEach(f -> {
+                sb.append(f.name);
+                sb.append(", ");
+            });
+
+            sb.append("\n");
+            sb.append("\t callers:");
+            func.callers.forEach(f -> {
+                sb.append(f.name);
+                sb.append(", ");
+            });
+
+            sb.append("\n");
+        });
+
+        Global.logger.trace(sb.toString());
+
     }
 
 }

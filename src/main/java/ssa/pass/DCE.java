@@ -52,8 +52,9 @@ public class DCE {
         }
         if (inst instanceof CallInst) {
             var callInst = (CallInst) inst;
+            var target = callInst.target();
             // TODO: 这儿是 BUG，
-            if (callInst.target().hasSideEffect) {
+            if (target.hasSideEffect) {
                 return true;
             }
         }
@@ -91,6 +92,7 @@ public class DCE {
             while (it.hasNext()) {
                 var inst = it.next();
                 if (!usefulInstSet.contains(inst)) {
+                    Global.logger.trace("remove not used inst: " + "'" + inst + "'");
                     bb.removeInstWithIterator(inst, it);
                 }
             }

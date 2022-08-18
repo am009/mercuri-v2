@@ -70,12 +70,10 @@ public class Compiler {
         DeadBlockElimination.process(ssa);
         BasicBlockMerging.process(ssa);
 
-        Global.logger.trace("--- ssa - before IPA  ---");
-        Global.logger.trace(ssa.toString());
 
         IPA.process(ssa);
         Global.logger.trace("--- ssa - after IPA  ---");
-        Global.logger.trace(ssa.toString());
+        IPA.debug(ssa);
 
         Mem2Reg.process(ssa);
         Peephole.process(ssa);
