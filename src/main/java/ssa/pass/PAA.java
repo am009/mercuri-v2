@@ -108,8 +108,14 @@ public class PAA {
             // }
             return pointer;
         } else {
+            if (pointer instanceof ParamValue) {
+                var pv = (ParamValue) pointer;
+                if (pv.type.isPointer) {
+                    return pv;
+                }
+            }
             if (pointer.name.contains("arr")) {
-                assert (false);
+                // assert (false);
             }
             Global.logger.trace("this is not a pointer of array " + pointer);
             return null;
@@ -121,6 +127,12 @@ public class PAA {
     }
 
     public static boolean isParam(Value array) {
+        if (array instanceof ParamValue) {
+            var pv = (ParamValue) array;
+            if (pv.type.isPointer) {
+                return true;
+            }
+        }
         // allocaType 为 i32ptr，表示是一个参数数组
         if (array instanceof AllocaInst) {
             AllocaInst allocaInst = (AllocaInst) array;
@@ -192,6 +204,9 @@ public class PAA {
     }
 
     public static boolean alias(Value arr1, Value arr2) {
+
+        if (true)
+            return false;
         if (arr1 == arr2) {
             return true;
         }
@@ -229,6 +244,9 @@ public class PAA {
     }
 
     public static boolean callAlias(Value arr, CallInst callinst) {
+        if (true)
+            return false;
+
         if (isParam(arr)) {
             return true;
         }

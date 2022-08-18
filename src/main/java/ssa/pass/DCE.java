@@ -52,6 +52,7 @@ public class DCE {
         }
         if (inst instanceof CallInst) {
             var callInst = (CallInst) inst;
+            // TODO: 这儿是 BUG，
             if (callInst.target().hasSideEffect) {
                 return true;
             }
@@ -97,6 +98,8 @@ public class DCE {
     }
 
     public void removeUselessStore(Func func) {
+        if (true)
+            return;
         for (var bb : func.bbs) {
             var it = bb.insts.iterator();
             while (it.hasNext()) {
@@ -106,20 +109,25 @@ public class DCE {
                     var pointer = PAA.getArrayValue(storeInst.getPtr());
                     while (it.hasNext()) {
                         var nextInst = it.next();
+                        // 如果 store 和下一个 store 重复，就删了当前的
                         if (nextInst instanceof StoreInst) {
                             var nextStoreInst = (StoreInst) nextInst;
                             if (storeInst.getPtr() == nextStoreInst.getPtr()) {
                                 bb.removeInstWithIterator(storeInst, it);
                                 break;
                             }
-                        } else if (nextInst instanceof LoadInst) {
+                        }
+                        // 如果后面有 load，且 load 的指针和 store 的相同，则跳出循环
+                        else if (nextInst instanceof LoadInst) {
                             var nextLoadInst = (LoadInst) nextInst;
                             var addr = nextLoadInst.getPtr();
                             var npointer = PAA.getArrayValue(addr);
                             if (PAA.alias(pointer, npointer)) {
                                 break;
                             }
-                        } else if (nextInst instanceof CallInst) {
+                        }
+                        // 如果后面有 call，且 arr 和 call 的 GEP 的 arr 相同，则 break
+                        else if (nextInst instanceof CallInst) {
                             if (PAA.callAlias(pointer, (CallInst) nextInst)) {
                                 break;
                             }
