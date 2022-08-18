@@ -1,10 +1,7 @@
 package backend.arm.inst;
 
-import java.util.HashMap;
-import java.util.Map;
 
 import backend.AsmBlock;
-import backend.AsmOperand;
 import backend.VirtReg;
 import backend.arm.CallingConvention;
 import backend.arm.LabelImm;

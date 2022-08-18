@@ -9,6 +9,7 @@ import java.util.StringJoiner;
  */
 public class PhiInst extends Instruction {
 
+    // incomings
     public List<Use> preds = new ArrayList<>();
 
     public PhiInst(BasicBlock b) {

@@ -1,29 +1,35 @@
 package ssa.ds;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 public class BasicBlock {
     // TODO landing pads for Phi insts? or basic block argument?
     public String label;
-    public List<Instruction> insts;
+    public List<Instruction> insts = new ArrayList<>();
     public BasicBlockValue val;
-    public List<BasicBlock> domers; // 谁支配我
-    public List<BasicBlock> idoms; // 我直接支配谁
-    public List<BasicBlock> domiFrontier; // 支配边界
+    public List<BasicBlock> domers = new ArrayList<>(); // 谁支配我
+    public List<BasicBlock> idoms = new ArrayList<>(); // 我直接支配谁
+    public List<BasicBlock> domiFrontier = new ArrayList<>(); // 支配边界
     public BasicBlock idomer; // 谁直接支配我
     public Integer domLevel;
+    public Func owner;
 
-    public BasicBlock(String name) {
+    public BasicBlock(String name, Func func) {
         label = name;
-        insts = new ArrayList<>();
+        owner = func;
         val = new BasicBlockValue(this);
-        domers = new ArrayList<>();
-        idoms = new ArrayList<>();
     }
 
     public BasicBlockValue getValue() {
         return val;
+    }
+
+    public Instruction entry() {
+        if (insts.size() == 0)
+            return null;
+        return insts.get(0);
     }
 
     public void replaceInst(Instruction oldInst, Instruction newInst) {
@@ -50,12 +56,13 @@ public class BasicBlock {
 
     public Instruction getTerminator() {
         assert hasTerminator();
-        return insts.get(insts.size()-1);
+        return insts.get(insts.size() - 1);
     }
 
     public boolean hasPhi() {
-        if (insts.size() == 0) return false;
-        for (var inst: insts) {
+        if (insts.size() == 0)
+            return false;
+        for (var inst : insts) {
             if (inst instanceof PhiInst) {
                 return true;
             }
@@ -66,9 +73,9 @@ public class BasicBlock {
 
     public List<PhiInst> getPhis() {
         var ret = new ArrayList<PhiInst>();
-        for (var inst: insts) {
+        for (var inst : insts) {
             if (inst instanceof PhiInst) {
-                ret.add((PhiInst)inst);
+                ret.add((PhiInst) inst);
             } else { // 因为phi必然在基本块开头
                 break;
             }
@@ -155,5 +162,10 @@ public class BasicBlock {
     public void removeInst(Instruction inst) {
         inst.removeAllOpr();
         insts.remove(inst);
+    }
+
+    public void removeInstWithIterator(Instruction inst, Iterator<Instruction> it) {
+        inst.removeAllOpr();
+        it.remove();
     }
 }

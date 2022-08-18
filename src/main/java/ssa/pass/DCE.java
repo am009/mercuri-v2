@@ -1,10 +1,20 @@
 package ssa.pass;
 
+import java.util.HashSet;
+import java.util.Set;
+
+import ds.Global;
+import ssa.ds.CallInst;
+import ssa.ds.StoreInst;
 import ssa.ds.Func;
+import ssa.ds.Instruction;
+import ssa.ds.LoadInst;
 import ssa.ds.Module;
+import ssa.ds.TerminatorInst;
 
 public class DCE {
     Module ssaModule;
+    Set<Instruction> usefulInstSet = new HashSet<>();
 
     public DCE(Module ssaModule) {
         this.ssaModule = ssaModule;
@@ -16,10 +26,107 @@ public class DCE {
     }
 
     private void execute() {
-        ssaModule.funcs.forEach(func -> this.executeOnFunc(func));
+        var funcs = ssaModule.funcs;
+        funcs.forEach(func -> this.executeOnFunc(func));
+        var it = funcs.iterator();
+        while (it.hasNext()) {
+            var func = it.next();
+            if (func.name.equals("main")) {
+                continue;
+            }
+            if (func.callers.isEmpty()) {
+                Global.logger.trace("remove func without caller: " + func.name);
+                it.remove();
+            }
+        }
     }
 
     private void executeOnFunc(Func func) {
+        removeUselessStore(func);
+        removeUselessInst(func);
+    }
 
+    public boolean isUseful(Instruction inst) {
+        if (inst instanceof TerminatorInst || inst instanceof StoreInst) {
+            return true;
+        }
+        if (inst instanceof CallInst) {
+            var callInst = (CallInst) inst;
+            if (callInst.target().hasSideEffect) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void findUsefulClosure(Instruction inst) {
+        if (usefulInstSet.contains(inst)) {
+            return;
+        }
+        usefulInstSet.add(inst);
+        for (var use : inst.oprands) {
+            var op = use.value;
+            if (op instanceof Instruction) {
+                findUsefulClosure((Instruction) op);
+            }
+        }
+    }
+
+    public void removeUselessInst(Func func) {
+
+        usefulInstSet.clear();
+        for (var bb : func.bbs) {
+            var it = bb.insts.iterator();
+            while (it.hasNext()) {
+                var inst = it.next();
+                if (isUseful(inst)) {
+                    findUsefulClosure(inst);
+                }
+            }
+        }
+
+        for (var bb : func.bbs) {
+            var it = bb.insts.iterator();
+            while (it.hasNext()) {
+                var inst = it.next();
+                if (!usefulInstSet.contains(inst)) {
+                    bb.removeInstWithIterator(inst, it);
+                }
+            }
+        }
+    }
+
+    public void removeUselessStore(Func func) {
+        for (var bb : func.bbs) {
+            var it = bb.insts.iterator();
+            while (it.hasNext()) {
+                var inst = it.next();
+                if (inst instanceof StoreInst) {
+                    var storeInst = (StoreInst) inst;
+                    var pointer = PAA.getArrayValue(storeInst.getPtr());
+                    while (it.hasNext()) {
+                        var nextInst = it.next();
+                        if (nextInst instanceof StoreInst) {
+                            var nextStoreInst = (StoreInst) nextInst;
+                            if (storeInst.getPtr() == nextStoreInst.getPtr()) {
+                                bb.removeInstWithIterator(storeInst, it);
+                                break;
+                            }
+                        } else if (nextInst instanceof LoadInst) {
+                            var nextLoadInst = (LoadInst) nextInst;
+                            var addr = nextLoadInst.getPtr();
+                            var npointer = PAA.getArrayValue(addr);
+                            if (PAA.alias(pointer, npointer)) {
+                                break;
+                            }
+                        } else if (nextInst instanceof CallInst) {
+                            if (PAA.callAlias(pointer, (CallInst) nextInst)) {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

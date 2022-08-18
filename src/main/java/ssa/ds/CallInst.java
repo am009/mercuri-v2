@@ -1,5 +1,6 @@
 package ssa.ds;
 
+import java.util.List;
 import java.util.StringJoiner;
 
 public class CallInst extends Instruction {
@@ -26,6 +27,10 @@ public class CallInst extends Instruction {
 
     public Func target(){
         return ((FuncValue)oprands.get(0).value).func;
+    }
+
+    public List<Use> args(){
+        return oprands.subList(1, oprands.size());
     }
 
     public boolean isVariadic() {

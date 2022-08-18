@@ -66,7 +66,6 @@ public class DomInfo {
             }
         }
 
-        // calculate doms and idom
         for (int i = 0; i < numNode; i++) {
             BasicBlock bb = bbList.get(i);
 
@@ -90,7 +89,6 @@ public class DomInfo {
             }
         }
 
-        // calculate dom level
         computeDominanceLevel(entry, 0);
     }
 
@@ -104,7 +102,6 @@ public class DomInfo {
                 BasicBlock x = a;
                 while (x == b || !b.domers.contains(x)) {
                     if (!x.domiFrontier.contains(b)) {
-                        // maybe better to design the data structure of dominance frontier as a set
                         x.domiFrontier.add(b);
                     }
                     x = x.idomer;

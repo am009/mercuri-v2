@@ -58,7 +58,7 @@ public class Simplifier {
         Global.logger.trace("simplify: " + inst);
         if (inst instanceof BinopInst) {
             var binop = (BinopInst) inst;
-            return switch (binop.op) {
+            var simplified = switch (binop.op) {
                 case ADD -> simplifyAdd(binop, rec);
                 case SUB -> simplifySub(binop, rec);
                 case MUL -> simplifyMul(binop, rec);
@@ -76,6 +76,14 @@ public class Simplifier {
                     throw new RuntimeException("unsupported binop: " + binop.op);
                 }
             };
+            if (simplified instanceof Instruction && simplified != inst) {
+                Global.logger.trace("insert simplified instruction: from '" + inst + "' to '" + simplified + "'");
+                //  注意，这里可能简化后变成一条已经存在的指令
+                // 比如说 %? = add i32 %0, 0
+                // 简化后直接变成 lhs 的 load 指令
+                insertInstIfNeeded((Instruction) simplified);
+            }
+            return simplified;
         } else {
             return inst;
         }
@@ -230,12 +238,13 @@ public class Simplifier {
     }
 
     // inst 有可能是生成的优化指令，还未来得及插入到BasicBlock中，因此在此检查是否需要插入
-    private static void insertInstIfNeeded(BinopInst inst) {
+    private static void insertInstIfNeeded(Instruction inst) {
         assert (inst.parent != null);
         var parent = inst.parent;
         if (parent.insts.contains(inst)) {
             return;
         }
+        Global.logger.trace("insert new inst " + inst);
         parent.addBeforeTerminator(inst);
 
     }
@@ -282,6 +291,8 @@ public class Simplifier {
         }
 
         // lhs - rhs == 0
+        // FIXME: 这里如果两个都是 load 指令，且 load 相同的数，实际上仍然不能被优化，因为两个指令的编号不同
+        // 二者虽然都是 load，可能其中一个中途被 redef
         if (lhs.equals(rhs)) {
             return ConstantValue.ofInt(0);
         }

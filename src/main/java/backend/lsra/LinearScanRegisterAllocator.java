@@ -1,16 +1,12 @@
 package backend.lsra;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import backend.AsmModule;
 import backend.VirtReg;
-import backend.arm.Reg;
 import ds.Global;
 
 public class LinearScanRegisterAllocator {

@@ -11,9 +11,11 @@ import ssa.ds.CallInst;
 import ssa.ds.ConstantValue;
 import ssa.ds.Func;
 import ssa.ds.GetElementPtr;
+import ssa.ds.GlobalVariable;
 import ssa.ds.Instruction;
 import ssa.ds.LoadInst;
 import ssa.ds.Module;
+import ssa.ds.PhiInst;
 import ssa.ds.StoreInst;
 import ssa.ds.Value;
 
@@ -26,10 +28,24 @@ public class GVN {
 
     public static void process(Module ssaModule) {
         var gvn = new GVN(ssaModule);
-        ssaModule.funcs.forEach(func -> gvn.execute(func));
+        // 不要用 ssaModule.funcs.forEach
+        var lastSize = ssaModule.funcs.size();
+        for (int i = 0; 0 <= i && i < lastSize; i++) {
+            var func = ssaModule.funcs.get(i);
+            PAA.run(func);
+            gvn.executeGVN(func);
+            PAA.clear(func);
+            var size = lastSize;
+            DCE.process(ssaModule);
+            lastSize = ssaModule.funcs.size();
+            var deltaSize = size - lastSize;
+            assert (deltaSize >= 0);
+            i -= deltaSize;
+            assert (i >= 0) : "Correctness of func emit ought to be reviewed";
+        }
     }
 
-    private void execute(Func func) {
+    private void executeGVN(Func func) {
         var rpo = Simplifier.computeReversePostOrderBlockList(func);
         for (var bb : rpo) {
             this.excuteOnBB(bb);
@@ -56,9 +72,10 @@ public class GVN {
             this.replaceIfDiffrent(inst, simplifiedValue);
             return;
         }
-
+        // 如果优化后仍然是指令
         Instruction simplifiedInst = (Instruction) simplifiedValue;
-        if(simplifiedInst == inst) {
+        // 优化后的指令和原来相同，不做处理
+        if (simplifiedInst == inst) {
             return;
         }
         if (simplifiedInst instanceof BinopInst) {
@@ -81,19 +98,89 @@ public class GVN {
             replaceIfDiffrent(inst, val);
         } // GetElementPtr
         if (simplifiedInst instanceof LoadInst) {
-            // TODO
+            var loadInst = (LoadInst) simplifiedInst;
+            var pointer = loadInst.getPtr();
+            Value array = PAA.getArrayValue(pointer);
+
+            boolean getConst = false;
+            if (pointer instanceof GetElementPtr && PAA.isGlobal(array)) {
+                GlobalVariable globalArray = (GlobalVariable) array;
+                if (globalArray.isConst) {
+                    boolean constIndex = true;
+
+                    // if (globalArray.fixedInit == null) {
+                    //   // mark global const 产生的常量数组
+                    //   ConstantInt c = ConstantInt.newOne(factory.getI32Ty(), 0);
+                    //   replace(inst, c);
+                    //   return;
+                    // } else if (globalArray.fixedInit instanceof ConstantArray
+                    //     && ((GetElementPtr) pointer).getNumOP() > 2) {
+                    //   ConstantArray constantArray = (ConstantArray) globalArray.fixedInit;
+                    //   Stack<Integer> indexList = new Stack<>();
+                    //   Value tmpPtr = pointer;
+                    //   while (tmpPtr instanceof GetElementPtr) {
+                    //     // 不考虑基址+偏移的GEP
+                    //     if (((GetElementPtr) tmpPtr).getNumOP() <= 2) {
+                    //       constIndex = false;
+                    //       break;
+                    //     }
+                    //     Value index = ((Instruction) tmpPtr).getOperands().get(2);
+                    //     if (!(index instanceof ConstantInt)) {
+                    //       constIndex = false;
+                    //       break;
+                    //     }
+                    //     indexList.push(((ConstantInt) index).getVal());
+                    //     tmpPtr = ((Instruction) tmpPtr).getOperands().get(0);
+                    //   }
+                    //   if (constIndex) {
+                    //     Constant c = constantArray;
+                    //     while (!indexList.isEmpty()) {
+                    //       int index = indexList.pop();
+                    //       c = ((ConstantArray) c).getConst_arr_().get(index);
+                    //     }
+                    //     assert c instanceof ConstantInt;
+                    //     replace(inst, c);
+                    //     getConst = true;
+                    //   }
+                    // }
+                }
+            }
+
+            if (!getConst) {
+                Value val = encache(simplifiedInst);
+                this.replaceIfDiffrent(inst, val);
+            }
             return;
         } // LoadInst 
+        if (simplifiedInst instanceof PhiInst) {
+            var phiInst = (PhiInst) simplifiedInst;
+            boolean sameIncoming = true;
+            Value val = encache(phiInst.preds.get(0).value);
+            for (int i = 1; i < phiInst.preds.size() && sameIncoming; i++) {
+                if (!val.equals(encache(phiInst.preds.get(i).value))) {
+                    sameIncoming = false;
+                }
+            }
+            if (sameIncoming) {
+                // FIXME: 为啥是 phiInst，而不是 inst
+                replaceIfDiffrent(phiInst, val);
+            }
+        } // PhiINst
         if (simplifiedInst instanceof StoreInst) {
-            // TODO
+            var val = inst.getOperand0();
+            if (!val.type.isPointer) {
+                valueTable.add(new Pair<>(inst, inst));
+            }
             return;
         } // StoreInst
         if (simplifiedInst instanceof CallInst) {
-            // TODO
+            Value val = encache(simplifiedInst);
+            replaceIfDiffrent(inst, val);
             return;
         } // CallInst
     }
 
+    // 此处 replace 并非原地替换，而是令旧有代码变成死代码，然后在尾部追加新的代码
     private boolean replaceIfDiffrent(Instruction inst, Value v) {
         if (inst == v) {
             return false;

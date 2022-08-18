@@ -6,5 +6,8 @@
     "src/main/java"
   ],
   "java.format.comments.enabled": false,
-  "search.useIgnoreFiles": false
+  "search.useIgnoreFiles": false,
+  "files.associations": {
+    "*.sy": "c"
+  }
 }

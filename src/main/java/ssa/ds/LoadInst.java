@@ -1,6 +1,9 @@
 package ssa.ds;
 
 public class LoadInst extends Instruction {
+    // fill after alias analysis
+    public Value useStore;
+
     
     public LoadInst(BasicBlock p, Value ptr) {
         parent = p;
@@ -10,6 +13,7 @@ public class LoadInst extends Instruction {
         type.isPointer = false;
     }
 
+    // 可以是 GEP，GlobalVariable 等
     public Value getPtr() {
         return oprands.get(0).value;
     }
@@ -25,5 +29,6 @@ public class LoadInst extends Instruction {
         type.isPointer = false;
         return b.toString();
     }
+
 
 }

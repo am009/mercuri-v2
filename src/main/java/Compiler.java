@@ -23,6 +23,7 @@ import ssa.pass.CriticalEdgeSpliting;
 import ssa.pass.DeadBlockElimination;
 import ssa.pass.EABIArithmeicLowing;
 import ssa.pass.GVN;
+import ssa.pass.IPA;
 import ssa.pass.Mem2Reg;
 import ssa.pass.Peephole;
 import ds.LoggerBuilder;
@@ -63,22 +64,30 @@ public class Compiler {
         var ssaIrGen = new FakeSSAGenerator();
         Module ssa = ssaIrGen.process(dst);
         // !! IF_DEBUG
-        // Global.logger.trace("--- ssa no opt ---");
-        // Global.logger.trace(ssa.toString());
+        Global.logger.trace("--- ssa no opt ---");
+        Global.logger.trace(ssa.toString());
 
         ssa = DeadBlockElimination.process(ssa);
         ssa = BasicBlockMerging.process(ssa);
-        ssa = Mem2Reg.process(ssa);
-        ssa = Peephole.process(ssa);
+
+        Global.logger.trace("--- ssa - before IPA  ---");
+        Global.logger.trace(ssa.toString());
+
+        IPA.process(ssa);
+        Global.logger.trace("--- ssa - after IPA  ---");
+        Global.logger.trace(ssa.toString());
+
+        Mem2Reg.process(ssa);
+        Peephole.process(ssa);
         NumValueNamer.process(ssa);
         Global.logger.trace("--- ssa - after mem2reg  ---");
         Global.logger.trace(ssa.toString());
 
-        // Global.logger.trace("--- ssa - doing GVN ---");
-        // GVN.process(ssa);
-        // NumValueNamer.process(ssa);
-        // Global.logger.trace("--- ssa - after GVN  ---");
-        // Global.logger.trace(ssa.toString());
+        Global.logger.trace("--- ssa - doing GVN ---");
+        GVN.process(ssa);
+        NumValueNamer.process(ssa);
+        Global.logger.trace("--- ssa - after GVN  ---");
+        Global.logger.trace(ssa.toString());
 
         // !! END_IF
         if (args.getOutFile() != null && args.getOutFile().endsWith(".ll")) { // 生成LLVM IR

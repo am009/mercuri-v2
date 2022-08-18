@@ -71,7 +71,6 @@ public class FakeSSAGenerator {
         new NumValueNamer().visitModule(ctx.module);
     }
 
-
     private void visitBuiltinDstFunc(FakeSSAGeneratorContext ctx, dst.ds.Func dstFunc) {
         // params
         var pvs = new ArrayList<ParamValue>();
@@ -80,7 +79,7 @@ public class FakeSSAGenerator {
         });
 
         // create ssa func
-        Func func = new Func(dstFunc.id, dstFunc.retType, pvs);
+        Func func = new Func(dstFunc.id, dstFunc.retType, pvs, ctx.module);
         if (dstFunc.isVariadic != null) {
             func.setIsVariadic(dstFunc.isVariadic);
         }
@@ -188,7 +187,7 @@ public class FakeSSAGenerator {
         });
 
         // create func object
-        Func func = new Func(dstFunc.id, dstFunc.retType, pvs);
+        Func func = new Func(dstFunc.id, dstFunc.retType, pvs, ctx.module);
         if (dstFunc.isVariadic != null) {
             func.setIsVariadic(dstFunc.isVariadic);
         }
@@ -199,7 +198,7 @@ public class FakeSSAGenerator {
 
         // entry basic block for func
         func.bbs = new LinkedList<>();
-        BasicBlock ent = new BasicBlock("entry");
+        BasicBlock ent = new BasicBlock("entry", func);
         func.bbs.add(ent);
         ctx.current = ent;
 
@@ -298,11 +297,11 @@ public class FakeSSAGenerator {
         if (stmt_ instanceof IfElseStatement) {
             var stmt = (IfElseStatement) stmt_;
             int ind = ctx.nextBBIdx();
-            var trueBlock = new BasicBlock("if_true_" + ind);
-            var exitBlock = new BasicBlock("if_end_" + ind);
+            var trueBlock = new BasicBlock("if_true_" + ind, curFunc);
+            var exitBlock = new BasicBlock("if_end_" + ind, curFunc);
             var falseBlock = exitBlock;
             if (stmt.elseBlock != null) {
-                falseBlock = new BasicBlock("if_false_" + ind);
+                falseBlock = new BasicBlock("if_false_" + ind, curFunc);
             }
             // var cond = this.visitDstExpr(ctx, curFunc, stmt.condition);
             // ctx.addToCurrent(new BranchInst(ctx.current, cond, trueBlock.getValue(),
@@ -337,14 +336,14 @@ public class FakeSSAGenerator {
             var loopStmt = (LoopStatement) stmt_;
             // 由于要跳转到expr计算的前面，这里要分割一个基本块
             int bbid = ctx.nextBBIdx();
-            var entBlock = new BasicBlock("while_entry_" + bbid);
+            var entBlock = new BasicBlock("while_entry_" + bbid, curFunc);
             {
                 ctx.addToCurrentBB(new JumpInst(ctx.current, entBlock.getValue()));
                 ctx.current = entBlock;
                 curFunc.bbs.add(entBlock);
             }
-            var bodyBlock = new BasicBlock("while_body_" + bbid);
-            var exitBlock = new BasicBlock("while_end_" + bbid);
+            var bodyBlock = new BasicBlock("while_body_" + bbid, curFunc);
+            var exitBlock = new BasicBlock("while_end_" + bbid, curFunc);
             // var cond = this.visitDstExpr(ctx, curFunc, stmt.condition);
             // cx.addToCurrent(new BranchInst(ctx.current, cond, bodyBlock.getValue(),
             // exitBlock.getValue()));
@@ -617,9 +616,9 @@ public class FakeSSAGenerator {
             // memset ptr, char, size.
             var memsetFunc = ctx.funcMap.get(ir.ds.Module.builtinFuncs.get(ir.ds.Module.MEMSET));
             var memset = new CallInst.Builder(ctx.current, memsetFunc)
-                            .addArg(cast)
-                            .addArg(ConstantValue.ofInt(0))
-                            .addArg(ConstantValue.ofInt(Math.toIntExact(alloca.ty.getSize()))).build();
+                    .addArg(cast)
+                    .addArg(ConstantValue.ofInt(0))
+                    .addArg(ConstantValue.ofInt(Math.toIntExact(alloca.ty.getSize()))).build();
             ctx.addToCurrentBB(memset);
             if (decl.initVal != null) {
                 setArrayInitialVal(ctx, curFunc, alloca, decl.initVal, decl.type.dims);
@@ -637,7 +636,8 @@ public class FakeSSAGenerator {
      * @param trueBlock 条件为真时跳转到的 bb
      * @param falseBlock
      */
-    private void visitCondExprs(FakeSSAGeneratorContext ctx, ssa.ds.Func curFunc, Expr inLogic, BasicBlockValue trueBlock,
+    private void visitCondExprs(FakeSSAGeneratorContext ctx, ssa.ds.Func curFunc, Expr inLogic,
+            BasicBlockValue trueBlock,
             BasicBlockValue falseBlock) {
         // 如果是可以短路求值的二元表达式
         if (inLogic instanceof BinaryExpr && ((BinaryExpr) inLogic).op.isShortCircuit()) { // logic and/or
@@ -648,11 +648,11 @@ public class FakeSSAGenerator {
             int bbid = ctx.nextBBIdx();
             BasicBlock next;
             if (expr.op == BinaryOp.LOG_AND) {
-                next = new BasicBlock("and_right_" + bbid);
+                next = new BasicBlock("and_right_" + bbid, curFunc);
                 visitCondExprs(ctx, curFunc, expr.left, next.getValue(), falseBlock);
             } else {
                 assert expr.op == BinaryOp.LOG_OR;
-                next = new BasicBlock("or_right_" + bbid);
+                next = new BasicBlock("or_right_" + bbid, curFunc);
                 visitCondExprs(ctx, curFunc, expr.left, trueBlock, next.getValue());
             }
             ctx.current = next;
@@ -680,12 +680,12 @@ public class FakeSSAGenerator {
                 var iv = initValue.values.get(i);
                 // TODO 先把整个内存区域memset为0，再仅赋值非零元素
                 // if (!iv.isAllZero) {
-                    // 生成Gep
-                    var ptr_ = new GetElementPtr(ctx.current, ptr);
-                    ptr_.addIndex(ConstantValue.ofInt(i));
-                    ctx.addToCurrentBB(ptr_);
-                    // 递归调用
-                    setArrayInitialVal(ctx, curFunc, ptr_, iv, dims);
+                // 生成Gep
+                var ptr_ = new GetElementPtr(ctx.current, ptr);
+                ptr_.addIndex(ConstantValue.ofInt(i));
+                ctx.addToCurrentBB(ptr_);
+                // 递归调用
+                setArrayInitialVal(ctx, curFunc, ptr_, iv, dims);
                 // }
             }
         } else {
@@ -694,10 +694,10 @@ public class FakeSSAGenerator {
             for (int i = 0; i < dim; i++) {
                 var initval = initValue.values.get(i);
                 assert !initval.isArray;
-                
+
                 // 先把整个内存区域memset为0，再仅赋值非零元素
                 if (initval.value instanceof LiteralExpr && ((LiteralExpr) (initval.value)).value.isDefault()) {
-                    
+
                 } else {// 如果iv不是默认值则生成gep和store
                     // 计算地址
                     var ptr_ = new GetElementPtr(ctx.current, ptr);

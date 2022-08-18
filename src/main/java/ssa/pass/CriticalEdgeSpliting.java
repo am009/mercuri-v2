@@ -70,7 +70,7 @@ public class CriticalEdgeSpliting {
      * @param u
      */
     private void splitCriticalEdge(Use u) {
-        var newbb = new BasicBlock("criticalEdge_"+nameIndex++);
+        var newbb = new BasicBlock("criticalEdge_"+nameIndex++, this.func);
         var targetbbv = (BasicBlockValue)u.value;
         var targetbb = targetbbv.b;
         var frombb = ((Instruction)u.user).parent;

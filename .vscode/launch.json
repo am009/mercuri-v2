@@ -6,19 +6,11 @@
     "configurations": [
         {
             "type": "java",
-            "name": "Launch FlowViewer",
-            "request": "launch",
-            "mainClass": "backend.FlowViewer",
-            "projectName": "mercuri-v2_fd3b0796"
-        },
-        {
-            "type": "java",
             "name": "Launch Compiler",
             "request": "launch",
-            "mainClass": "src.main.Compiler",
-            "projectName": "mercuri_89ae2924",
-            "vmArgs": "-ea -DlogTarget=file -DlogFile=${workspaceRoot}/mercuri.log -DlogLevel=TRACE",
-            "args": "-S test/functional/51_short_circuit3.sy"
+            "mainClass": "Compiler",
+            "vmArgs": "-ea -Xss12M -DlogTarget=file -DlogFile=${workspaceRoot}/mercuri.log -DlogLevel=TRACE",
+            "args": "-S test/functional/25_while_if.sy",
         }
     ]
 }

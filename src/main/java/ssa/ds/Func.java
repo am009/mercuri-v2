@@ -1,6 +1,7 @@
 package ssa.ds;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.StringJoiner;
 
@@ -9,6 +10,7 @@ import dst.ds.FuncType;
 // declaration (bbs==null) or definition
 public class Func {
     public String name;
+    public Module owner;
     public List<BasicBlock> bbs;
     public FuncValue val; // used by CallInst
     public boolean isVariadic = false; // 是否有可变参数
@@ -20,11 +22,16 @@ public class Func {
     public List<Func> callees = new ArrayList<>();
     public boolean hasSideEffect = true;
     public boolean usingGlobs = true;
+    public HashSet<GlobalVariable> loadGlobs = new HashSet<>();
+    public HashSet<GlobalVariable> defGlobs= new HashSet<>();
 
-    public Func(String name, FuncType retTy, List<ParamValue> argTy) {
+
+    public Func(String name, FuncType retTy, List<ParamValue> argTy, Module owner) {
         this.name = name;
         this.retType = retTy;
         this.argType = argTy;
+
+        this.owner = owner;
     }
 
     public FuncValue getValue() {

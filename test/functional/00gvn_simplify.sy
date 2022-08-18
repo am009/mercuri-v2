@@ -1,0 +1,13 @@
+int a = 1;
+int u = 1;
+int x;
+
+int func() {
+    int k = 8 + a - 8  - u;
+    return k;
+}
+
+int main() {
+    int zz = func();
+    return zz;
+}

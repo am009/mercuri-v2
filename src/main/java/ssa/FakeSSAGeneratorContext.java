@@ -49,7 +49,7 @@ public class FakeSSAGeneratorContext {
     public Instruction addToCurrentBB(Instruction i) {
         if (current.hasTerminator()) {
             // 只能生成到一个新的空基本块了
-            var newBB = new BasicBlock("tmp_"+nextBBIdx());
+            var newBB = new BasicBlock("tmp_"+nextBBIdx(), currentFunc);
             currentFunc.bbs.add(newBB);
             newBB.insts.add(i);
             i.parent = newBB;
