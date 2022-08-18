@@ -579,7 +579,7 @@ public class LocalRegAllocator {
                         var phyReg = newUses.get(j);
                         boolean isFloat = vreg.isFloat;
                         int ind = reg2ind(phyReg, isFloat);
-                        int next = calcDist((i - addedInstCount), bd.useLists.get(vreg));
+                        int next = calcDist((i - addedInstCount), bd.useLists.get(vreg), vreg);
                         state.setNext(ind, isFloat, next);
                     }
                 }
@@ -589,7 +589,7 @@ public class LocalRegAllocator {
                     var phyReg = newDefs.get(j);
                     boolean isFloat = vreg.isFloat;
                     int ind = reg2ind(phyReg, isFloat);
-                    int next = calcDist((i - addedInstCount), bd.useLists.get(vreg));
+                    int next = calcDist((i - addedInstCount), bd.useLists.get(vreg), vreg);
                     state.setNext(ind, isFloat, next);
                 }
                 // 插入需要增加的指令
@@ -671,9 +671,12 @@ public class LocalRegAllocator {
         }
     }
 
-    private int calcDist(int currentInd, List<Integer> useList) {
+    private int calcDist(int currentInd, List<Integer> useList, VirtReg vreg) {
+        boolean isGlobal = globs.contains(vreg);
         if (useList == null) {
-            Global.logger.warning("Cannot find usage of a virtual register. currentInd=" + currentInd);
+            if (!isGlobal) {
+                Global.logger.warning("Cannot find usage of a virtual register: " + vreg.toString());
+            }
             return Integer.MAX_VALUE;
         }
         for (int j = useList.size() - 1; j >= 0; j--) {
@@ -682,7 +685,9 @@ public class LocalRegAllocator {
                 return ind-currentInd;
             }
         }
-        Global.logger.warning("Global value?"); // TODO 
+        if (!isGlobal) {
+            Global.logger.warning("Cannot find usage of a virtual register: " + vreg.toString());
+        }
         return Integer.MAX_VALUE;
     }
 

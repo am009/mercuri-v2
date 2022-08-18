@@ -597,7 +597,7 @@ public class FakeSSAGenerator {
             return;
         }
         // 生成alloca语句，即使是array也能一个指令解决
-        var alloca = new AllocaInst.Builder(ctx.current).addType(convertDstType(decl.type)).build();
+        var alloca = new AllocaInst.Builder(curFunc.entry()).addType(convertDstType(decl.type)).build();
         ctx.addAllocaToEntry(alloca);
         alloca.name = ctx.nameLocal(decl.id);
         ctx.varMap.put(decl, alloca);
