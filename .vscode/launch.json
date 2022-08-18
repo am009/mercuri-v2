@@ -10,7 +10,7 @@
             "request": "launch",
             "mainClass": "Compiler",
             "vmArgs": "-ea -Xss12M -DlogTarget=file -DlogFile=${workspaceRoot}/mercuri.log -DlogLevel=TRACE",
-            "args": "-S test/functional/48_assign_complex_expr.sy",
+            "args": "-S test/functional/54_hidden_var.sy",
         }
     ]
 }

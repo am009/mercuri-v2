@@ -57,17 +57,28 @@ public class GVN {
 
     private void excuteOnBB(BasicBlock bb) {
         var npred = bb.pred().size();
-        for (var i = 0; i < bb.insts.size(); i++) {
+        // 这里要小心，如果我们在 i 的位置插入了新的指令（可能还不止一条），那么实际上要往后多走几步，不然会死循环
+        var curSize = bb.insts.size();
+        for (var i = 0; i >= 0 && i < curSize; i++) {
             var inst = bb.insts.get(i);
             this.executeOnInst(bb, inst);
+            var prevSize = curSize;
+            curSize = bb.insts.size();
+            var deltaSize = curSize - prevSize;
+            i += deltaSize;
         }
     }
 
     private void executeOnInst(BasicBlock parent, Instruction inst) {
-        assert parent == inst.parent;
+        if (parent != inst.parent) {
+            assert (false);
+        }
         if (inst.getUses().size() == 0 && !(inst instanceof StoreInst) && !(inst instanceof CallInst)) {
             return;
         }
+        // 这里可能会返回一个值，或者一个优化后的指令。如果是指令，则可以认为在 simplify 内部完成了插入
+        // 因此在这里不要对其进行重复插入，只是将依赖 inst 的指令的对 inst 的依赖，替换为对 simplifiedValue 的依赖
+        // 这个替换通过 replaceIfDiffrent 完成
         var simplifiedValue = Simplifier.simplify(inst, true);
         // 如果已经化简为非指令，则原来的指令可以直接删掉
         if (!(simplifiedValue instanceof Instruction)) {
@@ -200,6 +211,7 @@ public class GVN {
         // 有时候，我们需要替换整个指令
         // 有时候，却是要替换指令的某个操作数，但这个操作数本身是一个指令？比如 lhs, rhs
         // 为了统一这两种情况，干脆把自己替换成 v
+        Global.logger.trace("replacing. nolonger use '" + inst + "', use '" + v + "' instead");
         inst.replaceAllUseWith(v);
         inst.parent.removeInst(inst);
         // if (v instanceof Instruction) {

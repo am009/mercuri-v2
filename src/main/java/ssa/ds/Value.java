@@ -21,6 +21,9 @@ public class Value {
         uses.remove(use);
     }
 
+    /**
+     * 把所有对 this 的使用，替换为对 v 的使用，并清空自己的 uses 列表。
+     */
     public void replaceAllUseWith(Value v) {
         assert v != this;
         for (var u: uses) {

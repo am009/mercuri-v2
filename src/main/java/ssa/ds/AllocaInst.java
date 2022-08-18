@@ -14,9 +14,9 @@ public class AllocaInst extends Instruction {
             inst.parent = parent;
         }
 
-        public Builder addType(Type t) {
-            assert !t.isPointer; // 不支持指针
-            inst.ty = t;
+        public Builder addType(Type ty) {
+            assert !ty.isPointer; // 不支持指针
+            inst.ty = ty;
             inst.type = inst.ty.clone();
             inst.type.isPointer = true; // 返回值是指针类型
             return this;

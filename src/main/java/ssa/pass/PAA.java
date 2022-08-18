@@ -8,6 +8,7 @@ import java.util.Queue;
 import java.util.Stack;
 import java.util.stream.Collectors;
 
+import ds.Global;
 import dst.ds.BasicType;
 import ssa.ds.AllocaInst;
 import ssa.ds.BasicBlock;
@@ -87,9 +88,8 @@ public class PAA {
         }
         // pointer should be an AllocaInst or GlobalVariable
         if (pointer instanceof AllocaInst || pointer instanceof GlobalVariable) {
-            // TODO： 我们这里是不是 pointer？
-            // 如果是，那么不应该用 getAllocaType，应该用 getType
-            if (pointer instanceof AllocaInst && ((AllocaInst) pointer).type.isArray()) {
+            // 若是 array 的 alloca, 那么找它的定值指令 store 到的地址
+            if (pointer instanceof AllocaInst && ((AllocaInst) pointer).ty.isArray()) {
                 for (var use : pointer.getUses()) {
                     if (use.user instanceof StoreInst) {
                         pointer = ((StoreInst) use.user).getPtr();
@@ -98,6 +98,7 @@ public class PAA {
             }
             return pointer;
         } else {
+            Global.logger.trace("this is not a pointer of array " + pointer);
             return null;
         }
     }
@@ -128,25 +129,29 @@ public class PAA {
     }
 
     public static boolean isParamArrayAliasOfGlobalArray(Value globalArray, Value paramArray) {
+        if (globalArray == null) {
+            assert (false);
+        }
+        if (!globalArray.type.isArray()) {
+            assert (false);
+        }
+        Global.logger.trace("check if " + globalArray + " is " + paramArray);
         if (!isGlobal(globalArray) || !isParam(paramArray)) {
             return false;
         }
         ArrayList<Integer> dimsGlob = new ArrayList<>();
         ArrayList<Integer> dimsParam = new ArrayList<>();
 
-        ConstantValue globalArr = ((GlobalVariable) globalArray).init;
+        ConstantValue globalArrInitVal = ((GlobalVariable) globalArray).init;
         dimsGlob.addAll(globalArray.type.dims);
         int dimNumGlob = dimsGlob.size();
         for (var i = dimNumGlob - 2; i >= 0; i--) {
             dimsGlob.set(i, dimsGlob.get(i) * dimsGlob.get(i + 1));
         }
-
+        assert paramArray instanceof AllocaInst;
         AllocaInst allocaInst = (AllocaInst) paramArray;
         Type ptrTy = allocaInst.type;
-        // TODO: 看不懂下面什么意思
-        // if (ptrTy.baseType == PrimitiveTypeTag.FLOAT || ptrTy.baseType == PrimitiveTypeTag.INT) {
-        // return true;
-        // }
+
         if (!ptrTy.isPointer) {
             return true;
         }
@@ -168,11 +173,13 @@ public class PAA {
             }
             allSame = dimsGlob.get(i + dimNumGlob - minDim) == dimsParam.get(i + dimNumParam - minDim);
         }
+        Global.logger.trace("not all same");
+
         return allSame;
     }
 
     public static boolean alias(Value arr1, Value arr2) {
-        if(arr1 == arr2) {
+        if (arr1 == arr2) {
             return true;
         }
         // 都是param: 名字相等
@@ -183,10 +190,26 @@ public class PAA {
                 && isLocal(arr2))) {
             return arr1 == arr2;
         }
-        if (isGlobal(arr1) && isParam(arr2) && ((GlobalVariable) arr1).init != null) {
+        if (isGlobal(arr1) && isParam(arr2)) {
+            var arr = (GlobalVariable) arr1;
+            if (arr.init == null) {
+                return false;
+            }
+            if (arr.init.children == null) {
+                return false;
+            }
+
             return isParamArrayAliasOfGlobalArray(arr1, arr2);
         }
-        if (isParam(arr1) && isGlobal(arr2) && ((GlobalVariable) arr2).init != null) {
+        if (isParam(arr1) && isGlobal(arr2)) {
+            var arr = (GlobalVariable) arr2;
+            if (arr.init == null) {
+                return false;
+            }
+            if (arr.init.children == null) {
+                return false;
+            }
+
             return isParamArrayAliasOfGlobalArray(arr2, arr1);
         }
         return false;
@@ -314,7 +337,7 @@ public class PAA {
         while (!renameDataStack.isEmpty()) {
             RenameData data = renameDataStack.pop();
             ArrayList<Value> currValues = new ArrayList<>(data.values);
-            if(currValues.isEmpty()) {
+            if (currValues.isEmpty()) {
                 continue;
             }
             for (var inst : data.bb.insts) {
@@ -539,7 +562,7 @@ public class PAA {
     }
 
     private static void calcFun2relatedGlobs() {
-        for(var func: m.builtins) {
+        for (var func : m.builtins) {
             func2relatedGlobs.put(func, new HashSet<GlobalVariable>());
         }
         for (var func : m.funcs) {

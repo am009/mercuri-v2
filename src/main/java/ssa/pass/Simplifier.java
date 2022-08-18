@@ -54,24 +54,32 @@ public class Simplifier {
         return ret;
     }
 
+    /**
+     * inst 是被简化的指令
+     * 如果生成了新的优化指令，此函数会负责插入到 inst 的后边，最后外面调用此函数方，应该删除 inst
+     * 
+     * 疑问：ayame 全部插入到块尾部，然后依赖它的指令也被追加到末尾，原来的旧指令被删除（DCE）
+     * 看起来依赖它的优化指令追加到末尾了，但是依赖这个优化指令的其它指令还在前面，导致其它指令依赖了末尾的指令，也即使用了未定义的值
+     * 不知道为啥 ayame 能避开这个问题
+     */
     public static Value simplify(Instruction inst, Boolean rec) {
         Global.logger.trace("simplify: " + inst);
         if (inst instanceof BinopInst) {
             var binop = (BinopInst) inst;
             var simplified = switch (binop.op) {
-                case ADD -> simplifyAdd(binop, rec);
-                case SUB -> simplifySub(binop, rec);
-                case MUL -> simplifyMul(binop, rec);
-                case DIV -> simplifyDiv(binop, rec);
-                case MOD -> simplifyMod(binop, rec);
-                case LOG_AND -> simplifyLogAnd(binop, rec);
-                case LOG_OR -> simplifyLogOr(binop, rec);
-                case LOG_EQ -> simplifyLogEq(binop, rec);
-                case LOG_NEQ -> simplifyLogNeq(binop, rec);
-                case LOG_LT -> simplifyLogLt(binop, rec);
-                case LOG_GT -> simplifyLogGt(binop, rec);
-                case LOG_LE -> simplifyLogLe(binop, rec);
-                case LOG_GE -> simplifyLogGe(binop, rec);
+                case ADD -> simplifyAdd(binop, binop, rec);
+                case SUB -> simplifySub(binop, binop, rec);
+                case MUL -> simplifyMul(binop, binop, rec);
+                case DIV -> simplifyDiv(binop, binop, rec);
+                case MOD -> simplifyMod(binop, binop, rec);
+                case LOG_AND -> simplifyLogAnd(binop, binop, rec);
+                case LOG_OR -> simplifyLogOr(binop, binop, rec);
+                case LOG_EQ -> simplifyLogEq(binop, binop, rec);
+                case LOG_NEQ -> simplifyLogNeq(binop, binop, rec);
+                case LOG_LT -> simplifyLogLt(binop, binop, rec);
+                case LOG_GT -> simplifyLogGt(binop, binop, rec);
+                case LOG_LE -> simplifyLogLe(binop, binop, rec);
+                case LOG_GE -> simplifyLogGe(binop, binop, rec);
                 default -> {
                     throw new RuntimeException("unsupported binop: " + binop.op);
                 }
@@ -81,7 +89,7 @@ public class Simplifier {
                 //  注意，这里可能简化后变成一条已经存在的指令
                 // 比如说 %? = add i32 %0, 0
                 // 简化后直接变成 lhs 的 load 指令
-                insertInstIfNeeded((Instruction) simplified);
+                insertInstIfNeeded(inst, (Instruction) simplified);
             }
             return simplified;
         } else {
@@ -89,9 +97,9 @@ public class Simplifier {
         }
     }
 
-    public static Value simplifyAdd(BinopInst inst, Boolean rec) {
+    public static Value simplifyAdd(Instruction old, BinopInst inst, Boolean rec) {
         assert (inst.op == BinaryOp.ADD);
-        insertInstIfNeeded(inst);
+        insertInstIfNeeded(old, inst);
 
         var lhs = inst.getOperand0();
         var rhs = inst.getOperand1();
@@ -167,14 +175,14 @@ public class Simplifier {
                 var subLhs = rhsInst.getOperand0();
                 var subRhs = rhsInst.getOperand1();
                 var tmpAddInst = new BinopInst(inst.parent, BinaryOp.ADD, lhs, subLhs);
-                var simplifiledAddInst = simplifyAdd(tmpAddInst, false);
+                var simplifiledAddInst = simplifyAdd(old, tmpAddInst, false);
                 if (simplifiledAddInst != tmpAddInst) {
                     return simplify(new BinopInst(inst.parent, BinaryOp.SUB, simplifiledAddInst, subRhs), false);
                 }
 
                 // try --  X + (Y - Z) ->  (X - Z) + y
                 var tmpSubInst = new BinopInst(inst.parent, BinaryOp.SUB, lhs, subRhs);
-                var simplifiledSubInst = simplifySub(tmpSubInst, false);
+                var simplifiledSubInst = simplifySub(old, tmpSubInst, false);
                 if (simplifiledSubInst != tmpSubInst) {
                     return simplify(new BinopInst(inst.parent, BinaryOp.ADD, simplifiledSubInst, subLhs), false);
                 }
@@ -196,14 +204,14 @@ public class Simplifier {
                 var subRhs = lhsInst.getOperand1();
 
                 var tmpAddInst = new BinopInst(inst.parent, BinaryOp.ADD, subLhs, rhs);
-                var simplifiledAddInst = simplifyAdd(tmpAddInst, false);
+                var simplifiledAddInst = simplifyAdd(old, tmpAddInst, false);
                 if (simplifiledAddInst != tmpAddInst) {
                     return simplify(new BinopInst(inst.parent, BinaryOp.SUB, simplifiledAddInst, subRhs), false);
                 }
                 // (X - Y) + Z -> (Z - Y ) + X
 
                 var tmpSubInst = new BinopInst(inst.parent, BinaryOp.SUB, subRhs, rhs);
-                var simplifiledSubInst = simplifySub(tmpSubInst, false);
+                var simplifiledSubInst = simplifySub(old, tmpSubInst, false);
                 if (simplifiledSubInst != tmpSubInst) {
                     return simplify(new BinopInst(inst.parent, BinaryOp.ADD, simplifiledSubInst, subLhs), false);
                 }
@@ -238,14 +246,20 @@ public class Simplifier {
     }
 
     // inst 有可能是生成的优化指令，还未来得及插入到BasicBlock中，因此在此检查是否需要插入
-    private static void insertInstIfNeeded(Instruction inst) {
+    // old 用于指出应该插入到哪个位置之前
+    private static void insertInstIfNeeded(Instruction old, Instruction inst) {
+        if(old == inst) {
+            return;
+        }
         assert (inst.parent != null);
         var parent = inst.parent;
         if (parent.insts.contains(inst)) {
             return;
         }
         Global.logger.trace("insert new inst " + inst);
-        parent.addBeforeTerminator(inst);
+        var index = parent.insts.indexOf(old);
+        parent.insts.add(index, inst);
+        // parent.addBeforeTerminator(inst);
 
     }
 
@@ -262,10 +276,10 @@ public class Simplifier {
 
     }
 
-    public static Value simplifySub(BinopInst inst, Boolean rec) {
+    public static Value simplifySub(Instruction old, BinopInst inst, Boolean rec) {
 
         assert (inst.op == BinaryOp.SUB);
-        insertInstIfNeeded(inst);
+        insertInstIfNeeded(old, inst);
 
         var lhs = inst.getOperand0();
         var rhs = inst.getOperand1();
@@ -321,16 +335,16 @@ public class Simplifier {
             if (lhsBinop.op == BinaryOp.ADD) {
                 // (X + Y) - Z -> X + (Y - Z) or Y + (X - Z)
                 var tmpSubInst = new BinopInst(inst.parent, BinaryOp.SUB, lhsBinop.getOperand0(), rhs); // X - Z
-                var tmpSimple = simplifySub(tmpSubInst, false);
+                var tmpSimple = simplifySub(old, tmpSubInst, false);
                 if (tmpSimple != tmpSubInst) {
-                    return simplifyAdd(
+                    return simplifyAdd(old,
                             new BinopInst(inst.parent, BinaryOp.ADD, lhsBinop.getOperand1(), tmpSimple), false);
                 }
 
                 tmpSubInst = new BinopInst(inst.parent, BinaryOp.SUB, lhsBinop.getOperand1(), rhs); // Y - Z
-                tmpSimple = simplifySub(tmpSubInst, false);
+                tmpSimple = simplifySub(old, tmpSubInst, false);
                 if (tmpSimple != tmpSubInst) {
-                    return simplifyAdd(
+                    return simplifyAdd(old,
                             new BinopInst(inst.parent, BinaryOp.ADD, lhsBinop.getOperand0(), tmpSimple), false);
                 }
 
@@ -339,17 +353,17 @@ public class Simplifier {
                 var ll = lhsBinop.getOperand0(); // X
                 var lr = lhsBinop.getOperand1(); // Y
                 var tmpSubInst = new BinopInst(inst.parent, BinaryOp.SUB, ll, rhs); // X-Z
-                var tmpSimple = simplifySub(tmpSubInst, false);
+                var tmpSimple = simplifySub(old, tmpSubInst, false);
                 if (tmpSimple != tmpSubInst) {
                     // X - Z - Y
-                    return simplifySub(new BinopInst(inst.parent, BinaryOp.SUB, tmpSimple, lr), false);
+                    return simplifySub(old, new BinopInst(inst.parent, BinaryOp.SUB, tmpSimple, lr), false);
                 }
 
                 var tmpAddInst = new BinopInst(inst.parent, BinaryOp.ADD, lr, rhs); // Y + Z
-                tmpSimple = simplifyAdd(tmpAddInst, false);
+                tmpSimple = simplifyAdd(old, tmpAddInst, false);
                 if (tmpSimple != tmpAddInst) {
                     // X - (Y + Z)
-                    return simplifySub(new BinopInst(inst.parent, BinaryOp.SUB, ll, tmpAddInst), false);
+                    return simplifySub(old, new BinopInst(inst.parent, BinaryOp.SUB, ll, tmpAddInst), false);
                 }
             }
         }
@@ -359,16 +373,16 @@ public class Simplifier {
             if (rhsBinop.op == BinaryOp.ADD) {
                 //  X - (Y + Z) -> (X - Y) - Z or (X - Z) - Y 
                 var tmpSubInst = new BinopInst(inst.parent, BinaryOp.SUB, lhs, rhsBinop.getOperand0());
-                var tmpSimple = simplifySub(tmpSubInst, false);
+                var tmpSimple = simplifySub(old, tmpSubInst, false);
                 if (tmpSimple != tmpSubInst) {
-                    return simplifySub(
+                    return simplifySub(old,
                             new BinopInst(inst.parent, BinaryOp.SUB, tmpSimple, rhsBinop.getOperand1()), false);
                 }
 
                 tmpSubInst = new BinopInst(inst.parent, BinaryOp.SUB, lhs, rhsBinop.getOperand1());
-                tmpSimple = simplifySub(tmpSubInst, false);
+                tmpSimple = simplifySub(old, tmpSubInst, false);
                 if (tmpSimple != tmpSubInst) {
-                    return simplifySub(
+                    return simplifySub(old,
                             new BinopInst(inst.parent, BinaryOp.SUB, tmpSimple, rhsBinop.getOperand0()), false);
                 }
 
@@ -378,17 +392,17 @@ public class Simplifier {
                 var rl = rhsBinop.getOperand0(); // X
                 var rr = rhsBinop.getOperand1(); // Y
                 var tmpSubInst = new BinopInst(inst.parent, BinaryOp.SUB, lhs, rl); // Z - X
-                var tmpSimple = simplifySub(tmpSubInst, false);
+                var tmpSimple = simplifySub(old, tmpSubInst, false);
                 if (tmpSimple != tmpSubInst) {
                     // X - Z - Y
-                    return simplifyAdd(new BinopInst(inst.parent, BinaryOp.ADD, tmpSimple, rr), false);
+                    return simplifyAdd(old, new BinopInst(inst.parent, BinaryOp.ADD, tmpSimple, rr), false);
                 }
 
                 var tmpAddInst = new BinopInst(inst.parent, BinaryOp.ADD, lhs, rr); // Z + Y
-                tmpSimple = simplifyAdd(tmpAddInst, false);
+                tmpSimple = simplifyAdd(old, tmpAddInst, false);
                 if (tmpSimple != tmpAddInst) {
                     // X - (Y + Z)
-                    return simplifySub(new BinopInst(inst.parent, BinaryOp.SUB, tmpAddInst, rl), false);
+                    return simplifySub(old, new BinopInst(inst.parent, BinaryOp.SUB, tmpAddInst, rl), false);
                 }
             }
         }
@@ -396,87 +410,87 @@ public class Simplifier {
         return inst;
     }
 
-    public static Value simplifyMul(BinopInst inst, Boolean rec) {
+    public static Value simplifyMul(Instruction old, BinopInst inst, Boolean rec) {
         assert inst.op == BinaryOp.MUL;
-        insertInstIfNeeded(inst);
+        insertInstIfNeeded(old, inst);
 
         return inst;
     }
 
-    public static Value simplifyDiv(BinopInst inst, Boolean rec) {
+    public static Value simplifyDiv(Instruction old, BinopInst inst, Boolean rec) {
         assert inst.op == BinaryOp.DIV;
-        insertInstIfNeeded(inst);
+        insertInstIfNeeded(old, inst);
 
         return inst;
     }
 
-    public static Value simplifyMod(BinopInst inst, Boolean rec) {
+    public static Value simplifyMod(Instruction old, BinopInst inst, Boolean rec) {
         assert inst.op == BinaryOp.MOD;
-        insertInstIfNeeded(inst);
+        insertInstIfNeeded(old, inst);
 
         return inst;
 
     }
 
-    public static Value simplifyLogAnd(BinopInst inst, Boolean rec) {
+    public static Value simplifyLogAnd(Instruction old, BinopInst inst, Boolean rec) {
         assert inst.op == BinaryOp.LOG_AND;
-        insertInstIfNeeded(inst);
+        insertInstIfNeeded(old, inst);
 
         return inst;
 
     }
 
-    public static Value simplifyLogOr(BinopInst inst, Boolean rec) {
+    public static Value simplifyLogOr(Instruction old, BinopInst inst, Boolean rec) {
         assert inst.op == BinaryOp.LOG_OR;
-        insertInstIfNeeded(inst);
+        insertInstIfNeeded(old, inst);
 
         return inst;
 
     }
 
-    public static Value simplifyLogEq(BinopInst inst, Boolean rec) {
+    public static Value simplifyLogEq(Instruction old, BinopInst inst, Boolean rec) {
         assert inst.op == BinaryOp.LOG_EQ;
-        insertInstIfNeeded(inst);
+        insertInstIfNeeded(old, inst);
 
         return inst;
 
     }
 
-    public static Value simplifyLogNeq(BinopInst inst, Boolean rec) {
+    public static Value simplifyLogNeq(Instruction old, BinopInst inst, Boolean rec) {
         assert inst.op == BinaryOp.LOG_NEQ;
-        insertInstIfNeeded(inst);
+        insertInstIfNeeded(old, inst);
 
         return inst;
 
     }
 
-    public static Value simplifyLogLt(BinopInst inst, Boolean rec) {
+    public static Value simplifyLogLt(Instruction old, BinopInst inst, Boolean rec) {
         assert inst.op == BinaryOp.LOG_LT;
-        insertInstIfNeeded(inst);
+        insertInstIfNeeded(old, inst);
 
         return inst;
 
     }
 
-    public static Value simplifyLogGt(BinopInst inst, Boolean rec) {
+    public static Value simplifyLogGt(Instruction old, BinopInst inst, Boolean rec) {
         assert inst.op == BinaryOp.LOG_GT;
-        insertInstIfNeeded(inst);
+        insertInstIfNeeded(old, inst);
 
         return inst;
 
     }
 
-    public static Value simplifyLogLe(BinopInst inst, Boolean rec) {
+    public static Value simplifyLogLe(Instruction old, BinopInst inst, Boolean rec) {
         assert inst.op == BinaryOp.LOG_LE;
-        insertInstIfNeeded(inst);
+        insertInstIfNeeded(old, inst);
 
         return inst;
 
     }
 
-    public static Value simplifyLogGe(BinopInst inst, Boolean rec) {
+    public static Value simplifyLogGe(Instruction old, BinopInst inst, Boolean rec) {
         assert inst.op == BinaryOp.LOG_GE;
-        insertInstIfNeeded(inst);
+        insertInstIfNeeded(old, inst);
 
         return inst;
 
