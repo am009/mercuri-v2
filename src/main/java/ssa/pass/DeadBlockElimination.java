@@ -14,7 +14,7 @@ import ssa.ds.Module;
  */
 public class DeadBlockElimination {
     public static Module process(Module m) {
-        for (var func: m.funcs) {
+        for (var func : m.funcs) {
             var self = new DeadBlockElimination(func);
             self.doAnalysis();
         }
@@ -30,9 +30,9 @@ public class DeadBlockElimination {
 
     public void doAnalysis() {
         scanReachable();
-        for (var it=func.bbs.iterator();it.hasNext();) {
+        for (var it = func.bbs.iterator(); it.hasNext();) {
             var bb = it.next();
-            if (! reachable.contains(bb)) {
+            if (!reachable.contains(bb)) {
                 it.remove();
                 // 移除跳转指令对其他基本块的Use。
                 if (bb.hasTerminator()) {
@@ -46,11 +46,11 @@ public class DeadBlockElimination {
     private void scanReachable() {
         Deque<BasicBlock> q = new LinkedList<>();
         q.add(func.entry());
-        while(q.size() > 0) {
+        while (q.size() > 0) {
             var front = q.pollFirst();
-            if (! reachable.contains(front)) {
+            if (!reachable.contains(front)) {
                 reachable.add(front);
-                for(var succ: front.succ()) {
+                for (var succ : front.succ()) {
                     if (!reachable.contains(succ)) {
                         q.add(succ);
                     }

@@ -67,8 +67,8 @@ public class Compiler {
         Global.logger.trace("--- ssa no opt ---");
         Global.logger.trace(ssa.toString());
 
-        ssa = DeadBlockElimination.process(ssa);
-        ssa = BasicBlockMerging.process(ssa);
+        DeadBlockElimination.process(ssa);
+        BasicBlockMerging.process(ssa);
 
         Global.logger.trace("--- ssa - before IPA  ---");
         Global.logger.trace(ssa.toString());
@@ -84,7 +84,9 @@ public class Compiler {
         Global.logger.trace(ssa.toString());
 
         Global.logger.trace("--- ssa - doing GVN ---");
+        DeadBlockElimination.process(ssa);
         GVN.process(ssa);
+
         NumValueNamer.process(ssa);
         Global.logger.trace("--- ssa - after GVN  ---");
         Global.logger.trace(ssa.toString());
@@ -95,8 +97,8 @@ public class Compiler {
             return;
         }
 
-        ssa = EABIArithmeicLowing.process(ssa);
-        ssa = CriticalEdgeSpliting.process(ssa);
+        EABIArithmeicLowing.process(ssa);
+        CriticalEdgeSpliting.process(ssa);
         // Global.logger.trace("--- CriticalEdgeSpliting ---");
         // Global.logger.trace(ssa.toString());
         AsmModule asm = backend.arm.Generator.process(ssa);

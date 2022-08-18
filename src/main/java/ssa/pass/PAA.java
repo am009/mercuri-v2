@@ -488,7 +488,7 @@ public class PAA {
                     }
                     MemPhiInst memPhi = (MemPhiInst) inst;
                     if (memPhi.getUses().isEmpty() || memPhi.getUses().get(0) == null) {
-                        bb.removeInst(memPhi);
+                        bb.removeInstWithIterator(memPhi, it);
                         clear = false;
                     }
                 }
@@ -553,11 +553,12 @@ public class PAA {
         }
     }
 
-    public static void run(Func Func) {
-        DomInfo.computeDominanceInfo(Func);
-        DomInfo.computeDominanceFrontier(Func);
+    public static void run(Func func) {
+        DomInfo.computeDominanceInfo(func);
+        DomInfo.computeDominanceFrontier(func);
+        DomInfo.debugDomInfo(func);
 
-        m = Func.owner;
+        m = func.owner;
         glob2userFunc = new HashMap<>();
         visitedFunc = new HashSet<>();
         func2relatedGlobs = new HashMap<>();
@@ -565,12 +566,12 @@ public class PAA {
         calcFun2relatedGlobs();
 
         arrays = new ArrayList<>();
-        runLoadDependStore(Func);
-        runStoreDependLoad(Func);
+        runLoadDependStore(func);
+        runStoreDependLoad(func);
     }
 
-    public static void clear(Func Func) {
-        for (var bb : Func.bbs) {
+    public static void clear(Func func) {
+        for (var bb : func.bbs) {
 
             for (var inst : bb.insts) {
 
@@ -592,7 +593,7 @@ public class PAA {
             }
         }
 
-        for (var bb : Func.bbs) {
+        for (var bb : func.bbs) {
             var it = bb.insts.iterator();
             while (it.hasNext()) {
                 var inst = it.next();

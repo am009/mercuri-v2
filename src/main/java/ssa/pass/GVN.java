@@ -5,6 +5,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import common.Pair;
+import ds.Global;
 import ssa.ds.BasicBlock;
 import ssa.ds.BinopInst;
 import ssa.ds.CallInst;
@@ -32,6 +33,7 @@ public class GVN {
         var lastSize = ssaModule.funcs.size();
         for (int i = 0; 0 <= i && i < lastSize; i++) {
             var func = ssaModule.funcs.get(i);
+            Global.logger.trace("GVN on " + func.name);
             PAA.run(func);
             gvn.executeGVN(func);
             PAA.clear(func);
