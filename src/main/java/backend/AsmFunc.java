@@ -8,6 +8,7 @@ import java.util.Map;
 import ssa.ds.Func;
 
 public class AsmFunc implements Iterable<AsmBlock> {
+    public static final String tailCallLabel = "%s__tailCall";
     public String label;
     // 基本块之间用双向链表连接，代表在内存中的顺序分布，方便操作。（因为部分跳转指令依赖其中一个目标就放在后面）
     public AsmBlock entry;

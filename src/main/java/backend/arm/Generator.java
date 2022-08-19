@@ -25,6 +25,7 @@ import backend.arm.inst.FBinOpInst;
 import backend.arm.inst.FCMPInst;
 import backend.arm.inst.MovInst;
 import backend.arm.inst.Prologue;
+import backend.arm.inst.TailCallInst;
 import backend.arm.inst.VCVTInst;
 import backend.arm.inst.VLDRInst;
 import backend.arm.inst.VMRS;
@@ -396,6 +397,19 @@ public class Generator {
 
         if (inst_ instanceof RetInst) {
             var inst = (RetInst) inst_;
+            // 尾递归优化后不需要ret
+            int prevInd = inst.parent.insts.indexOf(inst) - 1;
+            CallInst prev = null;
+            if (prevInd >= 0) {
+                var inst_1 = inst.parent.insts.get(prevInd);
+                if (inst_1 instanceof CallInst && ((CallInst) inst_1).mustTail) {
+                    prev = (CallInst) inst_1;
+                }
+            }
+            if (prev != null) {
+                return;
+            }
+            // 正常生成
             var r = new backend.arm.inst.RetInst(abb, func);
             if (inst.oprands.size() > 0) {
                 var cc = getCC(func.ssaFunc);
@@ -505,13 +519,25 @@ public class Generator {
             // assert targetAsmFunc != null; // sylib的函数目前没有对应的AsmFunc
             if(!ssaFunc.isVariadic) {
                 var cc = getCC(ssaFunc);
-                call = new backend.arm.inst.CallInst(abb, new LabelImm(ssaFunc.name), cc);
+                if (inst.mustTail) {
+                    assert inst.target() == inst.parent.owner;
+                    var label = new LabelImm(String.format(AsmBlock.prefix+AsmFunc.tailCallLabel, ssaFunc.name));
+                    call = new TailCallInst(abb, label, cc);
+                } else { // 正常处理
+                    call = new backend.arm.inst.CallInst(abb, new LabelImm(ssaFunc.name), cc);
+                }
                 for (int i=0;i<ssaFunc.argType.size();i++) {
-                    var loc = cc.callParam.get(i);
+                    AsmOperand loc;
+                    if (inst.mustTail) { // 尾递归存到自己的参数位置里
+                        loc = cc.selfArg.get(i);
+                    } else {
+                        loc = cc.callParam.get(i);
+                    }
                     var op = convertValue(inst.oprands.get(i+1).value, func, abb);
                     processCallArg(call, op, loc, abb, false);
                 }
             } else { // isVariadic
+                assert !inst.mustTail;
                 List<ssa.ds.Type> params = ssaFunc.argType.stream().map(pv -> pv.type).collect(Collectors.toList());
                 var cc = new BaseCallingConvention().resolve(params, ssaFunc.retType);
                 call = new backend.arm.inst.CallInst(abb, new LabelImm(ssaFunc.name), cc);

@@ -349,3 +349,9 @@ br i1 %48, label %if_true_12, label %if_end_12
 
 需要优化的序列是下面四个指令。下面四个指令可以直接折叠为`B<cond>`。识别模式后，根据是BEQ还是BNE，需要对MOV的cond取反，然后折叠为单独的一个`B<cond>`。
 
+### 尾递归
+
+- 在SSA-IR的Call指令里面增加一个mustTail标记，同步修改转LLVM IR，增加musttail标记。
+- 首先使用一个标记pass，将部分call标记为尾递归，这样如果标记错误，在IR层也能检测出来。需要注意如果callee用到了caller的局部变量内存，即数组，则不能做tail call优化。
+- 在指令选择（Generator.java）部分，遇到return指令的时候检查前一个指令是不是tail call指令。是则忽略当前return指令。
+- 在指令选择（Generator.java）部分遇到Call指令的时候，如果是TailCall，则使用新引入的TailCall指令，因为需要保存约束，但是又不是简单的跳转label，同时尽量和原来的Call区分开。

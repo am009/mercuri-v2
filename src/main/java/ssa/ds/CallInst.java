@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.StringJoiner;
 
 public class CallInst extends Instruction {
+    public boolean mustTail = false;
 
     public static class Builder {
         private CallInst inst;
@@ -44,6 +45,9 @@ public class CallInst extends Instruction {
         var val = toValueString();
         if (val.length() > 0) { // return non void
             b.append(val).append(" = ");
+        }
+        if (mustTail) {
+            b.append("musttail ");
         }
         b.append("call");
         FuncValue funcval = (FuncValue) oprands.get(0).value;

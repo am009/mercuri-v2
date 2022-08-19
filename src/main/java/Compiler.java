@@ -24,6 +24,7 @@ import ssa.pass.DeadBlockElimination;
 import ssa.pass.EABIArithmeicLowing;
 import ssa.pass.GVN;
 import ssa.pass.IPA;
+import ssa.pass.MarkTailCall;
 import ssa.pass.Mem2Reg;
 import ssa.pass.Peephole;
 import ds.LoggerBuilder;
@@ -83,6 +84,7 @@ public class Compiler {
 
         Global.logger.trace("--- doing GVN ---");
         GVN.process(ssa);
+        MarkTailCall.process(ssa);
         NumValueNamer.process(ssa);
         Global.logger.trace("--- ssa - after GVN  ---");
         Global.logger.trace(ssa.toString());

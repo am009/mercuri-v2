@@ -19,7 +19,7 @@ public class AsmBlock {
     public List<AsmBlock> pred;
     public List<AsmBlock> succ;
 
-    public static String prefix = ".LBB_";
+    public static final String prefix = ".LBB_";
     
     public AsmBlock(String label) {
         this.label = prefix + label;

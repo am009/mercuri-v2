@@ -644,6 +644,24 @@ public class LocalRegAllocator {
         }
         // 插入到prologue后面
         assert func.entry.insts.get(0) instanceof Prologue;
+        // tail call优化：需要跳转到相关保存指令后面
+        AsmBlock entry = func.entry;
+        AsmBlock tailCall = new AsmBlock(String.format(AsmFunc.tailCallLabel, func.label));
+        // 插入链表
+        tailCall.next = entry.next;
+        tailCall.prev = entry;
+        entry.next = tailCall;
+        if (tailCall.next != null) {
+            tailCall.next.prev = tailCall;
+        }
+        func.bbs.add(1, tailCall);
+        // 移动指令
+        while(entry.insts.size() > 1) {
+            var inst = entry.insts.get(1);
+            inst.parent = tailCall;
+            tailCall.insts.add(inst);
+            entry.insts.remove(1);
+        }
         func.entry.insts.addAll(1, stores);
 
         for (var abb: func) {

@@ -6,7 +6,6 @@ import java.util.LinkedList;
 import java.util.List;
 
 public class BasicBlock {
-    // TODO landing pads for Phi insts? or basic block argument?
     public String label;
     public List<Instruction> insts = new LinkedList<>();
     public BasicBlockValue val;
