@@ -590,7 +590,7 @@ public class FakeSSAGenerator {
 
     // 局部变量的Decl
     private void visitDstDecl(FakeSSAGeneratorContext ctx, ssa.ds.Func curFunc, Decl decl) {
-        // 是非array的Const变量则不需要生成语句，直接后面用ConstantValue即可。
+        // 非array的Const变量则不需要生成语句，直接后面用ConstantValue即可。
         if (!decl.type.isArray && decl.isConst()) {
             ConstantValue cv = convertEvaledValue(decl.initVal.evaledVal);
             ctx.varMap.put(decl, cv);

@@ -284,13 +284,6 @@ public class Simplifier {
         var lhs = inst.getOperand0();
         var rhs = inst.getOperand1();
 
-        if (lhs instanceof GlobalVariable) {
-            lhs = ((GlobalVariable) lhs).init;
-        }
-        if (rhs instanceof GlobalVariable) {
-            rhs = ((GlobalVariable) rhs).init;
-        }
-
         Value c = foldConstant(lhs, rhs, inst.op);
         if (c != null) {
             return c;

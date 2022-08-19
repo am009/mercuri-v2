@@ -21,6 +21,7 @@ import ssa.ds.PhiInst;
 import ssa.ds.StoreInst;
 import ssa.ds.Value;
 
+// 《Global Code Motion Global Value Numbering》
 public class GVN {
     Module ssaModule;
 
@@ -35,16 +36,17 @@ public class GVN {
         for (int i = 0; 0 <= i && i < curSize; i++) {
             var func = ssaModule.funcs.get(i);
             Global.logger.trace("GVN on " + func.name);
-            PAA.run(func);
+            // PAA.run(func);
             gvn.executeGVN(func);
-            PAA.clear(func);
-            var prevSize = curSize;
-            DCE.process(ssaModule);
-            curSize = ssaModule.funcs.size();
-            var deltaSize = curSize - prevSize;
-            assert (deltaSize <= 0);
-            i += deltaSize;
-            assert (i >= 0) : "Correctness of func emit ought to be reviewed";
+            // 评测只管运行时间，不管exe大小，所以留不可达函数也没什么问题
+            // PAA.clear(func);
+            // var prevSize = curSize;
+            // DCE.process(ssaModule);
+            // curSize = ssaModule.funcs.size();
+            // var deltaSize = curSize - prevSize;
+            // assert (deltaSize <= 0);
+            // i += deltaSize;
+            // assert (i >= 0) : "Correctness of func emit ought to be reviewed";
         }
     }
 
@@ -72,14 +74,10 @@ public class GVN {
     }
 
     private void executeOnInst(BasicBlock parent, Instruction inst) {
-        if (parent != inst.parent && !(inst instanceof AllocaInst)) {
-            // FakeSSAGenerator.java
-            // 此处 alloca 的指令不一定在当前块。alloca 都在 entry 块
-            assert (false);
-        }
         if (inst.getUses().size() == 0 && !(inst instanceof StoreInst) && !(inst instanceof CallInst)) {
             return;
         }
+        // step 1 化简constant result
         // 这里可能会返回一个值，或者一个优化后的指令。如果是指令，则可以认为在 simplify 内部完成了插入
         // 因此在这里不要对其进行重复插入，只是将依赖 inst 的指令的对 inst 的依赖，替换为对 simplifiedValue 的依赖
         // 这个替换通过 replaceIfDiffrent 完成
@@ -95,12 +93,10 @@ public class GVN {
         if (simplifiedInst == inst) {
             return;
         }
+        // step 2 化简指令本身
+        // step 3 从map里取
         if (simplifiedInst instanceof BinopInst) {
             var binopInst = (BinopInst) simplifiedInst;
-            if (binopInst.op.isBoolean()) {
-                // TODO: really need this?
-                // return;
-            }
 
             if (this.replaceIfDiffrent(inst, simplifiedInst)) {
                 return;
@@ -218,6 +214,7 @@ public class GVN {
         // 为了统一这两种情况，干脆把自己替换成 v
         Global.logger.trace("replacing. nolonger use '" + inst + "', use '" + v + "' instead");
         inst.replaceAllUseWith(v);
+        inst.removeAllOpr();
         inst.parent.removeInst(inst);
         // if (v instanceof Instruction) {
         //     var newInst = (Instruction) v;

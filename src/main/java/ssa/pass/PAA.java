@@ -78,7 +78,8 @@ public class PAA {
     }
 
     // Use array as memory unit
-    // pointer 通常是一个数组的 Alloca, 或者 GEP, 或者 LoadInst 或者 GlobalVariable
+    // pointer 通常是一个数组的 Alloca, 或者 GEP, 或者 LoadInst 或者 GlobalVariable 或者传参的 ParamValue
+    // 该函数穿透了一下GEP, LoadInst，最后都能追溯到 Alloca, 或者 GlobalVariable 或者传参的 ParamValue
     public static Value getArrayValue(Value pointer) {
         var original = pointer;
         while (pointer instanceof GetElementPtr || pointer instanceof LoadInst) {
@@ -89,39 +90,27 @@ public class PAA {
             }
         }
         // pointer should be an AllocaInst or GlobalVariable
-        if (pointer instanceof AllocaInst || pointer instanceof GlobalVariable /* || pointer instanceof ParamValue */) {
+        if (pointer instanceof AllocaInst || pointer instanceof GlobalVariable || pointer instanceof ParamValue) {
             // 若是 array 的 alloca, 那么找它的定值指令 store 到的地址
-            if (pointer instanceof AllocaInst && ((AllocaInst) pointer).ty.isArray()) {
-                for (var use : pointer.getUses()) {
-                    if (use.user instanceof StoreInst) {
-                        pointer = ((StoreInst) use.user).getPtr();
-                    }
-                }
-            }
-            // else if (pointer instanceof ParamValue) {
-            // var pv = (ParamValue) pointer;
-            // for (var use : pv.getUses()) {
-            // if (use.user instanceof CallInst) {
-            // 
+            // if (pointer instanceof AllocaInst && ((AllocaInst) pointer).ty.isArray()) {
+            //     for (var use : pointer.getUses()) {
+            //         if (use.user instanceof StoreInst) {
+            //             pointer = ((StoreInst) use.user).getPtr();
+            //         }
+            //     }
             // }
-            // }
-            // }
-            return pointer;
-        } else {
             if (pointer instanceof ParamValue) {
                 var pv = (ParamValue) pointer;
-                if (pv.type.isPointer) {
-                    return pv;
-                }
+                assert pv.type.isPointer;
             }
-            if (pointer.name.contains("arr")) {
-                // assert (false);
-            }
-            Global.logger.trace("this is not a pointer of array " + pointer);
+            return pointer;
+        } else {
+            Global.logger.trace("cannot find array value for " + original);
             return null;
         }
     }
 
+    // 最后都能追溯到 Alloca, 或者 GlobalVariable 或者传参的 ParamValue
     public static boolean isGlobal(Value array) {
         return array instanceof GlobalVariable;
     }
@@ -131,18 +120,20 @@ public class PAA {
             var pv = (ParamValue) array;
             if (pv.type.isPointer) {
                 return true;
+            } else {
+                assert false; // TODO
             }
         }
         // allocaType 为 i32ptr，表示是一个参数数组
-        if (array instanceof AllocaInst) {
-            AllocaInst allocaInst = (AllocaInst) array;
-            return allocaInst.type.isPointer;
-        }
+        // if (array instanceof AllocaInst) {
+        //     AllocaInst allocaInst = (AllocaInst) array;
+        //     return allocaInst.type.isPointer;
+        // }
         return false;
     }
 
     public static boolean isLocal(Value array) {
-        return !isGlobal(array) && !isParam(array);
+        return array instanceof AllocaInst;
     }
 
     public static boolean isGlobalArray(Value array) {
@@ -153,33 +144,29 @@ public class PAA {
         return !gv.isConst && gv.varType.isArray();
     }
 
+    // 判断某个数组参数是否可能是某个全局变量的别名
+    // 看一下dims，如果对不上则明显不是别名
+    // 不知道就返回true
     public static boolean isParamArrayAliasOfGlobalArray(Value globalArray, Value paramArray) {
-        if (globalArray == null) {
-            assert (false);
-        }
+        assert isGlobal(globalArray) && isParam(paramArray);
         if (!globalArray.type.isArray()) {
             assert (false);
         }
-        Global.logger.trace("check if " + globalArray + " is " + paramArray);
-        if (!isGlobal(globalArray) || !isParam(paramArray)) {
-            return false;
-        }
+
         ArrayList<Integer> dimsGlob = new ArrayList<>();
         ArrayList<Integer> dimsParam = new ArrayList<>();
 
-        ConstantValue globalArrInitVal = ((GlobalVariable) globalArray).init;
+        // ConstantValue globalArrInitVal = ((GlobalVariable) globalArray).init;
         dimsGlob.addAll(globalArray.type.dims);
         int dimNumGlob = dimsGlob.size();
         for (var i = dimNumGlob - 2; i >= 0; i--) {
             dimsGlob.set(i, dimsGlob.get(i) * dimsGlob.get(i + 1));
         }
-        assert paramArray instanceof AllocaInst;
-        AllocaInst allocaInst = (AllocaInst) paramArray;
+        assert paramArray instanceof ParamValue;
+        ParamValue allocaInst = (ParamValue) paramArray;
         Type ptrTy = allocaInst.type;
 
-        if (!ptrTy.isPointer) {
-            return true;
-        }
+        assert ptrTy.isPointer;
         dimsParam.add(0);
         dimsParam.addAll(paramArray.type.dims);
         int dimNumParam = dimsParam.size();
@@ -198,15 +185,15 @@ public class PAA {
             }
             allSame = dimsGlob.get(i + dimNumGlob - minDim) == dimsParam.get(i + dimNumParam - minDim);
         }
+        Global.logger.trace("check if " + globalArray + " is " + paramArray +": "+allSame);
         Global.logger.trace("not all same");
 
         return allSame;
     }
 
+    // 传入指针类型的值，判断是否可能是别名。不知道就返回true，确定不是别名才能返回false。
+    // 参数应该只会传数组相关的值进来。
     public static boolean alias(Value arr1, Value arr2) {
-
-        if (true)
-            return false;
         if (arr1 == arr2) {
             return true;
         }
@@ -219,42 +206,47 @@ public class PAA {
             return arr1 == arr2;
         }
         if (isGlobal(arr1) && isParam(arr2)) {
-            var arr = (GlobalVariable) arr1;
-            if (arr.init == null) {
-                return false;
-            }
-            if (arr.init.children == null) {
-                return false;
-            }
+            // var arr = (GlobalVariable) arr1;
+            // if (arr.init == null) {
+            //     return false;
+            // }
+            // if (arr.init.children == null) {
+            //     return false;
+            // }
 
             return isParamArrayAliasOfGlobalArray(arr1, arr2);
         }
         if (isParam(arr1) && isGlobal(arr2)) {
-            var arr = (GlobalVariable) arr2;
-            if (arr.init == null) {
-                return false;
-            }
-            if (arr.init.children == null) {
-                return false;
-            }
+            // var arr = (GlobalVariable) arr2;
+            // if (arr.init == null) {
+            //     return false;
+            // }
+            // if (arr.init.children == null) {
+            //     return false;
+            // }
 
             return isParamArrayAliasOfGlobalArray(arr2, arr1);
         }
-        return false;
+        return true;
     }
 
+    // 见DCE的removeUselessStore的使用处
+    // 场景是，判断某个store的ptr会不会对同一基本块后面的某个call造成影响
+    // 不知道就返回true
     public static boolean callAlias(Value arr, CallInst callinst) {
-        if (true)
-            return false;
-
+        // 因为可能store了外部函数的局部变量，也可能是全局变量，造成影响
         if (isParam(arr)) {
             return true;
         }
 
-        var funcGlobs = func2relatedGlobs.get(callinst.target());
-        if (isGlobal(arr) && funcGlobs.contains(arr)) {
+        if (isGlobal(arr)) {
             return true;
         }
+        // 该处的正确性依赖于func2relatedGlobs计算的正确性。
+        // var funcGlobs = func2relatedGlobs.get(callinst.target());
+        // if (isGlobal(arr) && funcGlobs.contains(arr)) {
+        //     return true;
+        // }
 
         for (var arg : callinst.args()) {
             if (arg.value instanceof GetElementPtr) {
@@ -264,6 +256,7 @@ public class PAA {
                 }
             }
         }
+        // 因为alias已经倾向于返回true了，所以如果能到这里，一定是都不alias。
         return false;
     }
 
@@ -620,8 +613,8 @@ public class PAA {
         calcFun2relatedGlobs();
 
         arrays = new ArrayList<>();
-        runLoadDependStore(func);
-        runStoreDependLoad(func);
+        // runLoadDependStore(func);
+        // runStoreDependLoad(func);
     }
 
     public static void clear(Func func) {

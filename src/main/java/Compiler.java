@@ -72,7 +72,7 @@ public class Compiler {
 
 
         IPA.process(ssa);
-        Global.logger.trace("--- ssa - after IPA  ---");
+        Global.logger.trace("--- IPA analysis result  ---");
         IPA.debug(ssa);
 
         Mem2Reg.process(ssa);
@@ -81,10 +81,8 @@ public class Compiler {
         Global.logger.trace("--- ssa - after mem2reg  ---");
         Global.logger.trace(ssa.toString());
 
-        Global.logger.trace("--- ssa - doing GVN ---");
-        DeadBlockElimination.process(ssa);
+        Global.logger.trace("--- doing GVN ---");
         GVN.process(ssa);
-
         NumValueNamer.process(ssa);
         Global.logger.trace("--- ssa - after GVN  ---");
         Global.logger.trace(ssa.toString());

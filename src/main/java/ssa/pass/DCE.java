@@ -1,15 +1,17 @@
 package ssa.pass;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import ds.Global;
 import ssa.ds.CallInst;
-import ssa.ds.StoreInst;
 import ssa.ds.Func;
 import ssa.ds.Instruction;
 import ssa.ds.LoadInst;
 import ssa.ds.Module;
+import ssa.ds.StoreInst;
 import ssa.ds.TerminatorInst;
 
 public class DCE {
@@ -100,22 +102,23 @@ public class DCE {
     }
 
     public void removeUselessStore(Func func) {
-        if (true)
-            return;
         for (var bb : func.bbs) {
-            var it = bb.insts.iterator();
-            while (it.hasNext()) {
-                var inst = it.next();
+            List<Instruction> toRemove = new ArrayList<>();
+            int count = bb.insts.size();
+            for(int i=0;i<count;i++) {
+                var inst = bb.insts.get(i);
                 if (inst instanceof StoreInst) {
                     var storeInst = (StoreInst) inst;
                     var pointer = PAA.getArrayValue(storeInst.getPtr());
-                    while (it.hasNext()) {
-                        var nextInst = it.next();
-                        // 如果 store 和下一个 store 重复，就删了当前的
+                    for (int j=i+1;j<count;j++) {
+                        var nextInst = bb.insts.get(j);
+                        // 如果 store 和下一个 store 的目标重复，就删了前一个
                         if (nextInst instanceof StoreInst) {
                             var nextStoreInst = (StoreInst) nextInst;
+                            // 确保store的位置完全相同
                             if (storeInst.getPtr() == nextStoreInst.getPtr()) {
-                                bb.removeInstWithIterator(storeInst, it);
+                                toRemove.add(inst);
+                                // bb.removeInstWithIterator(storeInst, it);
                                 break;
                             }
                         }
@@ -137,6 +140,12 @@ public class DCE {
                     }
                 }
             }
+
+            // 移除toRemove
+            for (var inst: toRemove) {
+                inst.removeAllOpr();
+            }
+            bb.insts.removeAll(toRemove);
         }
     }
 }
