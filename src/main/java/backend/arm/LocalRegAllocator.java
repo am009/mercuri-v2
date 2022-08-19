@@ -220,7 +220,7 @@ public class LocalRegAllocator {
         public StackOperand getSpill(VirtReg vreg) {
             StackOperand spilledLoc;
             if (globs.contains(vreg)) {
-                spilledLoc = globSpill.get(vreg);
+                spilledLoc = allocateOrGetSpill(vreg);
             } else {
                 spilledLoc = localSpill.get(vreg);
             }
@@ -436,7 +436,7 @@ public class LocalRegAllocator {
                         // 没有约束，且没有分配寄存器，先随便分配寄存器，然后找到值，加载进来。
                         int regind = state.allocateReg(vreg, hint, blk, toInsertBefore);
                         StackOperand spilledLoc = state.getSpill(vreg);
-                        assert spilledLoc != null; // 
+                        assert spilledLoc != null; // use before define?
                         var to = ind2Reg(regind, vreg.isFloat);
                         AsmInst load;
                         if (to.isFloat) {
@@ -607,7 +607,7 @@ public class LocalRegAllocator {
             List<AsmInst> toInsert = new ArrayList<>();
             state.onBlockEnd(blk, toInsert);
             // 插入到跳转指令之前
-            blk.insts.addAll(blk.insts.size()-1, toInsert);
+            blk.addAllBeforeJump(toInsert);
         }
         // 最后更新一下用到的callee saved register到函数内
         List<Entry<AsmOperand, StackOperand>> used = new ArrayList<>();

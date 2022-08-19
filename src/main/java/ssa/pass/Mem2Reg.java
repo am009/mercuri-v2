@@ -147,6 +147,7 @@ public class Mem2Reg {
             }
         }
         phi.replaceAllUseWith(same);
+        phi.removeAllOpr();
         phi.comments = "replaced by "+same.toValueString();
         validPhis.remove(phi); // COMMENT TO DEBUG
         

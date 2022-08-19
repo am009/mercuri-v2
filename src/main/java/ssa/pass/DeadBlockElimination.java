@@ -5,9 +5,11 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Set;
 
+import ds.Global;
 import ssa.ds.BasicBlock;
 import ssa.ds.Func;
 import ssa.ds.Module;
+import ssa.ds.PhiInst;
 
 /**
  * 刚生成出来的IR有一些dead basic block，会影响mem2reg对phi节点的插入。因此需要先移除一下
@@ -33,11 +35,21 @@ public class DeadBlockElimination {
         for (var it = func.bbs.iterator(); it.hasNext();) {
             var bb = it.next();
             if (!reachable.contains(bb)) {
+                Global.logger.trace("DeadBlockElimination eliminate: "+bb.label);
                 it.remove();
                 // 移除跳转指令对其他基本块的Use。
                 if (bb.hasTerminator()) {
                     var term = bb.getTerminator();
                     term.removeAllOpr();
+                }
+                // 处理引用移除的基本块的Phi
+                for (var use: bb.getValue().getUses()) {
+                    if (use.user instanceof PhiInst) {
+                        var phi = (PhiInst) use.user;
+                        int ind = phi.preds.indexOf(use);
+                        phi.oprands.remove(ind);
+                        phi.preds.remove(ind);
+                    }
                 }
             }
         }

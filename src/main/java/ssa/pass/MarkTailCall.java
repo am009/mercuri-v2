@@ -1,5 +1,6 @@
 package ssa.pass;
 
+import ds.Global;
 import ssa.ds.BasicBlock;
 import ssa.ds.CallInst;
 import ssa.ds.Func;
@@ -58,6 +59,7 @@ public class MarkTailCall {
                 }
             }
             if (canTail) {
+                Global.logger.trace("MarkTailCall: mark "+call.toString());
                 call.mustTail = true;
             }
         }

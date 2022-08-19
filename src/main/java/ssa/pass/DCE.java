@@ -43,7 +43,7 @@ public class DCE {
         }
     }
 
-    private void executeOnFunc(Func func) {
+    public void executeOnFunc(Func func) {
         removeUselessStore(func);
         removeUselessInst(func);
     }

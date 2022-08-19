@@ -42,7 +42,8 @@ public class BranchMerge {
         boolean completed = true;
         isPhiRemoved = false;
         do {
-            completed = removeUselessPhi();
+            completed = true;
+            completed &= removeUselessPhi();
             completed &= onlyOneUncondBr();
             completed &= basicBlockMerging();
             completed &= constantCondBr();
@@ -59,7 +60,7 @@ public class BranchMerge {
                 continue;
             }
             var it = bb.insts.iterator();
-            while (!it.hasNext()) {
+            while (it.hasNext()) {
                 var inst = it.next();
                 if (!(inst instanceof PhiInst)) {
                     break;
@@ -68,6 +69,7 @@ public class BranchMerge {
                 if (npred == 1) {
                     assert inst.oprands.size() == 1;
                     inst.replaceAllUseWith(inst.getOperand0());
+                    inst.removeAllOpr();
                     bb.removeInstWithIterator(inst, it);
                     isPhiRemoved = true;
                     completed = false;
@@ -80,7 +82,11 @@ public class BranchMerge {
 
     private boolean onlyOneUncondBr() {
         boolean completed = true;
-        for (var bb: func.bbs){
+        for (var it = func.bbs.iterator();it.hasNext(); ){
+            var bb = it.next();
+            if (bb == func.entry()) {
+                continue;
+            }
             var termInst = bb.getTerminator();
             var bbv = bb.getValue();
             var bbPreds = bb.pred();
@@ -111,7 +117,7 @@ public class BranchMerge {
                 continue;
             }
 
-            Global.logger.trace("Eliminating basic block: "+bb.label);
+            Global.logger.trace("onlyOneUncondBr: eliminate bb: "+bb.label);
 
             completed = false;
 
@@ -162,8 +168,8 @@ public class BranchMerge {
 
             // 删掉 bb
             branchInst.removeAllOpr();
-            func.bbs.remove(bb);
-
+            // func.bbs.remove(bb);
+            it.remove();
         }
 
         return completed;
@@ -199,6 +205,7 @@ public class BranchMerge {
                 // if (phi.preds.size() <= 1) {
                 //     isPhiRemoved = true;
                 // }
+                break;
             }
         }
         return true;

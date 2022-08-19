@@ -29,8 +29,13 @@ public class AsmBlock {
 
     public void addAllBeforeJump(Collection<? extends AsmInst> is) {
         if (insts.size() != 0 && insts.get(insts.size()-1) instanceof BrInst) {
+            int ind = insts.size()-1;
+            while (ind >= 0 && insts.get(ind) instanceof BrInst) {
+                ind -= 1;
+            }
+            ind += 1;
             // 有br指令
-            insts.addAll(insts.size()-1, is);
+            insts.addAll(ind, is);
         } else { // 无br指令
             insts.addAll(is);
         }

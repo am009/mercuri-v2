@@ -153,6 +153,11 @@ public class PAA {
             assert (false);
         }
 
+        // 只是一层指针，没有dims可供比较。
+        if (!paramArray.type.isArray()) {
+            return true;
+        }
+
         ArrayList<Integer> dimsGlob = new ArrayList<>();
         ArrayList<Integer> dimsParam = new ArrayList<>();
 

@@ -3,6 +3,7 @@ package ssa.ds;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.StringJoiner;
 
 import dst.ds.FuncType;
@@ -18,8 +19,8 @@ public class Func {
     public List<ParamValue> argType;
 
     // filled after IPA
-    public List<Func> callers = new ArrayList<>();
-    public List<Func> callees = new ArrayList<>();
+    public Set<Func> callers = new HashSet<>();
+    public Set<Func> callees = new HashSet<>();
     public boolean hasSideEffect = true;
     public boolean usingGlobs = true;
     public HashSet<GlobalVariable> loadGlobs = new HashSet<>();

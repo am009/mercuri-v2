@@ -33,11 +33,16 @@ public class GVN {
         var gvn = new GVN(ssaModule);
         // 不要用 ssaModule.funcs.forEach
         var curSize = ssaModule.funcs.size();
+        var dce = new DCE(ssaModule);
         for (int i = 0; 0 <= i && i < curSize; i++) {
             var func = ssaModule.funcs.get(i);
             Global.logger.trace("GVN on " + func.name);
+            BranchMerge bm = new BranchMerge(func);
             // PAA.run(func);
-            gvn.executeGVN(func);
+            do {
+                gvn.executeGVN(func);
+                dce.executeOnFunc(func);
+            } while(bm.runBranchOptimization());
             // 评测只管运行时间，不管exe大小，所以留不可达函数也没什么问题
             // PAA.clear(func);
             // var prevSize = curSize;

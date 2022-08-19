@@ -52,9 +52,25 @@ public class PhiInst extends Instruction {
         return prefix + sj.toString();
     }
 
-    public void removePredAt(int index) {
-        int[] indices = {index};
-        this.RemoveOperands(indices);
-      }
+    public void removeOperandAt(int index) {
+        assert index >= 0 && index < preds.size();
+        var pUse = preds.remove(index);
+        var oUse = oprands.remove(index);
+        pUse.value.removeUse(pUse);
+        oUse.value.removeUse(oUse);
+    }
+
+    @Override
+    public void removeAllOperandUseFromValue() {
+        // TODO
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void removeAllOpr() {
+        for (int i=oprands.size()-1;i>=0;i--) {
+            removeOperandAt(i);
+        }
+    }
 
 }

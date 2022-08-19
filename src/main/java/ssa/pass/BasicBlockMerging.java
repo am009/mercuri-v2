@@ -8,14 +8,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import ds.Global;
 import ssa.ds.BasicBlock;
 import ssa.ds.Func;
 import ssa.ds.JumpInst;
 import ssa.ds.Module;
 import ssa.ds.PhiInst;
+import ssa.ds.Use;
 
 /**
- * TODO handle phi指令。
+ * 当一条边只有一个前驱和后继的时候，就可以合并基本块
  */
 public class BasicBlockMerging {
     public static Module process(Module m) {
@@ -43,7 +45,7 @@ public class BasicBlockMerging {
             // handle edge from front -> succ
             if (single_succ) {
                 var succ = succs.get(0);
-                if (succ.pred().size() == 1) {
+                if (succ != func.entry() && succ.pred().size() == 1) {
                     merge(front, succ);
                     // 可能创造新的优化机会，之后重新回来遍历
                     // visited.remove(front);
@@ -65,6 +67,10 @@ public class BasicBlockMerging {
     }
 
     private void merge(BasicBlock front, BasicBlock succ) {
+        Global.logger.trace("BasicBlockMerging: merge "+front.label+" to "+succ.label);
+        Global.logger.trace("BasicBlockMerging: eliminate: "+succ.label);
+        // 这里其实也可以处理Phi，但是在BranchMerge那边会先跑removeUselessPhi，所以不会遇到
+        assert !succ.hasPhi();
         assert front.getTerminator() instanceof JumpInst; // 无条件跳转
         // 1. 删除这个无条件跳转。
         front.getTerminator().removeAllOpr();
@@ -80,8 +86,16 @@ public class BasicBlockMerging {
             inst.parent = front;
             front.insts.add(inst);
         }
+        // 处理引用succ的phi指令
+        for (var use: succ.getValue().getUses()) {
+            if (use.user instanceof PhiInst) {
+                var phi = (PhiInst) use.user;
+                phi.replacePredUseWith(use, new Use(phi, front.getValue()));
+            } else {
+                assert false : "succ cannot have other reference";
+            }
+        }
         // 删除succ这个基本块。
-        assert succ.getValue().getUses().size() == 0;
         func.bbs.remove(succ);
     }
 

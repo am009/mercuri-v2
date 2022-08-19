@@ -46,22 +46,22 @@ public abstract class Instruction extends User {
         assert index >= 0 && index < oprands.size();
         assert newValue != null;
         var oldUse = oprands.get(index);
-        if (oldUse != null) {
-            oldUse.value.removeUse(oldUse);
-        }
+        assert (oldUse != null);
+        oldUse.value.removeUse(oldUse);
+
         oprands.set(index, new Use(this, newValue));
     }
 
     // 会改变 oprands 里内容的相对位置，一般只能由 PhiInst 相关操作使用
-    public void RemoveOperands(int[] indices) {
-        this.removeAllOperandUseFromValue();
-        var todoList = new ArrayList<Use>();
-        for (var i : indices) {
-            todoList.add(oprands.get(i));
-        }
-        for (var u : todoList) {
-            this.removeUse(u);
-            oprands.remove(u);
-        }
-    }
+    // public void removeOperands(int[] indices) {
+    //     // this.removeAllOperandUseFromValue();
+    //     var todoList = new ArrayList<Use>();
+    //     for (var i : indices) {
+    //         todoList.add(oprands.get(i));
+    //     }
+    //     for (var u : todoList) {
+    //         u.value.removeUse(u);
+    //         oprands.remove(u);
+    //     }
+    // }
 }

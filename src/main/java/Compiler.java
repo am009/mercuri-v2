@@ -65,8 +65,8 @@ public class Compiler {
         var ssaIrGen = new FakeSSAGenerator();
         Module ssa = ssaIrGen.process(dst);
         // !! IF_DEBUG
-        Global.logger.trace("--- ssa no opt ---");
-        Global.logger.trace(ssa.toString());
+        // Global.logger.trace("--- ssa no opt ---");
+        // Global.logger.trace(ssa.toString());
 
         DeadBlockElimination.process(ssa);
         BasicBlockMerging.process(ssa);

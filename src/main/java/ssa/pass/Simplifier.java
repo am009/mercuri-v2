@@ -63,7 +63,7 @@ public class Simplifier {
      * 不知道为啥 ayame 能避开这个问题
      */
     public static Value simplify(Instruction inst, Boolean rec) {
-        Global.logger.trace("simplify: " + inst);
+        // Global.logger.trace("simplify: " + inst);
         if (inst instanceof BinopInst) {
             var binop = (BinopInst) inst;
             var simplified = switch (binop.op) {
@@ -269,7 +269,11 @@ public class Simplifier {
             if (rhs instanceof ConstantValue) {
                 var crhs = (ConstantValue) rhs;
                 var evald = EvaluatedValue.fromOperation(clhs.toEvaluatedValue(), crhs.toEvaluatedValue(), op);
-                return ConstantValue.of(evald);
+                var ret = ConstantValue.of(evald);
+                if (op.isBoolean()) {
+                    ret.type = Type.Boolean;
+                }
+                return ret;
             }
         }
         return null;
@@ -503,7 +507,7 @@ public class Simplifier {
                 if (tmpSimple != tmpMulInst) {
                     return simplifyAdd(old,
                             new BinopInst(inst.parent, BinaryOp.ADD, tmpSimple,
-                                    new BinopInst(inst.parent, BinaryOp.MUL, lr, rhs)),
+                            simplifyMul(old, new BinopInst(inst.parent, BinaryOp.MUL, lr, rhs), false)),
                             false);
                 }
                 tmpMulInst = new BinopInst(inst.parent, BinaryOp.MUL, lr, rhs); // Y * Z
