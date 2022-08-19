@@ -267,7 +267,7 @@ public class EvaluatedValue {
                 return null;
             case LOG_AND:
             case LOG_OR:
-                assert false: "Logical operators are converted";
+                assert false : "Logical operators are converted";
             case LOG_EQ:
             case LOG_NEQ:
                 Number leftNum, rightNum;
@@ -296,9 +296,9 @@ public class EvaluatedValue {
                     case LOG_OR:
                         return EvaluatedValue.ofInt(leftBool || rightBool ? 1 : 0);
                     case LOG_EQ:
-                        return EvaluatedValue.ofInt(leftBool == rightBool ? 1 : 0);
+                        return EvaluatedValue.ofInt(leftNum.equals(rightNum) ? 1 : 0);
                     case LOG_NEQ:
-                        return EvaluatedValue.ofInt(leftBool != rightBool ? 1 : 0);
+                        return EvaluatedValue.ofInt(!leftNum.equals(rightNum) ? 1 : 0);
                     default:
                         return null;
                 }
