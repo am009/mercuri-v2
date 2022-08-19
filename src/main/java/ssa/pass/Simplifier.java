@@ -664,17 +664,18 @@ public class Simplifier {
         //     }
         // }
 
-        // (X * Y) / Z ->  X * (Y / Z)
+        // (X * k) /k ->  X
         if (lhs instanceof BinopInst) {
             var lhsBinop = (BinopInst) lhs;
             if (lhsBinop.op == BinaryOp.MUL) {
                 var ll = lhsBinop.getOperand0(); // X
                 var lr = lhsBinop.getOperand1(); // Y
-                var tmpDivInst = new BinopInst(inst.parent, BinaryOp.DIV, lr, rhs); // Y / Z
-                var tmpSimple = simplifyDiv(old, tmpDivInst, false);
-                if (tmpSimple != tmpDivInst) {
-                    return simplifyMul(old,
-                            new BinopInst(inst.parent, BinaryOp.MUL, ll, tmpSimple), false);
+                if (lr.equals(rhs)) {
+                    return ll;
+                }
+                // (k * X) / k -> X
+                if (ll.equals(rhs)) {
+                    return lr;
                 }
             }
         }
