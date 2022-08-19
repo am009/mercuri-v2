@@ -126,6 +126,7 @@ public class Mem2Reg {
 
     private Value tryRemoveTrivialPhi(PhiInst phi, AllocaInst ptr) {
         Value same = null;
+        boolean undef = false;
         for (var use: phi.oprands) {
             var op = use.value;
             if (op == same || op == phi) {
@@ -138,6 +139,8 @@ public class Mem2Reg {
             }
         }
         if (same == null) { // 所有operand都是phi自己
+            assert phi.getUses().size() == 0;
+            undef = true;
             same = getUndefValue(phi.type);
         }
         List<PhiInst> toRecursive = new ArrayList<>();
@@ -153,8 +156,9 @@ public class Mem2Reg {
         
         // 在currentDef里也要替换。
         // 但是为了避免每次遍历一遍整个currentDef，使用deadPhis作为一个缓存层，同时使用路径压缩。
-        deadPhis.put(phi, same);
-
+        if (!undef) {
+            deadPhis.put(phi, same);
+        }
         for (var p: toRecursive) {
             tryRemoveTrivialPhi(p, ptr); // TODO 应该会用到我这个phi的只会是同一个变量吧。
         }
