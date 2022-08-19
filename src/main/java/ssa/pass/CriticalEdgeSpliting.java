@@ -44,6 +44,7 @@ public class CriticalEdgeSpliting {
                 if (pSucc.size() > 1) { // 找到了critical edge
                     boolean found = false;
                     for (var u: bb.getValue().getUses()) {
+                        if (u.user instanceof PhiInst) continue;
                         if (u.user instanceof Instruction && ((Instruction)u.user).parent == p) {
                             assert found == false;
                             found = true;
