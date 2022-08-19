@@ -73,4 +73,35 @@ public class PhiInst extends Instruction {
         }
     }
 
+
+    // 未经测试
+
+    public void removePredAt(int index) {
+        int[] indices = { index };
+        this.removeOperands(indices);
+    }
+
+    // 未经测试
+    public void RemovePreds(int[] indices) {
+        var todoList = new ArrayList<Use>();
+        for (var i : indices) {
+            todoList.add(preds.get(i));
+        }
+        for (var u : todoList) {
+            this.removeUse(u);
+            preds.remove(u);
+        }
+    }
+
+    public void overridePred(int i, BasicBlockValue val) {
+        assert i >= 0 && i < preds.size();
+        assert val != null;
+        var oldUse = preds.get(i);
+        if (oldUse != null) {
+            oldUse.value.removeUse(oldUse);
+        }
+        preds.set(i, new Use(this, val));
+    }
+
+
 }

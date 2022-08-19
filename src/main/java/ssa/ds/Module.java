@@ -25,4 +25,14 @@ public class Module {
         funcs.forEach(func -> builder.append(func.toString()).append("\n\n"));
         return builder.toString();
     }
+
+    public Func getMain() {
+        for (var func : funcs) {
+            if (func.name == "main") {
+                return func;
+            }
+        }
+        assert false : "no main func";
+        return null;
+    }
 }

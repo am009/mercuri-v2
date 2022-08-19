@@ -26,6 +26,7 @@ public class Func {
     public HashSet<GlobalVariable> loadGlobs = new HashSet<>();
     public HashSet<GlobalVariable> defGlobs= new HashSet<>();
 
+    public boolean preventInline = false;
 
     public Func(String name, FuncType retTy, List<ParamValue> argTy, Module owner) {
         this.name = name;

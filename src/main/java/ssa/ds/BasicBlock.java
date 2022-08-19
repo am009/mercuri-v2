@@ -18,7 +18,7 @@ public class BasicBlock {
 
     public BasicBlock(String name, Func func) {
         label = name;
-        owner = func;
+        owner = func; // 此属性可以延迟填写 
         val = new BasicBlockValue(this);
     }
 
@@ -184,5 +184,46 @@ public class BasicBlock {
     public void removeInstWithIterator(Instruction inst, Iterator<Instruction> it) {
         inst.removeAllOpr();
         it.remove();
+    }
+
+    public static int nextSplitIdx = 0;
+
+    /**
+     *  从 callInst 开始, 将基本块分成两半, 并处理其中的 PhiInst
+     * @param callInst
+     * @param it
+     * @return 新分出来的基本块
+     */
+    public BasicBlock splitAt(CallInst callInst, Iterator<Instruction> it) {
+        var newBlock = new BasicBlock(label + "_split" + (nextSplitIdx++), owner);
+        while (it.hasNext()) {
+            var inst = it.next();
+            it.remove();
+            inst.parent = newBlock;
+            newBlock.insts.add(inst);
+            // 处理指令的所有操作数
+            for (var instUsePhi : inst.oprands) {
+                // 如果当前指令使用了 PhiInst, 而当前块已经被分割到新的 bb 中
+                // 那么, 使用的 Phi 产生的 Use 关系, 已经从旧 那么就需要更新 PhiInst 的 oprands
+                if (!(instUsePhi.value instanceof PhiInst)) {
+                    continue;
+                }
+                var phi = (PhiInst) instUsePhi.value;
+                for (int i = 0; i < phi.preds.size(); ++i) {
+                    var phiPred = phi.preds.get(i);
+                    // var val = phi.oprands.get(i);
+                    assert phiPred != null;
+                    var phiPredBB = ((BasicBlockValue) phiPred.value).b;
+                    if (phiPredBB == callInst.parent) {
+                        phiPredBB.val.removeUse(instUsePhi);
+                        phi.overridePred(i, newBlock.val);
+                    }
+                }
+            }
+        }
+        var bbindex = owner.bbs.indexOf(this);
+        owner.bbs.add(bbindex + 1, newBlock);
+
+        return newBlock;
     }
 }
