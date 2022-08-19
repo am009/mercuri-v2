@@ -1,6 +1,5 @@
 package dst.ds;
 
-
 public class EvaluatedValue {
     public BasicType basicType;
     // For simple values, the value is stored in this field.
@@ -90,7 +89,7 @@ public class EvaluatedValue {
                 return stringValue;
             default:
                 return super.toString();
-            
+
         }
     }
 
@@ -268,22 +267,28 @@ public class EvaluatedValue {
                 return null;
             case LOG_AND:
             case LOG_OR:
+                assert false: "Logical operators are converted";
             case LOG_EQ:
             case LOG_NEQ:
+                Number leftNum, rightNum;
                 Boolean leftBool, rightBool;
                 if (left.basicType == BasicType.INT) {
+                    leftNum = left.intValue;
                     leftBool = left.intValue != 0;
                 } else if (left.basicType == BasicType.FLOAT) {
+                    leftNum = left.floatValue;
                     leftBool = left.floatValue != 0;
                 } else {
-                    return null;
+                    throw new RuntimeException("Invalid type for left operand");
                 }
                 if (right.basicType == BasicType.INT) {
+                    rightNum = right.intValue;
                     rightBool = right.intValue != 0;
                 } else if (right.basicType == BasicType.FLOAT) {
+                    rightNum = right.floatValue;
                     rightBool = right.floatValue != 0;
                 } else {
-                    return null;
+                    throw new RuntimeException("Invalid type for left operand");
                 }
                 switch (op) {
                     case LOG_AND:

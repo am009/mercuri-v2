@@ -9,3 +9,4 @@ test/lib/sylib.ll
 test/performance
 performance_log
 log/
+*.bak

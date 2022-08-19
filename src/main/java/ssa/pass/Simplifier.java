@@ -15,7 +15,6 @@ import ssa.ds.AllocaInst;
 import ssa.ds.BasicBlock;
 import ssa.ds.BinopInst;
 import ssa.ds.CallInst;
-import ssa.ds.CastInst;
 import ssa.ds.ConstantValue;
 import ssa.ds.Func;
 import ssa.ds.GetElementPtr;
@@ -24,6 +23,7 @@ import ssa.ds.Instruction;
 import ssa.ds.LoadInst;
 import ssa.ds.StoreInst;
 import ssa.ds.TerminatorInst;
+import ssa.ds.Type;
 import ssa.ds.Value;
 
 public class Simplifier {
@@ -248,7 +248,7 @@ public class Simplifier {
     // inst 有可能是生成的优化指令，还未来得及插入到BasicBlock中，因此在此检查是否需要插入
     // old 用于指出应该插入到哪个位置之前
     private static void insertInstIfNeeded(Instruction old, Instruction inst) {
-        if(old == inst) {
+        if (old == inst) {
             return;
         }
         assert (inst.parent != null);
@@ -406,13 +406,274 @@ public class Simplifier {
     public static Value simplifyMul(Instruction old, BinopInst inst, Boolean rec) {
         assert inst.op == BinaryOp.MUL;
         insertInstIfNeeded(old, inst);
+        var lhs = inst.getOperand0();
+        var rhs = inst.getOperand1();
+        if (lhs instanceof GlobalVariable) {
+            lhs = ((GlobalVariable) lhs).init;
+        }
+        if (rhs instanceof GlobalVariable) {
+            rhs = ((GlobalVariable) rhs).init;
+        }
+        Value c = foldConstant(lhs, rhs, inst.op);
+        if (c != null) {
+            return c;
+        }
+        // 确保常量在后
+        // Const + value -> value + Const
+        if (lhs instanceof ConstantValue) {
+            inst.removeAllOpr();
+            inst.addOprand(rhs);
+            inst.addOprand(lhs);
 
+            lhs = inst.getOperand0();
+            rhs = inst.getOperand1();
+        }
+
+        if (rhs instanceof ConstantValue) {
+            var cv = (ConstantValue) rhs;
+            // lhs * 0 -> 0
+            if (cv.val.equals(0)) {
+                return ConstantValue.getDefault(lhs.type);
+            }
+            // lhs * 1 -> lhs
+            if (cv.val.equals(0)) {
+                return lhs;
+            }
+        }
+
+        if (!rec) {
+            return inst;
+        }
+
+        if (lhs instanceof BinopInst) {
+            // (X * Y) * Z -> X * (Y * Z)
+            var lhsBinop = (BinopInst) lhs;
+            if (lhsBinop.op == BinaryOp.MUL) {
+                var ll = lhsBinop.getOperand0(); // X
+                var lr = lhsBinop.getOperand1(); // Y
+                var tmpMulInst = new BinopInst(inst.parent, BinaryOp.MUL, ll, rhs); // X * Z
+                var tmpSimple = simplifyMul(old, tmpMulInst, false);
+                if (tmpSimple != tmpMulInst) {
+                    return simplifyMul(old,
+                            new BinopInst(inst.parent, BinaryOp.MUL, tmpSimple, lr), false);
+                }
+            }
+            // (X * Y) * Z -> (X * Z) * Y
+            if (lhsBinop.op == BinaryOp.MUL) {
+                var ll = lhsBinop.getOperand0(); // X
+                var lr = lhsBinop.getOperand1(); // Y
+                var tmpMulInst = new BinopInst(inst.parent, BinaryOp.MUL, ll, rhs); // X * Z
+                var tmpSimple = simplifyMul(old, tmpMulInst, false);
+                if (tmpSimple != tmpMulInst) {
+                    return simplifyMul(old,
+                            new BinopInst(inst.parent, BinaryOp.MUL, tmpSimple, lr), false);
+                }
+            }
+
+            // (X / Y) * Z -> X * (Z / Y)
+            if (lhsBinop.op == BinaryOp.DIV) {
+                var ll = lhsBinop.getOperand0(); // X
+                var lr = lhsBinop.getOperand1(); // Y
+                var tmpMulInst = new BinopInst(inst.parent, BinaryOp.MUL, ll, rhs); // X * Z
+                var tmpSimple = simplifyMul(old, tmpMulInst, false);
+                if (tmpSimple != tmpMulInst) {
+                    return simplifyMul(old,
+                            new BinopInst(inst.parent, BinaryOp.MUL, tmpSimple, lr), false);
+                }
+            }
+
+            // (X / Y) * Z -> (X * Z) / Y
+            if (lhsBinop.op == BinaryOp.DIV) {
+                var ll = lhsBinop.getOperand0(); // X
+                var lr = lhsBinop.getOperand1(); // Y
+                var tmpMulInst = new BinopInst(inst.parent, BinaryOp.MUL, ll, rhs); // X * Z
+                var tmpSimple = simplifyMul(old, tmpMulInst, false);
+                if (tmpSimple != tmpMulInst) {
+                    return simplifyMul(old,
+                            new BinopInst(inst.parent, BinaryOp.MUL, tmpSimple, lr), false);
+                }
+            }
+
+            // (X + Y) * Z -> (X * Z) + (Y * Z)
+            if (lhsBinop.op == BinaryOp.ADD) {
+                var ll = lhsBinop.getOperand0(); // X
+                var lr = lhsBinop.getOperand1(); // Y
+                var tmpMulInst = new BinopInst(inst.parent, BinaryOp.MUL, ll, rhs); // X * Z
+                var tmpSimple = simplifyMul(old, tmpMulInst, false);
+                if (tmpSimple != tmpMulInst) {
+                    return simplifyAdd(old,
+                            new BinopInst(inst.parent, BinaryOp.ADD, tmpSimple,
+                                    new BinopInst(inst.parent, BinaryOp.MUL, lr, rhs)),
+                            false);
+                }
+                tmpMulInst = new BinopInst(inst.parent, BinaryOp.MUL, lr, rhs); // Y * Z
+                tmpSimple = simplifyMul(old, tmpMulInst, false);
+                if (tmpSimple != tmpMulInst) {
+                    return simplifyAdd(old,
+                            new BinopInst(inst.parent, BinaryOp.ADD, tmpSimple,
+                                    new BinopInst(inst.parent, BinaryOp.MUL, ll, rhs)),
+                            false);
+                }
+            }
+
+            // (X - Y) * Z -> (X * Z) - (Y * Z)
+            if (lhsBinop.op == BinaryOp.SUB) {
+                var ll = lhsBinop.getOperand0(); // X
+                var lr = lhsBinop.getOperand1(); // Y
+                var tmpMulInst = new BinopInst(inst.parent, BinaryOp.MUL, ll, rhs); // X * Z
+                var tmpSimple = simplifyMul(old, tmpMulInst, false);
+                if (tmpSimple != tmpMulInst) {
+                    return simplifySub(old,
+                            new BinopInst(inst.parent, BinaryOp.SUB, tmpSimple,
+                                    new BinopInst(inst.parent, BinaryOp.MUL, lr, rhs)),
+                            false);
+                }
+                tmpMulInst = new BinopInst(inst.parent, BinaryOp.MUL, lr, rhs); // Y * Z
+                tmpSimple = simplifyMul(old, tmpMulInst, false);
+                if (tmpSimple != tmpMulInst) {
+                    return simplifySub(old,
+                            new BinopInst(inst.parent, BinaryOp.SUB, tmpSimple,
+                                    new BinopInst(inst.parent, BinaryOp.MUL, ll, rhs)),
+                            false);
+                }
+            }
+
+        }
         return inst;
     }
 
     public static Value simplifyDiv(Instruction old, BinopInst inst, Boolean rec) {
         assert inst.op == BinaryOp.DIV;
         insertInstIfNeeded(old, inst);
+        var lhs = inst.getOperand0();
+        var rhs = inst.getOperand1();
+        if (lhs instanceof GlobalVariable) {
+            lhs = ((GlobalVariable) lhs).init;
+        }
+        if (rhs instanceof GlobalVariable) {
+            rhs = ((GlobalVariable) rhs).init;
+        }
+        Value c = foldConstant(lhs, rhs, inst.op);
+        if (c != null) {
+            return c;
+        }
+
+        // 不可交换
+
+        if (rhs instanceof ConstantValue) {
+            var cv = (ConstantValue) rhs;
+            // lhs / 1 -> lhs
+            if (cv.val.equals(1)) {
+                return lhs;
+            }
+        }
+
+        if (lhs instanceof ConstantValue) {
+            var cv = (ConstantValue) lhs;
+            // 0 / X -> 0
+            if (cv.val.equals(0)) {
+                return cv;
+            }
+        }
+
+        if (!rec) {
+            return inst;
+        }
+
+        // (X / Y) / Z -> X / (Y * Z)
+        if (lhs instanceof BinopInst) {
+            var lhsBinop = (BinopInst) lhs;
+            if (lhsBinop.op == BinaryOp.DIV) {
+                var ll = lhsBinop.getOperand0(); // X
+                var lr = lhsBinop.getOperand1(); // Y
+                var tmpDivInst = new BinopInst(inst.parent, BinaryOp.DIV, ll, rhs); // X / Z
+                var tmpSimple = simplifyDiv(old, tmpDivInst, false);
+                if (tmpSimple != tmpDivInst) {
+                    return simplifyDiv(old,
+                            new BinopInst(inst.parent, BinaryOp.DIV, tmpSimple, lr), false);
+                }
+            }
+        }
+
+        // (X / Y) / Z -> (X / Z) / Y
+        if (lhs instanceof BinopInst) {
+            var lhsBinop = (BinopInst) lhs;
+            if (lhsBinop.op == BinaryOp.DIV) {
+                var ll = lhsBinop.getOperand0(); // X
+                var lr = lhsBinop.getOperand1(); // Y
+                var tmpDivInst = new BinopInst(inst.parent, BinaryOp.DIV, ll, rhs); // X / Z
+                var tmpSimple = simplifyDiv(old, tmpDivInst, false);
+                if (tmpSimple != tmpDivInst) {
+                    return simplifyDiv(old,
+                            new BinopInst(inst.parent, BinaryOp.DIV, tmpSimple, lr), false);
+                }
+            }
+        }
+
+        // (X + Y) / Z -> (X / Z) + (Y / Z)
+        if (lhs instanceof BinopInst) {
+            var lhsBinop = (BinopInst) lhs;
+            if (lhsBinop.op == BinaryOp.ADD) {
+                var ll = lhsBinop.getOperand0(); // X
+                var lr = lhsBinop.getOperand1(); // Y
+                var tmpDivInst = new BinopInst(inst.parent, BinaryOp.DIV, ll, rhs); // X / Z
+                var tmpSimple = simplifyDiv(old, tmpDivInst, false);
+                if (tmpSimple != tmpDivInst) {
+                    return simplifyAdd(old,
+                            new BinopInst(inst.parent, BinaryOp.ADD, tmpSimple,
+                                    new BinopInst(inst.parent, BinaryOp.DIV, lr, rhs)),
+                            false);
+                }
+                tmpDivInst = new BinopInst(inst.parent, BinaryOp.DIV, lr, rhs); // Y / Z
+                tmpSimple = simplifyDiv(old, tmpDivInst, false);
+                if (tmpSimple != tmpDivInst) {
+                    return simplifyAdd(old,
+                            new BinopInst(inst.parent, BinaryOp.ADD, tmpSimple,
+                                    new BinopInst(inst.parent, BinaryOp.DIV, ll, rhs)),
+                            false);
+                }
+            }
+        }
+
+        // (X - Y) / Z -> (X / Z) - (Y / Z)
+        if (lhs instanceof BinopInst) {
+            var lhsBinop = (BinopInst) lhs;
+            if (lhsBinop.op == BinaryOp.SUB) {
+                var ll = lhsBinop.getOperand0(); // X
+                var lr = lhsBinop.getOperand1(); // Y
+                var tmpDivInst = new BinopInst(inst.parent, BinaryOp.DIV, ll, rhs); // X / Z
+                var tmpSimple = simplifyDiv(old, tmpDivInst, false);
+                if (tmpSimple != tmpDivInst) {
+                    return simplifySub(old,
+                            new BinopInst(inst.parent, BinaryOp.SUB, tmpSimple,
+                                    new BinopInst(inst.parent, BinaryOp.DIV, lr, rhs)),
+                            false);
+                }
+                tmpDivInst = new BinopInst(inst.parent, BinaryOp.DIV, lr, rhs); // Y / Z
+                tmpSimple = simplifyDiv(old, tmpDivInst, false);
+                if (tmpSimple != tmpDivInst) {
+                    return simplifySub(old,
+                            new BinopInst(inst.parent, BinaryOp.SUB, tmpSimple,
+                                    new BinopInst(inst.parent, BinaryOp.DIV, ll, rhs)),
+                            false);
+                }
+            }
+        }
+
+        // (X * Y) / Z ->  X * (Y / Z)
+        if (lhs instanceof BinopInst) {
+            var lhsBinop = (BinopInst) lhs;
+            if (lhsBinop.op == BinaryOp.MUL) {
+                var ll = lhsBinop.getOperand0(); // X
+                var lr = lhsBinop.getOperand1(); // Y
+                var tmpDivInst = new BinopInst(inst.parent, BinaryOp.DIV, lr, rhs); // Y / Z
+                var tmpSimple = simplifyDiv(old, tmpDivInst, false);
+                if (tmpSimple != tmpDivInst) {
+                    return simplifyMul(old,
+                            new BinopInst(inst.parent, BinaryOp.MUL, ll, tmpSimple), false);
+                }
+            }
+        }
 
         return inst;
     }
@@ -420,6 +681,36 @@ public class Simplifier {
     public static Value simplifyMod(Instruction old, BinopInst inst, Boolean rec) {
         assert inst.op == BinaryOp.MOD;
         insertInstIfNeeded(old, inst);
+        var lhs = inst.getOperand0();
+        var rhs = inst.getOperand1();
+        if (lhs instanceof GlobalVariable) {
+            lhs = ((GlobalVariable) lhs).init;
+        }
+        if (rhs instanceof GlobalVariable) {
+            rhs = ((GlobalVariable) rhs).init;
+        }
+        Value c = foldConstant(lhs, rhs, inst.op);
+        if (c != null) {
+            return c;
+        }
+
+        // 不可交换
+
+        if (rhs instanceof ConstantValue) {
+            var cv = (ConstantValue) rhs;
+            // lhs % 1 -> 0
+            if (cv.val.equals(1)) {
+                return ConstantValue.ofBoolean(false);
+            }
+            // lhs % -1 -> 0
+            if (cv.val.equals(-1)) {
+                return ConstantValue.ofBoolean(false);
+            }
+        }
+
+        if (!rec) {
+            return inst;
+        }
 
         return inst;
 
@@ -428,6 +719,95 @@ public class Simplifier {
     public static Value simplifyLogAnd(Instruction old, BinopInst inst, Boolean rec) {
         assert inst.op == BinaryOp.LOG_AND;
         insertInstIfNeeded(old, inst);
+        var lhs = inst.getOperand0();
+        var rhs = inst.getOperand1();
+        if (lhs instanceof GlobalVariable) {
+            lhs = ((GlobalVariable) lhs).init;
+        }
+        if (rhs instanceof GlobalVariable) {
+            rhs = ((GlobalVariable) rhs).init;
+        }
+        Value c = foldConstant(lhs, rhs, inst.op);
+        if (c != null) {
+            return c;
+        }
+        // 确保常量在后
+        // Const && value -> value && Const
+        if (lhs instanceof ConstantValue) {
+            inst.removeAllOpr();
+            inst.addOprand(rhs);
+            inst.addOprand(lhs);
+
+            lhs = inst.getOperand0();
+            rhs = inst.getOperand1();
+        }
+
+        if (rhs instanceof ConstantValue) {
+            var cv = (ConstantValue) rhs;
+            // lhs && 0 -> 0
+            if (cv.val.equals(0)) {
+                return ConstantValue.ofBoolean(false);
+            }
+            // lhs && 1 -> lhs
+            if (cv.val.equals(1) && lhs.type.isSimpleBoolean()) {
+                return lhs;
+            }
+        }
+
+        if (!rec) {
+            return inst;
+        }
+
+        // lhs && lhs -> lhs
+        if (lhs.equals(rhs)) {
+            return lhs;
+        }
+
+        // lhs && (lhs && rhs) -> (lhs && rhs)
+        if (lhs instanceof BinopInst) {
+            var lhsBinop = (BinopInst) lhs;
+            if (lhsBinop.op == BinaryOp.LOG_AND) {
+                var ll = lhsBinop.getOperand0(); // X
+                var lr = lhsBinop.getOperand1(); // Y
+                return simplifyLogAnd(old,
+                        new BinopInst(inst.parent, BinaryOp.LOG_AND, ll, lr), false);
+            }
+        }
+        // (lhs && rhs) && lhs -> (lhs && rhs)
+        if (rhs instanceof BinopInst) {
+            var rhsBinop = (BinopInst) rhs;
+            if (rhsBinop.op == BinaryOp.LOG_AND) {
+                var rl = rhsBinop.getOperand0(); // X
+                var rr = rhsBinop.getOperand1(); // Y
+                return simplifyLogAnd(old,
+                        new BinopInst(inst.parent, BinaryOp.LOG_AND, rl, rr), false);
+            }
+        }
+        // (X && Y) && Z -> (X && Z) && (Y && Z)
+        if (lhs instanceof BinopInst) {
+            var lhsBinop = (BinopInst) lhs;
+            if (lhsBinop.op == BinaryOp.LOG_AND) {
+                var ll = lhsBinop.getOperand0(); // X
+                var lr = lhsBinop.getOperand1(); // Y
+                var tmpAndInst = new BinopInst(inst.parent, BinaryOp.LOG_AND, ll, rhs); // X && Z
+                var tmpSimple = simplifyLogAnd(old, tmpAndInst, false);
+                if (tmpSimple != tmpAndInst) {
+                    return simplifyLogAnd(old,
+                            new BinopInst(inst.parent, BinaryOp.LOG_AND, tmpSimple,
+                                    new BinopInst(inst.parent, BinaryOp.LOG_AND, lr, rhs)),
+                            false);
+                }
+                tmpAndInst = new BinopInst(inst.parent, BinaryOp.LOG_AND, lr, rhs); // Y && Z
+                tmpSimple = simplifyLogAnd(old, tmpAndInst, false);
+                if (tmpSimple != tmpAndInst) {
+                    return simplifyLogAnd(old,
+                            new BinopInst(inst.parent, BinaryOp.LOG_AND, tmpSimple,
+                                    new BinopInst(inst.parent, BinaryOp.LOG_AND, ll, rhs)),
+                            false);
+                }
+            }
+        }
+        // X
 
         return inst;
 
@@ -436,7 +816,93 @@ public class Simplifier {
     public static Value simplifyLogOr(Instruction old, BinopInst inst, Boolean rec) {
         assert inst.op == BinaryOp.LOG_OR;
         insertInstIfNeeded(old, inst);
+        var lhs = inst.getOperand0();
+        var rhs = inst.getOperand1();
+        if (lhs instanceof GlobalVariable) {
+            lhs = ((GlobalVariable) lhs).init;
+        }
+        if (rhs instanceof GlobalVariable) {
+            rhs = ((GlobalVariable) rhs).init;
+        }
+        Value c = foldConstant(lhs, rhs, inst.op);
+        if (c != null) {
+            return c;
+        }
+        // 确保常量在后
+        if (lhs instanceof ConstantValue) {
+            inst.removeAllOpr();
+            inst.addOprand(rhs);
+            inst.addOprand(lhs);
 
+            lhs = inst.getOperand0();
+            rhs = inst.getOperand1();
+        }
+
+        if (rhs instanceof ConstantValue) {
+            var cv = (ConstantValue) rhs;
+            // lhs || 0 -> lhs
+            if (cv.val.equals(0)) {
+                return lhs;
+            }
+            // lhs || 1 -> lhs
+            if (cv.val.equals(1)) {
+                return lhs;
+            }
+        }
+        // lhs || lhs -> lhs
+        if (lhs.equals(rhs)) {
+            return lhs;
+        }
+
+        if (!rec) {
+            return inst;
+        }
+
+        // (X || Y) || Z -> (X || Z) || Y
+        if (lhs instanceof BinopInst) {
+            var lhsBinop = (BinopInst) lhs;
+            if (lhsBinop.op == BinaryOp.LOG_OR) {
+                var ll = lhsBinop.getOperand0(); // X
+                var lr = lhsBinop.getOperand1(); // Y
+                var tmpOrInst = new BinopInst(inst.parent, BinaryOp.LOG_OR, ll, rhs); // X || Z
+                var tmpSimple = simplifyLogOr(old, tmpOrInst, false);
+                if (tmpSimple != tmpOrInst) {
+                    return simplifyLogOr(old,
+                            new BinopInst(inst.parent, BinaryOp.LOG_OR, tmpSimple, lr), false);
+                }
+                tmpOrInst = new BinopInst(inst.parent, BinaryOp.LOG_OR, lr, rhs); // Y || Z
+                tmpSimple = simplifyLogOr(old, tmpOrInst, false);
+                if (tmpSimple != tmpOrInst) {
+                    return simplifyLogOr(old,
+                            new BinopInst(inst.parent, BinaryOp.LOG_OR, tmpSimple, ll), false);
+                }
+            }
+        }
+
+        // (X || Y) || Z -> (X || Z) || (Y || Z)
+        if (lhs instanceof BinopInst) {
+            var lhsBinop = (BinopInst) lhs;
+            if (lhsBinop.op == BinaryOp.LOG_OR) {
+                var ll = lhsBinop.getOperand0(); // X
+                var lr = lhsBinop.getOperand1(); // Y
+                var tmpOrInst = new BinopInst(inst.parent, BinaryOp.LOG_OR, ll, rhs); // X || Z
+                var tmpSimple = simplifyLogOr(old, tmpOrInst, false);
+                if (tmpSimple != tmpOrInst) {
+                    return simplifyLogOr(old,
+                            new BinopInst(inst.parent, BinaryOp.LOG_OR, tmpSimple,
+                                    new BinopInst(inst.parent, BinaryOp.LOG_OR, lr, rhs)),
+                            false);
+                }
+                tmpOrInst = new BinopInst(inst.parent, BinaryOp.LOG_OR, lr, rhs); // Y || Z
+                tmpSimple = simplifyLogOr(old, tmpOrInst, false);
+                if (tmpSimple != tmpOrInst) {
+                    return simplifyLogOr(old,
+                            new BinopInst(inst.parent, BinaryOp.LOG_OR, tmpSimple,
+                                    new BinopInst(inst.parent, BinaryOp.LOG_OR, ll, rhs)),
+                            false);
+                }
+            }
+        }
         return inst;
 
     }
@@ -444,6 +910,34 @@ public class Simplifier {
     public static Value simplifyLogEq(Instruction old, BinopInst inst, Boolean rec) {
         assert inst.op == BinaryOp.LOG_EQ;
         insertInstIfNeeded(old, inst);
+
+        var lhs = inst.getOperand0();
+        var rhs = inst.getOperand1();
+        if (lhs instanceof GlobalVariable) {
+            lhs = ((GlobalVariable) lhs).init;
+        }
+        if (rhs instanceof GlobalVariable) {
+            rhs = ((GlobalVariable) rhs).init;
+        }
+        Value c = foldConstant(lhs, rhs, inst.op);
+        if (c != null) {
+            return c;
+        }
+
+        // 确保常量在后
+        if (lhs instanceof ConstantValue) {
+            inst.removeAllOpr();
+            inst.addOprand(rhs);
+            inst.addOprand(lhs);
+
+            lhs = inst.getOperand0();
+            rhs = inst.getOperand1();
+        }
+
+        // lhs == rhs -> 1
+        if (lhs.equals(rhs)) {
+            return ConstantValue.ofBoolean(true);
+        }
 
         return inst;
 
@@ -453,6 +947,34 @@ public class Simplifier {
         assert inst.op == BinaryOp.LOG_NEQ;
         insertInstIfNeeded(old, inst);
 
+        var lhs = inst.getOperand0();
+        var rhs = inst.getOperand1();
+        if (lhs instanceof GlobalVariable) {
+            lhs = ((GlobalVariable) lhs).init;
+        }
+        if (rhs instanceof GlobalVariable) {
+            rhs = ((GlobalVariable) rhs).init;
+        }
+        Value c = foldConstant(lhs, rhs, inst.op);
+        if (c != null) {
+            return c;
+        }
+
+        // 确保常量在后
+        if (lhs instanceof ConstantValue) {
+            inst.removeAllOpr();
+            inst.addOprand(rhs);
+            inst.addOprand(lhs);
+
+            lhs = inst.getOperand0();
+            rhs = inst.getOperand1();
+        }
+
+        // when lhs == rhs, lhs != rhs -> 0
+        if (lhs.equals(rhs)) {
+            return ConstantValue.ofBoolean(false);
+        }
+
         return inst;
 
     }
@@ -461,6 +983,18 @@ public class Simplifier {
         assert inst.op == BinaryOp.LOG_LT;
         insertInstIfNeeded(old, inst);
 
+        var lhs = inst.getOperand0();
+        var rhs = inst.getOperand1();
+        if (lhs instanceof GlobalVariable) {
+            lhs = ((GlobalVariable) lhs).init;
+        }
+        if (rhs instanceof GlobalVariable) {
+            rhs = ((GlobalVariable) rhs).init;
+        }
+        Value c = foldConstant(lhs, rhs, inst.op);
+        if (c != null) {
+            return c;
+        }
         return inst;
 
     }
@@ -469,6 +1003,18 @@ public class Simplifier {
         assert inst.op == BinaryOp.LOG_GT;
         insertInstIfNeeded(old, inst);
 
+        var lhs = inst.getOperand0();
+        var rhs = inst.getOperand1();
+        if (lhs instanceof GlobalVariable) {
+            lhs = ((GlobalVariable) lhs).init;
+        }
+        if (rhs instanceof GlobalVariable) {
+            rhs = ((GlobalVariable) rhs).init;
+        }
+        Value c = foldConstant(lhs, rhs, inst.op);
+        if (c != null) {
+            return c;
+        }
         return inst;
 
     }
@@ -477,6 +1023,18 @@ public class Simplifier {
         assert inst.op == BinaryOp.LOG_LE;
         insertInstIfNeeded(old, inst);
 
+        var lhs = inst.getOperand0();
+        var rhs = inst.getOperand1();
+        if (lhs instanceof GlobalVariable) {
+            lhs = ((GlobalVariable) lhs).init;
+        }
+        if (rhs instanceof GlobalVariable) {
+            rhs = ((GlobalVariable) rhs).init;
+        }
+        Value c = foldConstant(lhs, rhs, inst.op);
+        if (c != null) {
+            return c;
+        }
         return inst;
 
     }
@@ -485,6 +1043,18 @@ public class Simplifier {
         assert inst.op == BinaryOp.LOG_GE;
         insertInstIfNeeded(old, inst);
 
+        var lhs = inst.getOperand0();
+        var rhs = inst.getOperand1();
+        if (lhs instanceof GlobalVariable) {
+            lhs = ((GlobalVariable) lhs).init;
+        }
+        if (rhs instanceof GlobalVariable) {
+            rhs = ((GlobalVariable) rhs).init;
+        }
+        Value c = foldConstant(lhs, rhs, inst.op);
+        if (c != null) {
+            return c;
+        }
         return inst;
 
     }

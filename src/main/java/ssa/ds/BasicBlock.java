@@ -2,12 +2,13 @@ package ssa.ds;
 
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 
 public class BasicBlock {
     // TODO landing pads for Phi insts? or basic block argument?
     public String label;
-    public List<Instruction> insts = new ArrayList<>();
+    public List<Instruction> insts = new LinkedList<>();
     public BasicBlockValue val;
     public List<BasicBlock> domers = new ArrayList<>(); // 谁支配我
     public List<BasicBlock> idoms = new ArrayList<>(); // 我直接支配谁
@@ -156,6 +157,23 @@ public class BasicBlock {
     public boolean hasValidTerm() {
         assert insts.size() > 0;
         return insts.get(insts.size() - 1) instanceof TerminatorInst;
+    }
+
+    public boolean hasBranchTerm() {
+        if (!(insts.size() > 0)) {
+            return false;
+        }
+
+        if (!(insts.get(insts.size() - 1) instanceof TerminatorInst)) {
+            return false;
+        }
+
+        if (!(insts.get(insts.size() - 1) instanceof BranchInst)) {
+            return false;
+        }
+
+        return true;
+
     }
 
     // 删除指令，但是不一定将其 User 删除，因为此指令可能被替换为**值**

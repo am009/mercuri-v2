@@ -51,4 +51,10 @@ public class PhiInst extends Instruction {
         }
         return prefix + sj.toString();
     }
+
+    public void removePredAt(int index) {
+        int[] indices = {index};
+        this.RemoveOperands(indices);
+      }
+
 }

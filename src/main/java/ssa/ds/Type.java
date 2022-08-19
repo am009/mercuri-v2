@@ -35,6 +35,10 @@ public class Type implements Cloneable {
         return !this.isArray() && !this.isPointer;
     }
 
+    public boolean isSimpleBoolean() {
+        return baseType == PrimitiveTypeTag.BOOLEAN && !isPointer && !isArray();
+    }
+
     // 是否放到浮点寄存器里
     public boolean isBaseFloat() {
         return this.baseType.isFloat() && !this.isArray() && !this.isPointer;
