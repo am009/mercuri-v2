@@ -474,29 +474,29 @@ public class Simplifier {
                 }
             }
 
-            // (X / Y) * Z -> X * (Z / Y)
-            if (lhsBinop.op == BinaryOp.DIV) {
-                var ll = lhsBinop.getOperand0(); // X
-                var lr = lhsBinop.getOperand1(); // Y
-                var tmpMulInst = new BinopInst(inst.parent, BinaryOp.MUL, ll, rhs); // X * Z
-                var tmpSimple = simplifyMul(old, tmpMulInst, false);
-                if (tmpSimple != tmpMulInst) {
-                    return simplifyMul(old,
-                            new BinopInst(inst.parent, BinaryOp.MUL, tmpSimple, lr), false);
-                }
-            }
+            // // (X / Y) * Z -> X * (Z / Y)
+            // if (lhsBinop.op == BinaryOp.DIV) {
+            //     var ll = lhsBinop.getOperand0(); // X
+            //     var lr = lhsBinop.getOperand1(); // Y
+            //     var tmpMulInst = new BinopInst(inst.parent, BinaryOp.MUL, ll, rhs); // X * Z
+            //     var tmpSimple = simplifyMul(old, tmpMulInst, false);
+            //     if (tmpSimple != tmpMulInst) {
+            //         return simplifyMul(old,
+            //                 new BinopInst(inst.parent, BinaryOp.MUL, tmpSimple, lr), false);
+            //     }
+            // }
 
-            // (X / Y) * Z -> (X * Z) / Y
-            if (lhsBinop.op == BinaryOp.DIV) {
-                var ll = lhsBinop.getOperand0(); // X
-                var lr = lhsBinop.getOperand1(); // Y
-                var tmpMulInst = new BinopInst(inst.parent, BinaryOp.MUL, ll, rhs); // X * Z
-                var tmpSimple = simplifyMul(old, tmpMulInst, false);
-                if (tmpSimple != tmpMulInst) {
-                    return simplifyMul(old,
-                            new BinopInst(inst.parent, BinaryOp.MUL, tmpSimple, lr), false);
-                }
-            }
+            // // (X / Y) * Z -> (X * Z) / Y
+            // if (lhsBinop.op == BinaryOp.DIV) {
+            //     var ll = lhsBinop.getOperand0(); // X
+            //     var lr = lhsBinop.getOperand1(); // Y
+            //     var tmpMulInst = new BinopInst(inst.parent, BinaryOp.MUL, ll, rhs); // X * Z
+            //     var tmpSimple = simplifyMul(old, tmpMulInst, false);
+            //     if (tmpSimple != tmpMulInst) {
+            //         return simplifyMul(old,
+            //                 new BinopInst(inst.parent, BinaryOp.MUL, tmpSimple, lr), false);
+            //     }
+            // }
 
             // // (X + Y) * Z -> (X * Z) + (Y * Z)
             // if (lhsBinop.op == BinaryOp.ADD) {
