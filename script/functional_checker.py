@@ -36,6 +36,10 @@ def test(target_elf, out_file, in_file=None, is_asm=False):
 
     print(out)
     print(s)
+    s = s.rsplit(b"\n", 1)
+    if len(s) > 1:
+        s[0] = s[0].strip()
+    s = b"\n".join(s)
 
     print(err, file=sys.stderr) # perfomance test打印所花时间
     if out.strip() == s.strip():
