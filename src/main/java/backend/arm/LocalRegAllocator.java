@@ -30,7 +30,6 @@ import backend.arm.inst.VSTRInst;
 import ds.Global;
 
 // 简单的寄存器分配算法，尽量保证正确性即可。之后应当实现图着色来替换
-// 由于未优化的IR可能没有global（跨基本块使用）的值，所以相关的正确性有待进一步测试。
 // Bottom-Up Local Register Allocation
 public class LocalRegAllocator {
     public static final int CORE_REG_COUNT = 11;
@@ -623,11 +622,11 @@ public class LocalRegAllocator {
             }
         }
         func.usedCalleeSavedReg = used;
-        insertSaveReg();
+        insertSaveReg(func);
     }
 
     // 在Prologue后，Ret前分别插入指令，保存和恢复用到的Callee Saved Reg
-    private void insertSaveReg() {
+    public static void insertSaveReg(AsmFunc func) {
         List<AsmInst> stores = new ArrayList<>();
 
         for (var ent: func.usedCalleeSavedReg) {
