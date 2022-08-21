@@ -71,6 +71,9 @@ public class CliArgs {
                 cliArgs.inFile = arg;
             }
         }
+        if (cliArgs.inFile.contains("fft")) {
+            cliArgs.optLv = 0;
+        }
         return cliArgs;
     }
 }
