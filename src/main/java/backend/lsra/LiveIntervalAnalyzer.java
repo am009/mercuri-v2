@@ -35,7 +35,6 @@ public class LiveIntervalAnalyzer {
         g.doAnalysis();
         return g.result;
     }
-
     private void doAnalysis() {
         // Step 1: LiveUse, LiveDef
         for (var func : m.funcs) {
@@ -66,7 +65,7 @@ public class LiveIntervalAnalyzer {
             }
         }
         // Step 3: LiveInterval
-        analyzeLiveInterval();
+        // analyzeLiveInterval();
     }
 
     LiveInfo liveInfoOf(AsmBlock block) {

@@ -645,7 +645,7 @@ public class LocalRegAllocator {
         assert func.entry.insts.get(0) instanceof Prologue;
         // tail call优化：需要跳转到相关保存指令后面
         AsmBlock entry = func.entry;
-        AsmBlock tailCall = new AsmBlock(String.format(AsmFunc.tailCallLabel, func.label));
+        AsmBlock tailCall = new AsmBlock(String.format(AsmFunc.tailCallLabel, func.label), null);
         // 插入链表
         tailCall.next = entry.next;
         tailCall.prev = entry;

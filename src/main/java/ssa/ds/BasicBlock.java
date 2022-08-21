@@ -226,4 +226,11 @@ public class BasicBlock {
 
         return newBlock;
     }
+
+    public boolean idominate(BasicBlock block) {
+        if (block == this) {
+            return true;
+        }
+        return idoms.contains(block);
+    }
 }

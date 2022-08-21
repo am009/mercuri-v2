@@ -23,8 +23,12 @@ class DagLinearFlow {
     Map<AsmBlock, LiveInfo> liveInfo;
 
     public Map<VirtReg, LiveInterval> liveIntervals = new HashMap<>();
+    // 指令编号映射。每个指令的编号都是唯一的。
     Map<AsmInst, Integer> instSlotIdx = new HashMap<>();
 
+    // 每一个 LiveInterval 由一系列的 LiveRange 构成。之所以不连续，是因为存在这样的空洞：
+    // Def........Use         Def..........Use......Use
+    //               ^^^^^^^^^这一段是空洞，寄存器可以被分给其他value
     public List<SubRange> getSortedSubRanges() {
         List<SubRange> subRanges = new LinkedList<>();
         for (var kv : liveIntervals.entrySet()) {
@@ -45,6 +49,9 @@ class DagLinearFlow {
         return ranges;
     }
 
+    /**
+     * @deprecated
+     */
     public LiveInterval intervalOf(VirtReg vreg) {
         if (!liveIntervals.containsKey(vreg)) {
             var lr = new LiveInterval(vreg);

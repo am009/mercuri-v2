@@ -3,14 +3,18 @@ package backend;
 import java.util.ArrayList;
 import java.util.List;
 
+import ssa.ds.Module;
+
 public class AsmModule{
     public String name;
     public List<AsmFunc> funcs;
     public List<AsmGlobalVariable> dataGlobs;
     // bss段存放初始值全零的变量
     public List<AsmGlobalVariable> bssGlobs;
+    public Module ssaModule;
 
-    public AsmModule(String name) {
+    public AsmModule(String name, Module ssaModule) {
+        this.ssaModule = ssaModule;
         this.name = name;
         funcs = new ArrayList<>();
         dataGlobs = new ArrayList<>();

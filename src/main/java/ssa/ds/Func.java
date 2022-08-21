@@ -24,7 +24,7 @@ public class Func {
     public boolean hasSideEffect = true;
     public boolean usingGlobs = true;
     public HashSet<GlobalVariable> loadGlobs = new HashSet<>();
-    public HashSet<GlobalVariable> defGlobs= new HashSet<>();
+    public HashSet<GlobalVariable> defGlobs = new HashSet<>();
 
     public boolean preventInline = false;
 
@@ -114,5 +114,26 @@ public class Func {
 
     public BasicBlock entry() {
         return bbs.get(0);
+    }
+
+    // 如果是函数式的，则只有一个 ret。将返回 ret 所在 bb
+    public BasicBlock isFunctional() {
+        int returnCount = 0;
+        RetInst retInst = null;
+        var bbit = bbs.iterator();
+        while (bbit.hasNext()) {
+            var block = bbit.next();
+            Instruction termInst = block.getTerminator();
+            if (termInst == null) {
+                return null;
+            }
+            if (termInst instanceof RetInst) {
+                if (++returnCount > 1)
+                    return null;
+            }
+            retInst = (RetInst) termInst;
+        }
+        var block = retInst.parent;
+        return block;
     }
 }
