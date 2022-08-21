@@ -19,7 +19,9 @@ import backend.VirtReg;
 import backend.arm.inst.ConstrainRegInst;
 import backend.arm.inst.MovInst;
 import backend.arm.inst.VMovInst;
+import backend.lsra.LiveInfo;
 import backend.lsra.LiveIntervalAnalyzer;
+import ssa.ds.Instruction;
 
 public class SimpleGlobalAllocator {
     AsmFunc func;
@@ -29,6 +31,14 @@ public class SimpleGlobalAllocator {
     public Set<Integer> usedReg = new HashSet<>();
     public Set<Integer> usedVfpReg = new HashSet<>();
     public static Reg[] temps = { new Reg(Reg.Type.ip), new Reg(Reg.Type.lr) };
+
+    /**
+     * interference graph
+     */
+    Map<VirtReg, Set<VirtReg>> IG = new HashMap<>();
+    private Map<AsmBlock, LiveInfo> liveInfo; // filled in doAnalysis()
+    // 本函数出现的所有 opr
+    private Set<AsmOperand> allValues;
 
     public SimpleGlobalAllocator(AsmFunc f) {
         func = f;
@@ -43,12 +53,72 @@ public class SimpleGlobalAllocator {
     }
 
     public void doAnalysis() {
-        // liveness analysis
+        this.initAllValuesSet();
+        // liveness analysis        
         var livenessAnalyzer = new LivenessAnalyzer(func);
         livenessAnalyzer.execute();
+        this.liveInfo = livenessAnalyzer.liveInfo;
         // build graph and color
+        this.buildInterferenceGraph();
         // fixup
         doFixUp();
+    }
+
+    private void initAllValuesSet() {
+        allValues = new HashSet<>();
+        for (var b : func.bbs) {
+            for (var inst : b.insts) {
+                allValues.addAll(inst.uses);
+                allValues.addAll(inst.defs);
+            }
+        }
+    }
+
+    private LiveInfo liveInfoOf(AsmBlock b) {
+        var ret = liveInfo.get(b);
+        assert ret != null;
+        return ret;
+    }
+
+    // 获取指令所涉及的所有 vreg, 包括 def 和 use
+    // 注意如果 defs uses 有重复，不会去重
+    private ArrayList<AsmOperand> operandsOf(AsmInst i) {
+        var ret = new ArrayList<AsmOperand>();
+        ret.addAll(i.defs);
+        ret.addAll(i.uses);
+        return ret;
+    }
+
+    private void buildInterferenceGraph() {
+        for (var bb : func.bbs) {
+            var living = liveInfoOf(bb).liveIn;
+            var remain = new HashMap<VirtReg, Integer>();
+
+            // get initial remain
+            for (var vreg : living) {
+                for (var inst : bb.insts) {
+                    // inst.defs + inst.uses
+                    var oprs = operandsOf(inst);
+                    for (var opr : oprs) {
+                        if (opr.equals(vreg)) {
+                            remain.put(vreg, remain.getOrDefault(vreg, 0) + 1);
+                        }
+                    }
+                }
+                if (liveInfoOf(bb).liveOut.contains(vreg)) {
+                    remain.put(vreg, remain.getOrDefault(vreg, 0) + 1);
+                }
+            }
+            // connect all phis
+            // - NOT needed for us
+
+            // process all instructions
+            for (var inst : bb.insts) {
+                for (var opr : operandsOf(inst)) {
+                    // 原 if (values.count(inst)) 的代码我没处理
+                }
+            }
+        }
     }
 
     // 使用IP和LR，修补任何没有分配到寄存器的值。

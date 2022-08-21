@@ -28,7 +28,7 @@ import ds.Global;
 public class LivenessAnalyzer {
 
     /* 原始的 liveInfo. 如果要用，可考虑后面的函数 liveInfoOf 可以确保不会得到 null*/
-    Map<AsmBlock, LiveInfo> liveInfo = new HashMap<AsmBlock, LiveInfo>();
+    public Map<AsmBlock, LiveInfo> liveInfo = new HashMap<AsmBlock, LiveInfo>();
     private AsmFunc func;
 
     public LivenessAnalyzer(AsmFunc func) {
