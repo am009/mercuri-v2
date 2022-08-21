@@ -1,23 +1,10 @@
 package backend;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
-import backend.AsmBlock;
-import backend.AsmInst;
-import backend.AsmModule;
-import backend.AsmOperand;
-import backend.VirtReg;
-import backend.arm.inst.ConstrainRegInst;
 import backend.lsra.LiveInfo;
 import ds.Global;
 
@@ -116,8 +103,10 @@ public class LivenessAnalyzer {
     private boolean analyzeInOut(AsmBlock block) {
         var blive = liveInfoOf(block);
         var liveOutBefore = new HashSet<VirtReg>(blive.liveOut);
-        for (var succbb : block.succ) {
-            blive.liveOut.addAll(liveInfoOf(succbb).liveIn);
+        if (block.succ != null) {
+            for (var succbb : block.succ) {
+                blive.liveOut.addAll(liveInfoOf(succbb).liveIn);
+            }
         }
         // b.live_gen 是否包括其自己定义的？
         // 答案是不包括，参见 JavaHotSpot LSRA 62 页

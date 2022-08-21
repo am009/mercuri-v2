@@ -708,11 +708,11 @@ public class LocalRegAllocator {
         return Integer.MAX_VALUE;
     }
 
-    private List<VirtReg> filterVirtReg(List<AsmOperand> uses) {
+    public static List<VirtReg> filterVirtReg(List<AsmOperand> uses) {
         return uses.stream().filter(op -> op instanceof VirtReg).map(vr -> (VirtReg)vr).collect(Collectors.toList());
     }
 
-    private static AsmOperand ind2Reg(int index, boolean isFloat) {
+    public static AsmOperand ind2Reg(int index, boolean isFloat) {
         if (index < 0) {
             return null;
         }
@@ -723,7 +723,7 @@ public class LocalRegAllocator {
         }
     }
 
-    private static int reg2ind(AsmOperand reg, boolean isFloat) {
+    public static int reg2ind(AsmOperand reg, boolean isFloat) {
         if (reg == null) {
             return -1;
         }

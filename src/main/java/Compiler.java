@@ -105,8 +105,13 @@ public class Compiler {
         // create log dir 
         // backend.lsra.LiveIntervalAnalyzer.process(asm);
         // backend.FlowViewer.process(asm);
-        // asm = backend.arm.LocalRegAllocator.process(asm);
-        asm = backend.arm.SimpleGlobalAllocator.process(asm);
+        if (!args.isOpt()) {
+            asm = backend.arm.LocalRegAllocator.process(asm);
+        } else {
+            Global.logger.trace("SimpleGlobalAllocator");
+            asm = backend.arm.SimpleGlobalAllocator.process(asm);
+        }
+        // 
         // backend.lsra.LinearScanRegisterAllocator.process(asm);
         Global.logger.trace("--- asm reg alloc ---");
         Global.logger.trace(asm.toString());

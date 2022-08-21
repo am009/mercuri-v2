@@ -7,6 +7,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import backend.AsmBlock;
 import backend.AsmFunc;
@@ -16,6 +19,7 @@ import backend.AsmOperand;
 import backend.LivenessAnalyzer;
 import backend.StackOperand;
 import backend.VirtReg;
+import backend.arm.inst.CallInst;
 import backend.arm.inst.ConstrainRegInst;
 import backend.arm.inst.LoadInst;
 import backend.arm.inst.MovInst;
@@ -24,12 +28,13 @@ import backend.arm.inst.VLDRInst;
 import backend.arm.inst.VMovInst;
 import backend.arm.inst.VSTRInst;
 import backend.lsra.LiveInfo;
-import backend.lsra.LiveIntervalAnalyzer;
-import ssa.ds.Instruction;
 
 public class SimpleGlobalAllocator {
+    public static final int CORE_REG_COUNT = 11;
+
     AsmFunc func;
     Map<VirtReg, AsmOperand> registerMapping = new HashMap<>();
+    // Map<AsmOperand, AsmOperand> registerMapping = new HashMap<>();
     // Map<VirtReg, Integer> stackMapping = new HashMap<>();
     public Map<VirtReg, StackOperand> stackMapping = new HashMap<>();
     Map<VirtReg, Integer> addressMapping = new HashMap<>(); // for alloca
@@ -37,6 +42,28 @@ public class SimpleGlobalAllocator {
     public Set<Integer> usedVfpReg = new HashSet<>();
     public static Reg[] temps = { new Reg(Reg.Type.ip), new Reg(Reg.Type.lr) };
     public static VfpReg[] fpTemps = {new VfpReg(14), new VfpReg(15)};
+    public List<VirtReg> callerSaved = new ArrayList<>();
+    public List<VirtReg> calleeSaved = new ArrayList<>();
+    public List<VirtReg> callerSavedFp = new ArrayList<>();
+    public List<VirtReg> calleeSavedFp = new ArrayList<>();
+    List<Integer> initAllow = IntStream.range(0, 11).boxed().collect(Collectors.toList());
+    List<Integer> initAllowFp = IntStream.range(0, 32).boxed().collect(Collectors.toCollection(ArrayList::new));
+
+    // std::map<Value *, std::map<Value *, double>>
+    // 倾向于和谁一样
+    Map<VirtReg, Map<VirtReg, Double>> movBonus = new HashMap<>();
+    // 倾向于用哪个
+    Map<VirtReg, Map<Integer, Double>> abiBonus = new HashMap<>();
+    // 是否先分配
+    Map<VirtReg, Double> weight = new HashMap<>();
+
+    int vregInd = -1;
+    VirtReg getNewVreg(boolean isFloat, String comment) {
+        var ret = new VirtReg(vregInd, isFloat);
+        ret.comment = comment;
+        vregInd -= 1;
+        return ret;
+    }
 
     /**
      * interference graph
@@ -48,6 +75,32 @@ public class SimpleGlobalAllocator {
 
     public SimpleGlobalAllocator(AsmFunc f) {
         func = f;
+        initAllowFp.remove(Integer.valueOf(14));
+        initAllowFp.remove(Integer.valueOf(15));
+        for (int i=0;i<4;i++) {
+            var reg = new Reg(Reg.Type.values[i]);
+            var vreg = getNewVreg(false, "precolored");
+            callerSaved.add(vreg);
+            registerMapping.put(vreg, reg);
+        }
+        for (int i=4;i<11;i++) {
+            var reg = new Reg(Reg.Type.values[i]);
+            var vreg = getNewVreg(false, "precolored");
+            calleeSaved.add(vreg);
+            registerMapping.put(vreg, reg);
+        }
+        for (int i=0;i<14;i++) {
+            var reg = new VfpReg(i);
+            var vreg = getNewVreg(true, "precolored");
+            callerSavedFp.add(vreg);
+            registerMapping.put(vreg, reg);
+        }
+        for (int i=16;i<32;i++) {
+            var reg = new VfpReg(i);
+            var vreg = getNewVreg(true, "precolored");
+            calleeSavedFp.add(vreg);
+            registerMapping.put(vreg, reg);
+        }
     }
 
     public static AsmModule process(AsmModule m) {
@@ -59,15 +112,72 @@ public class SimpleGlobalAllocator {
     }
 
     public void doAnalysis() {
-        // this.initAllValuesSet();
-        // // liveness analysis        
-        // var livenessAnalyzer = new LivenessAnalyzer(func);
-        // livenessAnalyzer.execute();
-        // this.liveInfo = livenessAnalyzer.liveInfo;
-        // // build graph and color
-        // this.buildInterferenceGraph();
+        this.initAllValuesSet();
+        // liveness analysis
+        var livenessAnalyzer = new LivenessAnalyzer(func);
+        livenessAnalyzer.execute();
+        this.liveInfo = livenessAnalyzer.liveInfo;
+        // build graph and color
+        this.buildInterferenceGraph();
+        // color
+        this.doColor();
         // fixup
         doFixUp();
+    }
+
+    public void doColor() {
+        Stream<Map.Entry<VirtReg, Double>> sorted = weight.entrySet().stream()
+            .sorted(Map.Entry.comparingByValue());
+        sorted.forEach(ent -> {
+            var vreg = ent.getKey();
+            if (registerMapping.containsKey(vreg)) {
+                return;
+            }
+            var allowedRegs = getAllowedRegsList(vreg.isFloat);
+            for (var igVreg: IG.getOrDefault(vreg, Set.of())) {
+                if (vreg.isFloat == igVreg.isFloat && registerMapping.containsKey(igVreg)) {
+                    allowedRegs.remove(Integer.valueOf(LocalRegAllocator.reg2ind(registerMapping.get(igVreg), vreg.isFloat)));
+                }
+            }
+            if (allowedRegs.isEmpty()) {
+                // add spill cost
+                return;
+            }
+            // 找最大
+            double maxBonus = -1;
+            int maxId = allowedRegs.get(0);
+            for (var id: allowedRegs) {
+                double bonus = 0;
+                for (var movEnt: movBonus.getOrDefault(vreg, Map.of()).entrySet()) {
+                    if (registerMapping.containsKey(movEnt.getKey())) {
+                        var realReg = registerMapping.get(movEnt.getKey());
+                        if (vreg.isFloat == realReg.isFloat && LocalRegAllocator.reg2ind(realReg, vreg.isFloat) == id.intValue()) {
+                            bonus += movEnt.getValue();
+                        }
+                    }
+                }
+                bonus += abiBonus.getOrDefault(vreg, Map.of()).getOrDefault(Integer.valueOf(id), 0.0);
+                if (bonus > maxBonus) {
+                    maxBonus = bonus;
+                    maxId = id;
+                }
+            }
+            var realReg = LocalRegAllocator.ind2Reg(maxId, vreg.isFloat);
+            if (realReg.isFloat) {
+                usedVfpReg.add(maxId);
+            } else {
+                usedReg.add(maxId);
+            }
+            registerMapping.put(vreg, realReg);
+        });
+    }
+
+    public List<Integer> getAllowedRegsList(boolean isFloat) {
+        if (isFloat) {
+            return new ArrayList<>(initAllowFp);
+        } else {
+            return new ArrayList<>(initAllow);
+        }
     }
 
     private void initAllValuesSet() {
@@ -97,33 +207,121 @@ public class SimpleGlobalAllocator {
 
     private void buildInterferenceGraph() {
         for (var bb : func.bbs) {
-            var living = liveInfoOf(bb).liveIn;
-            var remain = new HashMap<VirtReg, Integer>();
-
-            // get initial remain
-            for (var vreg : living) {
-                for (var inst : bb.insts) {
-                    // inst.defs + inst.uses
-                    var oprs = operandsOf(inst);
-                    for (var opr : oprs) {
-                        if (opr.equals(vreg)) {
-                            remain.put(vreg, remain.getOrDefault(vreg, 0) + 1);
+            var live = liveInfoOf(bb).liveOut;
+            int size = bb.insts.size();
+            for (int i=size-1;i>=0;i--) {
+                var inst = bb.insts.get(i);
+                // if (inst instanceof )
+                List<VirtReg> uses = LocalRegAllocator.filterVirtReg(inst.uses);
+                List<VirtReg> defs = LocalRegAllocator.filterVirtReg(inst.defs);
+                live.addAll(defs);
+                for (var vreg: defs) {
+                    for (var vreg2: live) {
+                        addEdge(vreg, vreg2);
+                    }
+                }
+                live.removeAll(defs);
+                // caller saved reg
+                if (inst instanceof CallInst) {
+                    for (var vreg: live) {
+                        if (vreg.isFloat) {
+                            for (var cr: callerSavedFp) {
+                                addEdge(vreg, cr);
+                            }
+                        } else {
+                            for (var cr: callerSaved) {
+                                addEdge(vreg, cr);
+                            }
                         }
                     }
                 }
-                if (liveInfoOf(bb).liveOut.contains(vreg)) {
-                    remain.put(vreg, remain.getOrDefault(vreg, 0) + 1);
-                }
-            }
-            // connect all phis
-            // - NOT needed for us
+                live.addAll(uses);
 
-            // process all instructions
-            for (var inst : bb.insts) {
-                for (var opr : operandsOf(inst)) {
-                    // 原 if (values.count(inst)) 的代码我没处理
+            }
+
+            // // process all instructions
+            // for (var inst : bb.insts) {
+            //     for (var opr : operandsOf(inst)) {
+            //         // 原 if (values.count(inst)) 的代码我没处理
+            //     }
+            // }
+        }
+        // 各种权重
+        double moveCost = 1.0;
+        int nestLevel = 0;
+        double loadCost = 16.0;
+        double scale_factor = Math.pow(10.0, nestLevel);
+        for (var bb : func.bbs) {
+            for (var inst: bb.insts) {
+                if (inst instanceof MovInst) {
+                    var op1 = inst.uses.get(0);
+                    var op2 = inst.defs.get(0);
+                    // assert op1 instanceof VirtReg && op2 instanceof VirtReg;
+                    
+                    if (op1 instanceof VirtReg && op2 instanceof VirtReg) {
+                        double bonus = (moveCost*scale_factor);
+                        var map1 = movBonus.computeIfAbsent((VirtReg)op1, x -> new HashMap<>());
+                        map1.put((VirtReg)op2, map1.getOrDefault(op2, 0.0) + bonus );
+                        var map2 = movBonus.computeIfAbsent((VirtReg)op2, x -> new HashMap<>());
+                        map2.put((VirtReg)op1, map2.getOrDefault(op1, 0.0) + bonus );
+                        // weight
+                        weight.put((VirtReg)op1, weight.getOrDefault((VirtReg)op1, 0.0) + bonus);
+                        weight.put((VirtReg)op2, weight.getOrDefault((VirtReg)op2, 0.0) + bonus);
+                    }
+                }
+                if (inst instanceof ConstrainRegInst) {
+                    var inCons = new HashMap<>(((ConstrainRegInst) inst).getInConstraints());
+                    var outCons = new HashMap<>(((ConstrainRegInst) inst).getOutConstraints());
+                    double bonus = (moveCost*scale_factor);
+                    for (var vreg_: inst.uses) {
+                        if (vreg_ instanceof VirtReg) {
+                            var vreg = (VirtReg) vreg_;
+                            var cons = getRegFromConstraint(inCons, vreg);
+                            if (cons != null) {
+                                int ind = LocalRegAllocator.reg2ind(cons, vreg.isFloat);
+                                var map1 = abiBonus.computeIfAbsent(vreg, x -> new HashMap<>());
+                                map1.put(Integer.valueOf(ind), map1.getOrDefault(Integer.valueOf(ind), 0.0) + (moveCost*scale_factor) );
+                                // weight
+                                weight.put(vreg, weight.getOrDefault(vreg, 0.0) + bonus);
+                            }
+                        }
+                        
+                    }
+                    for (var vreg_: inst.defs) {
+                        if (vreg_ instanceof VirtReg) {
+                            var vreg = (VirtReg) vreg_;
+                            var cons = getRegFromConstraint(outCons, vreg);
+                            if (cons != null) {
+                                int ind = LocalRegAllocator.reg2ind(cons, vreg.isFloat);
+                                var map1 = abiBonus.computeIfAbsent(vreg, x -> new HashMap<>());
+                                map1.put(Integer.valueOf(ind), map1.getOrDefault(Integer.valueOf(ind), 0.0) + (moveCost*scale_factor) );
+                                // weight
+                                weight.put(vreg, weight.getOrDefault(vreg, 0.0) + bonus);
+                            }
+                        }
+                    }
+                }
+                double bonus = (loadCost * scale_factor);
+                for (var vreg_: inst.uses) {
+                    if (vreg_ instanceof VirtReg) {
+                        var vreg = (VirtReg) vreg_;
+                        weight.put(vreg, weight.getOrDefault(vreg, 0.0) + bonus);
+                    }
+                }
+                for (var vreg_: inst.defs) {
+                    if (vreg_ instanceof VirtReg) {
+                        var vreg = (VirtReg) vreg_;
+                        weight.put(vreg, weight.getOrDefault(vreg, 0.0) + bonus);
+                    }
                 }
             }
+        }
+    }
+
+    private void addEdge(VirtReg vreg, VirtReg vreg2) {
+        if (vreg != vreg2) {
+            IG.computeIfAbsent(vreg, x -> new HashSet<>()).add(vreg2);
+            IG.computeIfAbsent(vreg2, x -> new HashSet<>()).add(vreg);
         }
     }
 
@@ -146,6 +344,8 @@ public class SimpleGlobalAllocator {
                 Set<Integer> freeTemp = new HashSet<>();
                 freeTemp.add(0);
                 freeTemp.add(1);
+                Set<Integer> dead = new HashSet<>();
+                Set<Integer> deadFp = new HashSet<>();
                 for (int j=0;j<inst.uses.size();j++) {
                     var vreg_ = inst.uses.get(j);
                     if (!(vreg_ instanceof VirtReg))
@@ -161,9 +361,45 @@ public class SimpleGlobalAllocator {
                         if (constraintReg != null) {
                             if (!realReg.equals(constraintReg)) {
                                 // 如果有寄存器，有约束：不匹配的则生成move
-                                AsmInst mov = makeMov(blk, vreg.isFloat, constraintReg, realReg, "SimpleGlob use mov1");
-                                toInsertBefore.add(mov);
-                                inst.uses.set(j, constraintReg);
+                                boolean isDead = false;
+                                if (realReg.isFloat) {
+                                    isDead = deadFp.contains(LocalRegAllocator.reg2ind(realReg, realReg.isFloat));
+                                } else {
+                                    isDead = dead.contains(LocalRegAllocator.reg2ind(realReg, realReg.isFloat));
+                                }
+                                if (isDead) {
+                                    if (freeTemp.size() > 1) {
+                                        int alloc_ = freeTemp.iterator().next();
+                                        AsmOperand tmp;
+                                        if (vreg.isFloat){
+                                            tmp = fpTemps[alloc_];
+                                        } else {
+                                            tmp = temps[alloc_];
+                                        }
+                                        AsmInst mov1 = makeMov(blk, vreg.isFloat, tmp, realReg, "SimpleGlob escape dead");
+                                        toInsertBefore.add(0, mov1);
+                                        AsmInst mov = makeMov(blk, vreg.isFloat, constraintReg, tmp, "SimpleGlob use mov1");
+                                        toInsertBefore.add(mov);
+                                        inst.uses.set(j, constraintReg);
+                                    } else {
+                                        // 开头先保存到栈上，然后后面再加载出来
+                                        List<AsmInst> tmp = new ArrayList<>();
+                                        spillToStack(realReg, vreg, freeTemp, blk, tmp, false);
+                                        toInsertBefore.addAll(0, tmp);
+                                        tmp.clear();
+                                        loadToReg(constraintReg, vreg, freeTemp, blk, toInsertBefore, false);
+                                        inst.uses.set(j, constraintReg);
+                                    }
+                                } else {
+                                    AsmInst mov = makeMov(blk, vreg.isFloat, constraintReg, realReg, "SimpleGlob use mov1");
+                                    toInsertBefore.add(mov);
+                                    inst.uses.set(j, constraintReg);
+                                }
+                                if (constraintReg.isFloat) {
+                                    deadFp.add(LocalRegAllocator.reg2ind(constraintReg, constraintReg.isFloat));
+                                } else {
+                                    dead.add(LocalRegAllocator.reg2ind(constraintReg, constraintReg.isFloat));
+                                }
                             }
                         } else { // 有寄存器没约束的直接用寄存器
                             inst.uses.set(j, realReg);
@@ -183,6 +419,8 @@ public class SimpleGlobalAllocator {
                 freeTemp = new HashSet<>();
                 freeTemp.add(0);
                 freeTemp.add(1);
+                dead = new HashSet<>();
+                deadFp = new HashSet<>();
                 // 再处理def
                 // 没寄存器的：没约束先用临时寄存器，栈上分配临时位置，然后立刻store到栈上。
                 //  有约束的直接从约束寄存器拿到栈上。
@@ -197,10 +435,32 @@ public class SimpleGlobalAllocator {
                     if (realReg != null) {
                         if (constraintReg != null) {
                             if (!realReg.equals(constraintReg)) {
-                                // 如果有寄存器，有约束：不匹配的则生成move
-                                AsmInst mov = makeMov(blk, vreg.isFloat, realReg, constraintReg, "SimpleGlob use mov1");
-                                toInsertAfter.add(mov);
-                                inst.defs.set(j, constraintReg);
+                                boolean isDead = false;
+                                if (constraintReg.isFloat) {
+                                    isDead = deadFp.contains(LocalRegAllocator.reg2ind(constraintReg, constraintReg.isFloat));
+                                } else {
+                                    isDead = dead.contains(LocalRegAllocator.reg2ind(constraintReg, constraintReg.isFloat));
+                                }
+                                if (isDead) { 
+                                    // constraintReg -->  realReg, 
+                                    // 开头先保存到栈上，然后后面再加载出来
+                                    List<AsmInst> tmp = new ArrayList<>();
+                                    spillToStack(constraintReg, vreg, freeTemp, blk, tmp, false);
+                                    toInsertAfter.addAll(0, tmp);
+                                    tmp.clear();
+                                    loadToReg(realReg, vreg, freeTemp, blk, toInsertAfter, false);
+                                    inst.defs.set(j, constraintReg);
+                                } else {
+                                    // 如果有寄存器，有约束：不匹配的则生成move
+                                    AsmInst mov = makeMov(blk, vreg.isFloat, realReg, constraintReg, "SimpleGlob use mov1");
+                                    toInsertAfter.add(mov);
+                                    inst.defs.set(j, constraintReg);
+                                }
+                                if (realReg.isFloat) {
+                                    deadFp.add(LocalRegAllocator.reg2ind(realReg, realReg.isFloat));
+                                } else {
+                                    dead.add(LocalRegAllocator.reg2ind(realReg, realReg.isFloat));
+                                }
                             }
                         } else { // 有寄存器没约束的直接用寄存器
                             inst.defs.set(j, realReg);
@@ -261,7 +521,7 @@ public class SimpleGlobalAllocator {
                 freeTemp.remove(Integer.valueOf(alloc_)); // 占用一个临时寄存器用来分配给那边的def
             }
         }
-        assert !registerMapping.containsKey(vreg);
+        // assert !registerMapping.containsKey(vreg);
         // assert stackMapping.containsKey(vreg);
         var spilledLoc = allocateOrGetSpill(vreg);
         AsmInst store;
@@ -290,7 +550,7 @@ public class SimpleGlobalAllocator {
                 freeTemp.remove(Integer.valueOf(alloc_));
             }
         }
-        assert !registerMapping.containsKey(vreg);
+        // assert !registerMapping.containsKey(vreg);
         assert stackMapping.containsKey(vreg);
         var spilledLoc = allocateOrGetSpill(vreg);
         AsmInst load;
