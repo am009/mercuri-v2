@@ -13,11 +13,13 @@ import backend.AsmFunc;
 import backend.AsmInst;
 import backend.AsmModule;
 import backend.AsmOperand;
+import backend.LivenessAnalyzer;
 import backend.StackOperand;
 import backend.VirtReg;
 import backend.arm.inst.ConstrainRegInst;
 import backend.arm.inst.MovInst;
 import backend.arm.inst.VMovInst;
+import backend.lsra.LiveIntervalAnalyzer;
 
 public class SimpleGlobalAllocator {
     AsmFunc func;
@@ -26,14 +28,14 @@ public class SimpleGlobalAllocator {
     Map<VirtReg, Integer> addressMapping = new HashMap<>(); // for alloca
     public Set<Integer> usedReg = new HashSet<>();
     public Set<Integer> usedVfpReg = new HashSet<>();
-    public static Reg[] temps = {new Reg(Reg.Type.ip), new Reg(Reg.Type.lr)};
+    public static Reg[] temps = { new Reg(Reg.Type.ip), new Reg(Reg.Type.lr) };
 
     public SimpleGlobalAllocator(AsmFunc f) {
         func = f;
     }
 
     public static AsmModule process(AsmModule m) {
-        for (var f: m.funcs) {
+        for (var f : m.funcs) {
             var g = new SimpleGlobalAllocator(f);
             g.doAnalysis();
         }
@@ -42,6 +44,8 @@ public class SimpleGlobalAllocator {
 
     public void doAnalysis() {
         // liveness analysis
+        var livenessAnalyzer = new LivenessAnalyzer(func);
+        livenessAnalyzer.execute();
         // build graph and color
         // fixup
         doFixUp();
@@ -49,24 +53,25 @@ public class SimpleGlobalAllocator {
 
     // 使用IP和LR，修补任何没有分配到寄存器的值。
     public void doFixUp() {
-        for (var blk: func) {
+        for (var blk : func) {
             int addedInstCount = 0;
-            for (int i=0;i<blk.insts.size();i++) {
+            for (int i = 0; i < blk.insts.size(); i++) {
                 var inst = blk.insts.get(i);
                 List<AsmInst> toInsertBefore = new ArrayList<>();
                 List<AsmInst> toInsertAfter = new ArrayList<>();
                 Map<AsmOperand, VirtReg> inConstraints = null;
                 Map<AsmOperand, VirtReg> outConstraints = null;
                 if (inst instanceof ConstrainRegInst) {
-                    inConstraints = new HashMap<>(((ConstrainRegInst)inst).getInConstraints());
-                    outConstraints = new HashMap<>(((ConstrainRegInst)inst).getOutConstraints());
+                    inConstraints = new HashMap<>(((ConstrainRegInst) inst).getInConstraints());
+                    outConstraints = new HashMap<>(((ConstrainRegInst) inst).getOutConstraints());
                 }
 
                 // 先处理use
                 Set<Integer> usedTemp = new HashSet<>();
-                for (int j=0;j<inst.uses.size();j++) {
+                for (int j = 0; j < inst.uses.size(); j++) {
                     var vreg_ = inst.uses.get(j);
-                    if (!(vreg_ instanceof VirtReg)) continue;
+                    if (!(vreg_ instanceof VirtReg))
+                        continue;
                     var vreg = (VirtReg) vreg_;
                     var realReg = registerMapping.get(vreg);
                     var constraintReg = getRegFromConstraint(inConstraints, vreg);
@@ -96,9 +101,10 @@ public class SimpleGlobalAllocator {
                     }
                 }
 
-                for (int j=0;j<inst.defs.size();j++) {
+                for (int j = 0; j < inst.defs.size(); j++) {
                     var vreg_ = inst.defs.get(j);
-                    if (!(vreg_ instanceof VirtReg)) continue;
+                    if (!(vreg_ instanceof VirtReg))
+                        continue;
                     var vreg = (VirtReg) vreg_;
                     var realReg = registerMapping.get(vreg);
                     var constraintReg = inConstraints != null ? inConstraints.get(vreg) : null;
@@ -110,7 +116,7 @@ public class SimpleGlobalAllocator {
                 // 有寄存器的: 没约束直接用，有约束可能生成move
 
                 // 插入需要增加的指令
-                blk.insts.addAll(i+1, toInsertAfter);
+                blk.insts.addAll(i + 1, toInsertAfter);
                 i += toInsertAfter.size();
 
                 blk.insts.addAll(i, toInsertBefore);
@@ -121,14 +127,14 @@ public class SimpleGlobalAllocator {
         // 最后处理用到的reg和设置func.usedCalleeSavedReg，并且插入相关的保存和恢复指令。
         // 最后更新一下用到的callee saved register到函数内
         List<Entry<AsmOperand, StackOperand>> used = new ArrayList<>();
-        for (int ind: usedReg) {
+        for (int ind : usedReg) {
             Reg.Type t = Reg.Type.values()[ind];
             if (t.isCalleeSaved()) {
                 used.add(Map.entry(new Reg(t), new StackOperand(StackOperand.Type.SPILL, func.sm.allocSpill(4))));
             }
         }
-        for (int ind: usedVfpReg) {
-            if(VfpReg.isCalleeSaved(ind)) {
+        for (int ind : usedVfpReg) {
+            if (VfpReg.isCalleeSaved(ind)) {
                 used.add(Map.entry(new VfpReg(ind), new StackOperand(StackOperand.Type.SPILL, func.sm.allocSpill(4))));
             }
         }
@@ -147,7 +153,7 @@ public class SimpleGlobalAllocator {
         if (inConstraints == null) {
             return null;
         }
-        for (var ent: inConstraints.entrySet()) {
+        for (var ent : inConstraints.entrySet()) {
             if (ent.getValue().equals(vreg)) {
                 phyReg = ent.getKey();
                 inConstraints.remove(phyReg);
@@ -164,10 +170,9 @@ public class SimpleGlobalAllocator {
         } else {
             mov = new MovInst(blk, MovInst.Ty.REG, regTo, regFrom);
         }
-        
+
         mov.comment = comment;
         return mov;
     }
 
-    
 }
