@@ -17,8 +17,12 @@ import backend.LivenessAnalyzer;
 import backend.StackOperand;
 import backend.VirtReg;
 import backend.arm.inst.ConstrainRegInst;
+import backend.arm.inst.LoadInst;
 import backend.arm.inst.MovInst;
+import backend.arm.inst.StoreInst;
+import backend.arm.inst.VLDRInst;
 import backend.arm.inst.VMovInst;
+import backend.arm.inst.VSTRInst;
 import backend.lsra.LiveInfo;
 import backend.lsra.LiveIntervalAnalyzer;
 import ssa.ds.Instruction;
@@ -26,11 +30,13 @@ import ssa.ds.Instruction;
 public class SimpleGlobalAllocator {
     AsmFunc func;
     Map<VirtReg, AsmOperand> registerMapping = new HashMap<>();
-    Map<VirtReg, Integer> stackMapping = new HashMap<>();
+    // Map<VirtReg, Integer> stackMapping = new HashMap<>();
+    public Map<VirtReg, StackOperand> stackMapping = new HashMap<>();
     Map<VirtReg, Integer> addressMapping = new HashMap<>(); // for alloca
     public Set<Integer> usedReg = new HashSet<>();
     public Set<Integer> usedVfpReg = new HashSet<>();
     public static Reg[] temps = { new Reg(Reg.Type.ip), new Reg(Reg.Type.lr) };
+    public static VfpReg[] fpTemps = {new VfpReg(14), new VfpReg(15)};
 
     /**
      * interference graph
@@ -53,13 +59,13 @@ public class SimpleGlobalAllocator {
     }
 
     public void doAnalysis() {
-        this.initAllValuesSet();
-        // liveness analysis        
-        var livenessAnalyzer = new LivenessAnalyzer(func);
-        livenessAnalyzer.execute();
-        this.liveInfo = livenessAnalyzer.liveInfo;
-        // build graph and color
-        this.buildInterferenceGraph();
+        // this.initAllValuesSet();
+        // // liveness analysis        
+        // var livenessAnalyzer = new LivenessAnalyzer(func);
+        // livenessAnalyzer.execute();
+        // this.liveInfo = livenessAnalyzer.liveInfo;
+        // // build graph and color
+        // this.buildInterferenceGraph();
         // fixup
         doFixUp();
     }
@@ -137,8 +143,10 @@ public class SimpleGlobalAllocator {
                 }
 
                 // 先处理use
-                Set<Integer> usedTemp = new HashSet<>();
-                for (int j = 0; j < inst.uses.size(); j++) {
+                Set<Integer> freeTemp = new HashSet<>();
+                freeTemp.add(0);
+                freeTemp.add(1);
+                for (int j=0;j<inst.uses.size();j++) {
                     var vreg_ = inst.uses.get(j);
                     if (!(vreg_ instanceof VirtReg))
                         continue;
@@ -162,35 +170,59 @@ public class SimpleGlobalAllocator {
                         }
                     } else {
                         if (constraintReg != null) {
-                            loadToReg(constraintReg, vreg, usedTemp);
-                            inst.uses.set(j, realReg);
+                            // 理论上不会占用寄存器
+                            loadToReg(constraintReg, vreg, freeTemp, blk, toInsertBefore, true);
+                            inst.uses.set(j, constraintReg);
                         } else {
-                            AsmOperand to = loadToReg(null, vreg, usedTemp);
+                            AsmOperand to = loadToReg(null, vreg, freeTemp, blk, toInsertBefore, true);
                             inst.uses.set(j, to);
                         }
                     }
                 }
-
-                for (int j = 0; j < inst.defs.size(); j++) {
+                // 前面即使 用了，use分配结束也free出来了。
+                freeTemp = new HashSet<>();
+                freeTemp.add(0);
+                freeTemp.add(1);
+                // 再处理def
+                // 没寄存器的：没约束先用临时寄存器，栈上分配临时位置，然后立刻store到栈上。
+                //  有约束的直接从约束寄存器拿到栈上。
+                // 有寄存器的: 没约束直接用，有约束可能生成move
+                for (int j=0;j<inst.defs.size();j++) {
                     var vreg_ = inst.defs.get(j);
                     if (!(vreg_ instanceof VirtReg))
                         continue;
                     var vreg = (VirtReg) vreg_;
                     var realReg = registerMapping.get(vreg);
-                    var constraintReg = inConstraints != null ? inConstraints.get(vreg) : null;
-
+                    var constraintReg = getRegFromConstraint(outConstraints, vreg);
+                    if (realReg != null) {
+                        if (constraintReg != null) {
+                            if (!realReg.equals(constraintReg)) {
+                                // 如果有寄存器，有约束：不匹配的则生成move
+                                AsmInst mov = makeMov(blk, vreg.isFloat, realReg, constraintReg, "SimpleGlob use mov1");
+                                toInsertAfter.add(mov);
+                                inst.defs.set(j, constraintReg);
+                            }
+                        } else { // 有寄存器没约束的直接用寄存器
+                            inst.defs.set(j, realReg);
+                        }
+                    } else { //没寄存器的立刻store到栈上。
+                        if (constraintReg != null) {
+                            spillToStack(constraintReg, vreg, freeTemp, blk, toInsertAfter, true);
+                            inst.defs.set(j, constraintReg);
+                        } else {
+                            // 分配一个spill
+                            AsmOperand to = spillToStack(null, vreg, freeTemp, blk, toInsertAfter, true);
+                            inst.defs.set(j, to);
+                        }
+                    }
                 }
-                // 再处理def
-                // 没寄存器的：没约束先用临时寄存器，栈上分配临时位置，然后立刻store到栈上。
-                //  有约束的直接从约束寄存器拿到栈上。
-                // 有寄存器的: 没约束直接用，有约束可能生成move
 
                 // 插入需要增加的指令
-                blk.insts.addAll(i + 1, toInsertAfter);
-                i += toInsertAfter.size();
-
                 blk.insts.addAll(i, toInsertBefore);
                 i += toInsertBefore.size();
+
+                blk.insts.addAll(i+1, toInsertAfter);
+                i += toInsertAfter.size();
 
             }
         }
@@ -212,10 +244,74 @@ public class SimpleGlobalAllocator {
         LocalRegAllocator.insertSaveReg(func);
     }
 
-    public static AsmOperand loadToReg(AsmOperand constraintReg, VirtReg vreg, Set<Integer> freeTemp) {
-        if (constraintReg == null) {
+    // 从val存到vreg
+    public AsmOperand spillToStack(AsmOperand val, VirtReg vreg, Set<Integer> freeTemp, AsmBlock blk,
+            List<AsmInst> toInsertAfter, boolean exclude) {
+        if (val == null) {
             // get one from temp
+            assert freeTemp.size() > 0;
+            int alloc_ = freeTemp.iterator().next();
+            if (vreg.isFloat){
+                val = fpTemps[alloc_];
+            } else {
+                val = temps[alloc_];
+            }
+            
+            if (exclude) {
+                freeTemp.remove(Integer.valueOf(alloc_)); // 占用一个临时寄存器用来分配给那边的def
+            }
         }
+        assert !registerMapping.containsKey(vreg);
+        // assert stackMapping.containsKey(vreg);
+        var spilledLoc = allocateOrGetSpill(vreg);
+        AsmInst store;
+        if (vreg.isFloat) {
+            store = new VSTRInst(blk, val, spilledLoc);
+        } else {
+            store = new StoreInst(blk, val, spilledLoc);
+        }
+        store.comment = "Spill "+ vreg.comment;
+        toInsertAfter.addAll(Generator.expandStackOperandLoadStoreTmp(store, temps[freeTemp.iterator().next()]));
+        return val;
+    }
+
+    public AsmOperand loadToReg(AsmOperand to, VirtReg vreg, Set<Integer> freeTemp, AsmBlock blk, List<AsmInst> toInsertBefore, boolean exclude) {
+        int alloc_ = -1;
+        if (to == null) {
+            // get one from temp
+            assert freeTemp.size() > 0;
+            alloc_ = freeTemp.iterator().next();
+            if (vreg.isFloat){
+                to = fpTemps[alloc_];
+            } else {
+                to = temps[alloc_];
+            }
+            if (exclude) {
+                freeTemp.remove(Integer.valueOf(alloc_));
+            }
+        }
+        assert !registerMapping.containsKey(vreg);
+        assert stackMapping.containsKey(vreg);
+        var spilledLoc = allocateOrGetSpill(vreg);
+        AsmInst load;
+        if (vreg.isFloat) {
+            load = new VLDRInst(blk, to, spilledLoc);
+        } else {
+            load = new LoadInst(blk, to, spilledLoc);
+        }
+        load.comment = "load spilled "+vreg.comment;
+        if (!vreg.isFloat){
+            toInsertBefore.addAll(Generator.expandStackOperandLoadStoreTmp(load, to));
+        } else {
+            AsmOperand tmp;
+            if (alloc_ != -1) {
+                tmp = temps[alloc_];
+            } else {
+                tmp = temps[freeTemp.iterator().next()];
+            }
+            toInsertBefore.addAll(Generator.expandStackOperandLoadStoreTmp(load, tmp));
+        }
+        return to;
     }
 
     public static AsmOperand getRegFromConstraint(Map<AsmOperand, VirtReg> inConstraints, VirtReg vreg) {
@@ -243,6 +339,17 @@ public class SimpleGlobalAllocator {
 
         mov.comment = comment;
         return mov;
+    }
+
+    private StackOperand allocateOrGetSpill(VirtReg vreg) {
+        StackOperand spilledLoc;
+        spilledLoc = stackMapping.get(vreg);
+        if (spilledLoc == null) {
+            spilledLoc = new StackOperand(StackOperand.Type.SPILL, func.sm.allocSpill(4));
+            spilledLoc.comment = vreg.comment;
+            stackMapping.put(vreg, spilledLoc);
+        }
+        return spilledLoc;
     }
 
 }

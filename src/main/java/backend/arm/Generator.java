@@ -992,4 +992,56 @@ public class Generator {
         }
     }
 
+    // 检查第二个参数StackOperand是否满足要求，不满足则展开为多个指令
+    // 给寄存器分配使用的公开版本
+    public static List<AsmInst> expandStackOperandLoadStoreTmp(AsmInst inst, AsmOperand tmp) {
+        List<AsmInst> ret = new ArrayList<>();
+        List<AsmOperand> newuse = new ArrayList<>();
+        assert inst instanceof backend.arm.inst.LoadInst || inst instanceof backend.arm.inst.StoreInst
+                || inst instanceof VSTRInst || inst instanceof VLDRInst;
+        if (inst instanceof backend.arm.inst.StoreInst || inst instanceof VSTRInst) {
+            newuse.add(inst.uses.get(0));
+            // store的话val寄存器不能占用，出现情况必须要用一个临时寄存器
+            expandStackOperandTmp((StackOpInst)inst, inst.uses.get(1)/*可能的StackOperand*/, inst.uses.get(0), tmp, newuse, ret, inst.parent);
+        } else if (inst instanceof backend.arm.inst.LoadInst || inst instanceof VLDRInst) {
+            // load不需要额外的寄存器，只要有target寄存器即可。
+            expandStackOperandTmp((StackOpInst)inst, inst.uses.get(0), inst.defs.get(0), tmp, newuse, ret, inst.parent);
+        }
+        inst.uses = newuse;
+        ret.add(inst);
+        return ret;
+    }
+
+    // 指定临时寄存器
+    public static void expandStackOperandTmp(StackOpInst inst, AsmOperand op, AsmOperand target, AsmOperand tmp, List<AsmOperand> newOps, List<AsmInst> insts,
+                                        AsmBlock p) {
+        if (op instanceof StackOperand) {
+            var so = (StackOperand) op;
+            // – 4095 to +4095 then OK。但由于后面要加减一些？，所以范围放窄一些？TODO
+            if (inst.isImmFit(so)) {
+                newOps.add(so);
+                return;
+            }
+            assert target instanceof Reg || target instanceof VfpReg;
+            // AsmOperand tmp= new Reg(Reg.Type.ip);
+            assert tmp != null;
+            var tmp2 = tmp;
+            if (so.type == StackOperand.Type.SELF_ARG) {
+                insts.addAll(MovInst.loadImm(p, tmp, new IntImm(Math.toIntExact(so.offset))));
+                insts.add(new BinOpInst(p, BinaryOp.ADD, tmp2, new Reg(Reg.Type.fp), tmp));
+            } else if (so.type == StackOperand.Type.LOCAL || so.type == StackOperand.Type.SPILL) {
+                insts.addAll(MovInst.loadImm(p, tmp, new IntImm(Math.toIntExact(so.offset))));
+                insts.add(new BinOpInst(p, BinaryOp.SUB, tmp2, new Reg(Reg.Type.fp), tmp));
+            } else if (so.type == StackOperand.Type.CALL_PARAM) {
+                insts.addAll(MovInst.loadImm(p, tmp, new IntImm(Math.toIntExact(so.offset))));
+                insts.add(new BinOpInst(p, BinaryOp.ADD, tmp2, new Reg(Reg.Type.sp), tmp));
+            } else {throw new UnsupportedOperationException();}
+
+            newOps.add(tmp2);
+        } else {
+            // 不变
+            newOps.add(op);
+        }
+    }
+
 }

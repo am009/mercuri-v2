@@ -65,8 +65,8 @@ public class Compiler {
         var ssaIrGen = new FakeSSAGenerator();
         Module ssa = ssaIrGen.process(dst);
         // !! IF_DEBUG
-        // Global.logger.trace("--- ssa no opt ---");
-        // Global.logger.trace(ssa.toString());
+        Global.logger.trace("--- ssa no opt ---");
+        Global.logger.trace(ssa.toString());
 
         DeadBlockElimination.process(ssa);
         BasicBlockMerging.process(ssa);
@@ -105,7 +105,8 @@ public class Compiler {
         // create log dir 
         // backend.lsra.LiveIntervalAnalyzer.process(asm);
         // backend.FlowViewer.process(asm);
-        asm = backend.arm.LocalRegAllocator.process(asm);
+        // asm = backend.arm.LocalRegAllocator.process(asm);
+        asm = backend.arm.SimpleGlobalAllocator.process(asm);
         // backend.lsra.LinearScanRegisterAllocator.process(asm);
         Global.logger.trace("--- asm reg alloc ---");
         Global.logger.trace(asm.toString());

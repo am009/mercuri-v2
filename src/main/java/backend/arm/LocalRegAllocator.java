@@ -592,13 +592,13 @@ public class LocalRegAllocator {
                     state.setNext(ind, isFloat, next);
                 }
                 // 插入需要增加的指令
-                blk.insts.addAll(i+1, toInsertAfter);
-                i += toInsertAfter.size();
-                addedInstCount += toInsertAfter.size();
-
                 blk.insts.addAll(i, toInsertBefore);
                 i += toInsertBefore.size();
                 addedInstCount += toInsertBefore.size();
+
+                blk.insts.addAll(i+1, toInsertAfter);
+                i += toInsertAfter.size();
+                addedInstCount += toInsertAfter.size();
             }
             // // ~~插入所有指令~~
 

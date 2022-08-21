@@ -36,6 +36,9 @@ def test(target_elf, out_file, in_file=None, is_asm=False):
 
     print(out)
     print(s)
+    if out.strip() == s.strip():
+        print(RED+"=========== Pass! ==============" +NC)
+        return True
     s = s.rsplit(b"\n", 1)
     if len(s) > 1:
         s[0] = s[0].strip()
@@ -52,10 +55,10 @@ import os
 
 proj_dir = os.path.dirname(os.path.dirname(__file__))
 debug_case = None
-# debug_case = '00_bitset1' # uncomment to debug
+# debug_case = '68_brainfk' # uncomment to debug
 if debug_case:
     assert len(sys.argv) == 1
-    sys.argv = [f'{proj_dir}/script/functional_checker.py', 'debugasm', f'{proj_dir}/target/test/performance/{debug_case}.sy.arm.elf', f'{proj_dir}/test/performance/{debug_case}.out']
+    sys.argv = [f'{proj_dir}/script/functional_checker.py', 'debugasm', f'{proj_dir}/target/test/functional/{debug_case}.sy.arm.elf', f'{proj_dir}/test/functional/{debug_case}.out', f'{proj_dir}/test/functional/{debug_case}.in']
 print(' '.join(sys.argv))
 
 if len(sys.argv) < 4:
